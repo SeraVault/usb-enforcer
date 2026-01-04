@@ -1,0 +1,207 @@
+#!/usr/bin/env python3
+"""
+User-session bridge: listens for DBus Event signals and shows desktop notifications.
+This is intentionally minimal; replace with full GTK UI for production.
+"""
+import subprocess
+import sys
+import time
+from typing import Dict, Callable, Optional
+
+try:
+    import pydbus
+    from gi.repository import GLib  # type: ignore
+except Exception:
+    print("pydbus / pygobject not installed; UI bridge inactive")
+    raise SystemExit(0)
+
+
+BUS_NAME = "org.seravault.UsbEncryptionEnforcer"
+BUS_PATH = "/org/seravault/UsbEncryptionEnforcer"
+NOTIFY_BUS = "org.freedesktop.Notifications"
+NOTIFY_PATH = "/org/freedesktop/Notifications"
+
+
+class NotificationManager:
+    def __init__(self):
+        self.bus = pydbus.SessionBus()
+        try:
+            self.iface = self.bus.get(NOTIFY_BUS, NOTIFY_PATH)
+            print(f"[NotificationManager] Connected to {NOTIFY_BUS}")
+        except Exception as e:
+            print(f"[NotificationManager] Failed to connect to {NOTIFY_BUS}: {e}")
+            self.iface = None
+        self.callbacks = {}
+        self.recent_events: Dict[str, float] = {}
+        if self.iface:
+            try:
+                self.iface.onActionInvoked = self._on_action
+                print(f"[NotificationManager] Registered ActionInvoked callback")
+            except Exception as e:
+                print(f"[NotificationManager] Failed to register ActionInvoked: {e}")
+
+    def _on_action(self, notif_id: int, action: str):
+        print(f"[_on_action] Notification {notif_id} action invoked: {action}")
+        cb = self.callbacks.get(notif_id)
+        if cb:
+            print(f"[_on_action] Calling callback for notification {notif_id}")
+            try:
+                cb(action)
+                print(f"[_on_action] Callback completed successfully")
+            except Exception as e:
+                print(f"[_on_action] ERROR in callback: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"[_on_action] No callback found for notification {notif_id}")
+
+    def _suppress_duplicate(self, devnode: str, action: str, window: float = 1.5) -> bool:
+        """
+        Drop rapid duplicate notifications for the same device/action to avoid spam from udev churn.
+        """
+        key = f"{devnode}:{action}"
+        now = time.time()
+        last = self.recent_events.get(key, 0)
+        if now - last < window:
+            return True
+        self.recent_events[key] = now
+        return False
+
+    def notify(self, summary: str, body: str, actions: Optional[Dict[str, Callable[[str], None]]] = None):
+        if not self.iface:
+            print(f"[notify] {summary}: {body}")
+            return
+        action_list = []
+        action_cb = None
+        if actions:
+            print(f"[notify] Actions provided: {list(actions.keys())}")
+            # Add a "default" action that triggers on notification click
+            action_list.extend(["default", ""])
+            for key, func in actions.items():
+                label = key
+                cb = func
+                if isinstance(func, tuple):
+                    label, cb = func  # type: ignore[assignment]
+                action_list.extend([key, label])
+                # last callback wins; assuming single action for simplicity
+                action_cb = cb
+            print(f"[notify] Action list for D-Bus: {action_list}")
+        else:
+            print(f"[notify] No actions provided")
+        
+        # Make notification persistent and add urgency
+        hints = {
+            "urgency": GLib.Variant("y", 2),  # critical urgency
+            "resident": GLib.Variant("b", True),  # keep in notification tray
+        }
+        print(f"[notify] Calling Notify with summary='{summary}', body='{body}', actions={action_list}, hints={hints}")
+        notif_id = self.iface.Notify("usb-encryption-enforcer", 0, "", summary, body, action_list, hints, 0)
+        print(f"[notify] Notification ID returned: {notif_id}")
+        if action_cb:
+            self.callbacks[notif_id] = action_cb
+            print(f"[notify] Registered callback for notification {notif_id}")
+
+
+def launch_wizard():
+    import os
+    print(f"[launch_wizard] CALLED! Starting wizard launch...")
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "/usr/lib/usb-encryption-enforcer"
+    env["PATH"] = "/usr/lib/usb-encryption-enforcer/.venv/bin:" + env.get("PATH", "")
+    # Ensure display environment is set
+    if "DISPLAY" not in env and "WAYLAND_DISPLAY" not in env:
+        print(f"[launch_wizard] Warning: No DISPLAY or WAYLAND_DISPLAY set")
+    # Use venv python explicitly instead of relying on shebang
+    python_bin = "/usr/lib/usb-encryption-enforcer/.venv/bin/python3"
+    wizard_script = "/usr/libexec/usb-encryption-enforcer-wizard"
+    print(f"[launch_wizard] Command: {python_bin} {wizard_script}")
+    print(f"[launch_wizard] DISPLAY: {env.get('DISPLAY', 'not set')}")
+    print(f"[launch_wizard] WAYLAND_DISPLAY: {env.get('WAYLAND_DISPLAY', 'not set')}")
+    print(f"[launch_wizard] PYTHONPATH: {env.get('PYTHONPATH', 'not set')}")
+    try:
+        # Don't redirect stderr so we can see errors in journal
+        proc = subprocess.Popen([python_bin, wizard_script], env=env, start_new_session=True)
+        print(f"[launch_wizard] Wizard launched with PID {proc.pid}")
+    except Exception as e:
+        print(f"[launch_wizard] Failed to launch wizard: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def launch_unlock_dialog(devnode: str):
+    import os
+    print(f"[launch_unlock_dialog] CALLED for {devnode}! Starting unlock dialog...")
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "/usr/lib/usb-encryption-enforcer"
+    env["PATH"] = "/usr/lib/usb-encryption-enforcer/.venv/bin:" + env.get("PATH", "")
+    python_bin = "/usr/lib/usb-encryption-enforcer/.venv/bin/python3"
+    helper_script = "/usr/libexec/usb-encryption-enforcer-helper"
+    print(f"[launch_unlock_dialog] Command: {python_bin} {helper_script} unlock {devnode}")
+    try:
+        proc = subprocess.Popen([python_bin, helper_script, "unlock", devnode], env=env, start_new_session=True)
+        print(f"[launch_unlock_dialog] Unlock dialog launched with PID {proc.pid}")
+    except Exception as e:
+        print(f"[launch_unlock_dialog] Failed to launch unlock dialog: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def handle_event(fields: Dict[str, str], notifier: NotificationManager) -> None:
+    event = fields.get("USB_EE_EVENT", "")
+    action = fields.get("ACTION", "")
+    devnode = fields.get("DEVNODE", "")
+    print(f"[handle_event] event={event} action={action} devnode={devnode}")
+    if event == "unlock_prompt" and action == "unlock_prompt":
+        # Auto-launch unlock dialog when encrypted device is plugged in
+        if notifier._suppress_duplicate(devnode, action):
+            print(f"[handle_event] suppressing duplicate unlock prompt for {devnode}")
+            return
+        print(f"[handle_event] showing unlock notification with action")
+        notifier.notify(
+            "Encrypted USB detected",
+            f"{devnode} needs to be unlocked",
+            actions={"unlock": ("Unlock drive…", lambda _a: launch_unlock_dialog(devnode))},
+        )
+    elif event == "encrypt" and action == "encrypt_done":
+        notifier.notify("USB encryption complete", f"{devnode} mounted writable")
+    elif event == "encrypt" and action.startswith("encrypt_"):
+        progress = fields.get("PROGRESS", "")
+        notifier.notify("Encrypting USB", f"{devnode} stage={action} progress={progress}%")
+    elif event == "unlock" and action == "unlock_done":
+        notifier.notify("Encrypted USB unlocked", f"{devnode} is now writable")
+    elif event == "unlock" and action == "unlock_fail":
+        notifier.notify("Unlock failed", f"{devnode} unlock failed")
+    elif event == "encrypt" and action == "encrypt_fail":
+        notifier.notify("Encryption failed", f"{devnode} encryption failed")
+    elif event == "enforce" and action == "block_rw":
+        if notifier._suppress_duplicate(devnode, action):
+            print(f"[handle_event] suppressing duplicate for {devnode}:{action}")
+            return
+        print(f"[handle_event] showing notification with encrypt action")
+        notifier.notify(
+            "USB mounted read-only",
+            "Writing requires encryption.",
+            actions={"encrypt": ("Encrypt drive…", lambda _a: launch_wizard())},
+        )
+
+
+def main():
+    bus = pydbus.SystemBus()
+    try:
+        proxy = bus.get(BUS_NAME, BUS_PATH)
+    except Exception:
+        print("Daemon DBus service not available; exiting UI bridge")
+        return
+    notifier = NotificationManager()
+
+    def on_event(fields):
+        handle_event(fields, notifier)
+
+    proxy.onEvent = on_event
+    print("usb-encryption-enforcer-ui listening for events...")
+    loop = GLib.MainLoop()
+    loop.run()
+
+
+if __name__ == "__main__":
+    sys.exit(main() or 0)

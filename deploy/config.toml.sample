@@ -1,0 +1,17 @@
+# USB Encryption Enforcer DLP config
+enforce_on_usb_only = true
+allow_luks1_readonly = true
+default_plain_mount_opts = ["nodev", "nosuid", "noexec", "ro"]
+default_encrypted_mount_opts = ["nodev", "nosuid", "rw"]
+require_noexec_on_plain = true
+min_passphrase_length = 12
+encryption_target_mode = "whole_disk"
+filesystem_type = "ext4"
+notification_enabled = true
+
+[kdf]
+type = "argon2id"
+
+[cipher]
+type = "aes-xts-plain64"
+key_size = 512

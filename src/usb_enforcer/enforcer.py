@@ -1,0 +1,69 @@
+from __future__ import annotations
+
+import logging
+import subprocess
+from pathlib import Path
+from typing import Dict, Optional
+
+from . import classify, constants
+
+
+def set_block_read_only(devnode: str, logger: logging.Logger) -> bool:
+    """
+    Force block device read-only using sysfs knob.
+    Returns True on success or if already RO.
+    """
+    block_name = Path(devnode).name
+    # /sys/class/block/<name>/ro exists for both disks and partitions
+    ro_path = Path("/sys/class/block") / block_name / "ro"
+    if not ro_path.exists():
+        logger.debug("ro sysfs path missing for %s", devnode)
+        return False
+    try:
+        current = ro_path.read_text().strip()
+        if current == "1":
+            return True
+        ro_path.write_text("1")
+        return True
+    except PermissionError:
+        logger.warning("Permission denied setting RO via sysfs for %s; trying blockdev", devnode)
+    except OSError as exc:  # pragma: no cover
+        logger.error("Failed to set RO via sysfs for %s: %s", devnode, exc)
+
+    # Fallback to blockdev ioctl
+    try:
+        subprocess.run(["blockdev", "--setro", devnode], check=True, capture_output=True)
+        return True
+    except subprocess.CalledProcessError as exc:
+        logger.error("blockdev --setro failed for %s: %s", devnode, exc.stderr.decode().strip())
+        return False
+
+
+def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.Logger, config) -> Dict[str, str]:
+    """
+    Apply block-level RO for plaintext USB. Returns a result dict for logging.
+    """
+    classification = classify.classify_device(device_props, devnode=devnode)
+    result = {
+        constants.LOG_KEY_DEVNODE: devnode,
+        constants.LOG_KEY_CLASSIFICATION: classification,
+        constants.LOG_KEY_ACTION: "noop",
+        constants.LOG_KEY_RESULT: "allow",
+        constants.LOG_KEY_POLICY_SOURCE: "daemon",
+        constants.LOG_KEY_DEVTYPE: device_props.get("DEVTYPE", "unknown"),
+        constants.LOG_KEY_BUS: device_props.get("ID_BUS", "unknown"),
+        constants.LOG_KEY_SERIAL: device_props.get("ID_SERIAL_SHORT", device_props.get("ID_SERIAL", "")),
+    }
+
+    if classification == constants.PLAINTEXT:
+        result[constants.LOG_KEY_ACTION] = "block_rw"
+        ok = set_block_read_only(devnode, logger)
+        result[constants.LOG_KEY_RESULT] = "allow" if ok else "fail"
+    elif classification == constants.LUKS1 and not config.allow_luks1_readonly:
+        result[constants.LOG_KEY_ACTION] = "block_mount"
+        result[constants.LOG_KEY_RESULT] = "deny"
+    elif classification in (constants.LUKS2_LOCKED, constants.LUKS2_UNLOCKED, constants.MAPPER):
+        result[constants.LOG_KEY_ACTION] = "allow_rw"
+    else:
+        result[constants.LOG_KEY_ACTION] = "noop"
+    return result

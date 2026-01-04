@@ -1,0 +1,54 @@
+// Allow users to encrypt USB devices via udisks2
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.udisks2.encrypted-format" ||
+        action.id == "org.freedesktop.udisks2.filesystem-unmount" ||
+        action.id == "org.freedesktop.udisks2.modify-device" ||
+        action.id == "org.freedesktop.udisks2.modify-device-system") {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});
+
+// Enforce read-only mounts for plaintext USB; allow rw only for decrypted LUKS2 mappers.
+// This is a defensive layer on top of block-level RO.
+polkit.addRule(function(action, subject) {
+    var ai = action.id;
+    if (ai != "org.freedesktop.udisks2.filesystem-mount" && ai != "org.freedesktop.udisks2.filesystem-modify") {
+        return polkit.Result.NOT_HANDLED;
+    }
+    var devnode = action.lookup("device");
+    var options = action.lookup("options");
+    var usage = action.lookup("usage");
+
+    if (!usage || usage.indexOf("ID_BUS=usb") === -1) {
+        return polkit.Result.NOT_HANDLED;
+    }
+
+    var isMapper = usage.indexOf("DM_NAME=") !== -1;
+    var isLuks = usage.indexOf("ID_FS_TYPE=crypto_LUKS") !== -1;
+    var isLuks2 = usage.indexOf("ID_FS_VERSION=2") !== -1;
+    var hasRw = options && options.toString().indexOf("rw") !== -1;
+    var hasRo = options && options.toString().indexOf("ro") !== -1;
+
+    // Plaintext USB: deny rw mounts/remounts
+    if (!isMapper && !isLuks && hasRw) {
+        polkit.log("usb-encryption-enforcer: deny rw mount for plaintext " + devnode);
+        return polkit.Result.NO;
+    }
+    if (!isMapper && !isLuks && hasRo) {
+        return polkit.Result.YES;
+    }
+
+    // LUKS1 (non-2) -> deny rw
+    if (isLuks && !isLuks2 && hasRw) {
+        polkit.log("usb-encryption-enforcer: deny rw mount for non-LUKS2 " + devnode);
+        return polkit.Result.NO;
+    }
+
+    // Mapper devices (assumed decrypted LUKS2) permitted rw
+    if (isMapper) {
+        return polkit.Result.YES;
+    }
+
+    return polkit.Result.NOT_HANDLED;
+});

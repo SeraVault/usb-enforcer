@@ -1,0 +1,14 @@
+[Unit]
+Description=USB Encryption Enforcer DLP daemon
+After=network.target
+Wants=systemd-udevd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/usb-encryption-enforcerd --config /etc/usb-encryption-enforcer/config.toml
+Restart=on-failure
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE
+AmbientCapabilities=CAP_SYS_ADMIN
+
+[Install]
+WantedBy=multi-user.target

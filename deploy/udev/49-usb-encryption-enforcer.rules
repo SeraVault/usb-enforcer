@@ -1,0 +1,13 @@
+# Block-level read-only enforcement for plaintext USB devices
+# Only apply RO to partitions with filesystems, not whole disks
+# This allows disk management operations (partition create/delete) while preventing writes to data
+
+# For partitions with filesystems: mark read-only
+SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", ENV{ID_BUS}=="usb", \
+  ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_TYPE}!="crypto_LUKS", \
+  ENV{DM_NAME}!="*", ATTR{ro}="1"
+
+# Ensure LUKS devices and dm-crypt mappers remain read-write
+SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_TYPE}=="crypto_LUKS", ATTR{ro}="0"
+SUBSYSTEM=="block", KERNEL=="dm-*", ATTR{ro}="0"
+
