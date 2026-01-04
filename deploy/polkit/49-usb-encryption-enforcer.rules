@@ -1,6 +1,11 @@
 // Allow users to encrypt USB devices via udisks2
 polkit.addRule(function(action, subject) {
     if (action.id == "org.freedesktop.udisks2.encrypted-format" ||
+        action.id == "org.freedesktop.udisks2.encrypted-unlock" ||
+        action.id == "org.freedesktop.udisks2.encrypted-lock" ||
+        action.id == "org.freedesktop.udisks2.encrypted-lock-others" ||
+        action.id == "org.freedesktop.udisks2.filesystem-mount" ||
+        action.id == "org.freedesktop.udisks2.filesystem-mount-system" ||
         action.id == "org.freedesktop.udisks2.filesystem-unmount" ||
         action.id == "org.freedesktop.udisks2.modify-device" ||
         action.id == "org.freedesktop.udisks2.modify-device-system") {

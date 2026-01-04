@@ -109,10 +109,8 @@ class WizardWindow(Gtk.ApplicationWindow):
         # Actions
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.encrypt_button = Gtk.Button(label="Encrypt", css_classes=["suggested-action"])
-        self.unlock_button = Gtk.Button(label="Unlock")
         self.refresh_button = Gtk.Button(label="Refresh")
         actions.append(self.encrypt_button)
-        actions.append(self.unlock_button)
         # Only show refresh button if not in target_device mode
         if not self.target_device:
             actions.append(self.refresh_button)
@@ -123,7 +121,6 @@ class WizardWindow(Gtk.ApplicationWindow):
         self.content_box.append(self.progress)
 
         self.encrypt_button.connect("clicked", self.on_encrypt)
-        self.unlock_button.connect("clicked", self.on_unlock)
         self.refresh_button.connect("clicked", self.refresh_devices)
         self.pass_entry.connect("changed", self.update_strength)
 
@@ -325,7 +322,7 @@ class WizardWindow(Gtk.ApplicationWindow):
                 print(f"[on_event] Error setting progress: {e}")
         elif action == "encrypt_done":
             print(f"[on_event] Encryption complete")
-            GLib.idle_add(self.notify, f"Encryption complete: {devnode}")
+            # Don't send notification here - already sent by _encrypt_thread
             GLib.idle_add(self.progress.set_fraction, 1.0)
             GLib.idle_add(self.progress.set_text, "Encryption complete")
             # Close the wizard after 2 seconds

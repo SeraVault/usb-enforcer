@@ -47,9 +47,13 @@ class Daemon:
         return False
 
     def handle_device(self, device_props: Dict[str, str], devnode: str, action: str) -> None:
-        # Ignore removals/unbinds to avoid post-unmount notifications; drop cached device info.
+        # Handle device removal - cleanup and remove from cache
         if action in ("remove", "unbind", "offline"):
             self.devices.pop(devnode, None)
+            # Remove from bypass list if present
+            self._bypass_enforcement.discard(devnode)
+            # Try to clean up any stale mount points via udisks2
+            self._cleanup_stale_mounts(devnode)
             return
         classification = classify.classify_device(device_props, devnode=devnode)
         self.devices[devnode] = {
@@ -83,6 +87,41 @@ class Daemon:
 
     def get_device_status(self, devnode: str) -> Dict[str, str]:
         return self.devices.get(devnode, {})
+
+    def _mapper_name_for(self, devnode: str) -> str:
+        basename = devnode.split("/")[-1]
+        return f"usbenc-{basename}"
+
+    def _cleanup_stale_mounts(self, devnode: str) -> None:
+        """
+        Clean up stale mount points when a device is removed.
+        This handles cases where devices are unplugged without proper unmounting.
+        """
+        try:
+            # Get list of mount points in /run/media
+            result = subprocess.run(
+                ["findmnt", "-n", "-o", "TARGET,SOURCE", "-t", "exfat,vfat,ext4,ext3,ext2"],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        mountpoint, source = parts[0], parts[1]
+                        # Check if this mount point references the removed device
+                        if devnode in source or source.startswith(devnode):
+                            try:
+                                subprocess.run(["umount", "-l", mountpoint], check=False)
+                                # Try to remove the directory if it's in /run/media
+                                if mountpoint.startswith("/run/media/"):
+                                    subprocess.run(["rmdir", mountpoint], check=False)
+                                self.logger.info(f"Cleaned up stale mount: {mountpoint}")
+                            except Exception:
+                                pass
+        except Exception as e:
+            self.logger.debug(f"Mount cleanup check failed: {e}")
 
     def _mapper_name_for(self, devnode: str) -> str:
         basename = devnode.split("/")[-1]
