@@ -18,7 +18,7 @@ class Config:
     require_noexec_on_plain: bool = True
     min_passphrase_length: int = 12
     encryption_target_mode: str = "whole_disk"
-    filesystem_type: str = "ext4"
+    filesystem_type: str = "exfat"
     notification_enabled: bool = True
     kdf: dict = field(default_factory=lambda: {"type": "argon2id"})
     cipher: dict = field(default_factory=lambda: {"type": "aes-xts-plain64", "key_size": 512})
@@ -38,7 +38,7 @@ class Config:
             require_noexec_on_plain=parsed.get("require_noexec_on_plain", True),
             min_passphrase_length=parsed.get("min_passphrase_length", 12),
             encryption_target_mode=parsed.get("encryption_target_mode", "whole_disk"),
-            filesystem_type=parsed.get("filesystem_type", "ext4"),
+            filesystem_type=parsed.get("filesystem_type", "exfat"),
             notification_enabled=parsed.get("notification_enabled", True),
             kdf=parsed.get("kdf", {"type": "argon2id"}),
             cipher=parsed.get("cipher", {"type": "aes-xts-plain64", "key_size": 512}),

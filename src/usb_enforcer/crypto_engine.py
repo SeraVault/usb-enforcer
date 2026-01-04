@@ -46,11 +46,14 @@ def close_mapper(mapper_name: str) -> None:
     _run(["cryptsetup", "close", mapper_name])
 
 
-def create_filesystem(devnode: str, fs_type: str = "ext4", label: Optional[str] = None) -> None:
+def create_filesystem(devnode: str, fs_type: str = "ext4", label: Optional[str] = None, uid: Optional[int] = None, gid: Optional[int] = None) -> None:
     if fs_type == "ext4":
         cmd = ["mkfs.ext4", "-F"]
         if label:
             cmd += ["-L", label]
+        # Set root directory ownership at filesystem creation time
+        if uid is not None and gid is not None:
+            cmd += ["-E", f"root_owner={uid}:{gid}"]
         cmd.append(devnode)
     elif fs_type == "exfat":
         cmd = ["mkfs.exfat"]
@@ -102,9 +105,16 @@ def encrypt_device(
 
     # Unmount the device if it's currently mounted
     emit("unmount", 5)
+    
+    # Try udisksctl first (better for user-mounted devices)
     try:
-        # Try to unmount - ignore errors if not mounted
-        _run(["umount", devnode])
+        _run(["udisksctl", "unmount", "-b", devnode])
+    except (CryptoError, FileNotFoundError):
+        pass  # Try regular umount next
+    
+    # Force unmount the device
+    try:
+        _run(["umount", "-f", devnode])
     except CryptoError:
         pass  # Device wasn't mounted, continue
     
@@ -112,12 +122,19 @@ def encrypt_device(
     try:
         # Get list of partitions and unmount them
         result = _run(["lsblk", "-n", "-o", "NAME", devnode])
-        lines = result.stdout.strip().split('\n') if result.stdout else []
+        lines = result.stdout.strip().split(b'\n') if result.stdout else []
         for line in lines[1:]:  # Skip first line (parent device)
-            partition = line.strip().replace('└─', '').replace('├─', '')
+            partition = line.decode().strip().replace('└─', '').replace('├─', '').replace('│', '').strip()
             if partition:
+                part_dev = f"/dev/{partition}"
+                # Try udisksctl first
                 try:
-                    _run(["umount", f"/dev/{partition}"])
+                    _run(["udisksctl", "unmount", "-b", part_dev])
+                except (CryptoError, FileNotFoundError):
+                    pass
+                # Then force unmount
+                try:
+                    _run(["umount", "-f", part_dev])
                 except CryptoError:
                     pass  # Continue if partition not mounted
     except (CryptoError, Exception):
@@ -194,7 +211,7 @@ def encrypt_device(
         emit("unlock", 40)
         mapper = unlock_luks(devnode, mapper_name, passphrase)
         emit("mkfs", 60)
-        create_filesystem(mapper, fs_type=fs_type, label=label)
+        create_filesystem(mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
         emit("done", 100)
         # Return mapper path - let system automount handle mounting
         return f"/dev/mapper/{mapper_name}"

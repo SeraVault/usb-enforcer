@@ -42,12 +42,21 @@ class NotificationManager:
 
     def _on_action(self, notif_id: int, action: str):
         print(f"[_on_action] Notification {notif_id} action invoked: {action}")
+        # Close the notification when action is clicked
+        try:
+            self.iface.CloseNotification(notif_id)
+            print(f"[_on_action] Closed notification {notif_id}")
+        except Exception as e:
+            print(f"[_on_action] Failed to close notification {notif_id}: {e}")
+        
         cb = self.callbacks.get(notif_id)
         if cb:
             print(f"[_on_action] Calling callback for notification {notif_id}")
             try:
                 cb(action)
                 print(f"[_on_action] Callback completed successfully")
+                # Clean up callback after use
+                self.callbacks.pop(notif_id, None)
             except Exception as e:
                 print(f"[_on_action] ERROR in callback: {e}")
                 import traceback
@@ -102,9 +111,9 @@ class NotificationManager:
             print(f"[notify] Registered callback for notification {notif_id}")
 
 
-def launch_wizard():
+def launch_wizard(devnode: str = None):
     import os
-    print(f"[launch_wizard] CALLED! Starting wizard launch...")
+    print(f"[launch_wizard] CALLED for device: {devnode}! Starting wizard launch...")
     env = os.environ.copy()
     env["PYTHONPATH"] = "/usr/lib/usb-encryption-enforcer"
     env["PATH"] = "/usr/lib/usb-encryption-enforcer/.venv/bin:" + env.get("PATH", "")
@@ -114,13 +123,16 @@ def launch_wizard():
     # Use venv python explicitly instead of relying on shebang
     python_bin = "/usr/lib/usb-encryption-enforcer/.venv/bin/python3"
     wizard_script = "/usr/libexec/usb-encryption-enforcer-wizard"
-    print(f"[launch_wizard] Command: {python_bin} {wizard_script}")
+    cmd = [python_bin, wizard_script]
+    if devnode:
+        cmd.extend(["--device", devnode])
+    print(f"[launch_wizard] Command: {' '.join(cmd)}")
     print(f"[launch_wizard] DISPLAY: {env.get('DISPLAY', 'not set')}")
     print(f"[launch_wizard] WAYLAND_DISPLAY: {env.get('WAYLAND_DISPLAY', 'not set')}")
     print(f"[launch_wizard] PYTHONPATH: {env.get('PYTHONPATH', 'not set')}")
     try:
         # Don't redirect stderr so we can see errors in journal
-        proc = subprocess.Popen([python_bin, wizard_script], env=env, start_new_session=True)
+        proc = subprocess.Popen(cmd, env=env, start_new_session=True)
         print(f"[launch_wizard] Wizard launched with PID {proc.pid}")
     except Exception as e:
         print(f"[launch_wizard] Failed to launch wizard: {e}")
@@ -165,8 +177,8 @@ def handle_event(fields: Dict[str, str], notifier: NotificationManager) -> None:
     elif event == "encrypt" and action == "encrypt_done":
         notifier.notify("USB encryption complete", f"{devnode} mounted writable")
     elif event == "encrypt" and action.startswith("encrypt_"):
-        progress = fields.get("PROGRESS", "")
-        notifier.notify("Encrypting USB", f"{devnode} stage={action} progress={progress}%")
+        # Progress updates visible in wizard UI - no notification spam
+        pass
     elif event == "unlock" and action == "unlock_done":
         notifier.notify("Encrypted USB unlocked", f"{devnode} is now writable")
     elif event == "unlock" and action == "unlock_fail":
@@ -177,11 +189,11 @@ def handle_event(fields: Dict[str, str], notifier: NotificationManager) -> None:
         if notifier._suppress_duplicate(devnode, action):
             print(f"[handle_event] suppressing duplicate for {devnode}:{action}")
             return
-        print(f"[handle_event] showing notification with encrypt action")
+        print(f"[handle_event] showing notification with encrypt action for {devnode}")
         notifier.notify(
             "USB mounted read-only",
             "Writing requires encryption.",
-            actions={"encrypt": ("Encrypt drive…", lambda _a: launch_wizard())},
+            actions={"encrypt": ("Encrypt drive…", lambda _a: launch_wizard(devnode))},
         )
 
 

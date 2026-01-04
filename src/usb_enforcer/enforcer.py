@@ -41,7 +41,8 @@ def set_block_read_only(devnode: str, logger: logging.Logger) -> bool:
 
 def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.Logger, config) -> Dict[str, str]:
     """
-    Apply block-level RO for plaintext USB. Returns a result dict for logging.
+    Apply block-level RO for plaintext USB partitions with filesystems.
+    Whole disks are left writable to allow partitioning operations.
     """
     classification = classify.classify_device(device_props, devnode=devnode)
     result = {
@@ -55,7 +56,21 @@ def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.L
         constants.LOG_KEY_SERIAL: device_props.get("ID_SERIAL_SHORT", device_props.get("ID_SERIAL", "")),
     }
 
-    if classification == constants.PLAINTEXT:
+    # Apply block-level RO to partitions with filesystems OR whole disks with filesystems
+    # Leave unformatted whole disks writable to allow partitioning
+    devtype = device_props.get("DEVTYPE", "")
+    fs_usage = device_props.get("ID_FS_USAGE", "")
+    fs_type = device_props.get("ID_FS_TYPE", "")
+    has_filesystem = fs_usage == "filesystem" and fs_type != ""
+    
+    logger.debug(f"enforce_policy: {devnode} devtype={devtype} fs_usage={fs_usage} fs_type={fs_type} has_filesystem={has_filesystem}")
+    
+    # Apply RO to: partitions with filesystems, OR whole disks with filesystems (but not unformatted disks)
+    should_enforce_ro = classification == constants.PLAINTEXT and has_filesystem and (
+        devtype == "partition" or (devtype == "disk" and has_filesystem)
+    )
+    
+    if should_enforce_ro:
         result[constants.LOG_KEY_ACTION] = "block_rw"
         ok = set_block_read_only(devnode, logger)
         result[constants.LOG_KEY_RESULT] = "allow" if ok else "fail"

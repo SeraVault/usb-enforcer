@@ -5,7 +5,9 @@ import logging
 import os
 import pwd
 import signal
+import subprocess
 import threading
+import time
 from typing import Dict, List, Optional, Set
 
 from . import classify, config as config_module, constants, crypto_engine, dbus_api, enforcer, logging_utils, udev_monitor
@@ -86,11 +88,77 @@ class Daemon:
         basename = devnode.split("/")[-1]
         return f"usbenc-{basename}"
 
+    def _fix_ownership_after_mount(self, mapper_path: str, uid: int, gid: int, max_wait: int = 10) -> None:
+        """
+        Wait for udisks2 to automount the mapper device, then fix ownership.
+        This runs in a background thread to avoid blocking the unlock operation.
+        """
+        def fix_ownership():
+            # Wait for the device to be mounted (check every 0.5s for up to max_wait seconds)
+            mountpoint = None
+            for _ in range(max_wait * 2):
+                try:
+                    result = subprocess.run(
+                        ["findmnt", "-n", "-o", "TARGET", mapper_path],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        mountpoint = result.stdout.strip()
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5)
+            
+            if mountpoint:
+                try:
+                    # Fix ownership of mountpoint and top-level contents
+                    os.chown(mountpoint, uid, gid)
+                    for root, dirs, files in os.walk(mountpoint):
+                        os.chown(root, uid, gid)
+                        for d in dirs:
+                            os.chown(os.path.join(root, d), uid, gid)
+                        break  # Only process top level
+                    self.logger.info(f"Fixed ownership of {mountpoint} to {uid}:{gid}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to fix ownership of {mountpoint}: {e}")
+        
+        threading.Thread(target=fix_ownership, daemon=True).start()
+
     def request_unlock(self, devnode: str, mapper_name: Optional[str], passphrase: str) -> str:
         mapper = mapper_name or self._mapper_name_for(devnode)
         self._log_event("unlock_start", {constants.LOG_KEY_EVENT: constants.EVENT_UNLOCK, constants.LOG_KEY_DEVNODE: devnode, constants.LOG_KEY_ACTION: "unlock_start"})
+        
+        # Get user info for ownership fixing
+        uid = None
+        gid = None
+        sudo_user = os.environ.get("SUDO_USER")
+        if sudo_user:
+            try:
+                pw = pwd.getpwnam(sudo_user)
+                uid = pw.pw_uid
+                gid = pw.pw_gid
+            except KeyError:
+                pass
+        
+        if uid is None:
+            pkexec_uid = os.environ.get("PKEXEC_UID")
+            if pkexec_uid:
+                try:
+                    uid = int(pkexec_uid)
+                    pw = pwd.getpwuid(uid)
+                    gid = pw.pw_gid
+                except (ValueError, KeyError):
+                    pass
+        
         try:
             mapper_path = crypto_engine.unlock_luks(devnode, mapper, passphrase)
+            
+            # Schedule ownership fix after automount
+            if uid is not None and gid is not None:
+                self._fix_ownership_after_mount(mapper_path, uid, gid)
+            
             self._log_event(
                 "unlock_done",
                 {

@@ -45,20 +45,21 @@ class DeviceRow(Adw.ActionRow):
 
 
 class WizardWindow(Gtk.ApplicationWindow):
-    def __init__(self, app: Adw.Application, proxy):
+    def __init__(self, app: Adw.Application, proxy, target_device: Optional[str] = None):
         super().__init__(application=app, title="USB Encryption Wizard")
-        self.set_default_size(520, 600)
+        # Adjust window size based on whether we're showing device selection
+        if target_device:
+            self.set_default_size(520, 400)  # Smaller since no device list
+        else:
+            self.set_default_size(520, 600)  # Larger with device list
         self.proxy = proxy
         self.selected_row: Optional[DeviceRow] = None
+        self.target_device = target_device
         
-        # Main container
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.set_child(main_box)
-        
-        # Header
+        # Header - use set_titlebar to replace the default title bar
         header = Adw.HeaderBar()
         header.set_title_widget(Gtk.Label(label="USB Encryption Wizard"))
-        main_box.append(header)
+        self.set_titlebar(header)
         
         # Content box with margins
         self.content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -66,18 +67,28 @@ class WizardWindow(Gtk.ApplicationWindow):
         self.content_box.set_margin_bottom(12)
         self.content_box.set_margin_start(12)
         self.content_box.set_margin_end(12)
-        main_box.append(self.content_box)
+        self.set_child(self.content_box)
 
+        # Device info label (shown when target_device is set)
+        self.device_info_label = Gtk.Label(xalign=0)
+        self.device_info_label.set_markup("<b>Device:</b> Loading...")
+        self.device_info_label.set_margin_bottom(12)
+        
         self.device_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self.device_list.add_css_class("boxed-list")
         self.device_list.connect("row-activated", self.on_row_activated)
         
         # Wrap device list in a scrolled window
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_child(self.device_list)
-        scrolled.set_vexpand(True)
-        scrolled.set_min_content_height(150)
-        self.content_box.append(scrolled)
+        self.scrolled = Gtk.ScrolledWindow()
+        self.scrolled.set_child(self.device_list)
+        self.scrolled.set_vexpand(True)
+        self.scrolled.set_min_content_height(150)
+        
+        # Only show device list or info label based on target_device
+        if self.target_device:
+            self.content_box.append(self.device_info_label)
+        else:
+            self.content_box.append(self.scrolled)
 
         # Passphrase area
         passphrase_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -102,7 +113,9 @@ class WizardWindow(Gtk.ApplicationWindow):
         self.refresh_button = Gtk.Button(label="Refresh")
         actions.append(self.encrypt_button)
         actions.append(self.unlock_button)
-        actions.append(self.refresh_button)
+        # Only show refresh button if not in target_device mode
+        if not self.target_device:
+            actions.append(self.refresh_button)
         self.content_box.append(actions)
 
         # Status
@@ -117,8 +130,9 @@ class WizardWindow(Gtk.ApplicationWindow):
         if proxy:
             try:
                 proxy.onEvent = self.on_event
-            except Exception:
-                pass
+                print(f"[WizardWindow] Subscribed to DBus Event signal")
+            except Exception as e:
+                print(f"[WizardWindow] Failed to subscribe to Event signal: {e}")
         self.refresh_devices()
 
     def on_row_activated(self, _listbox, row):
@@ -153,6 +167,19 @@ class WizardWindow(Gtk.ApplicationWindow):
             GLib.idle_add(show_error)
 
     def get_selected_device(self) -> Optional[Dict[str, str]]:
+        # If target_device is set, return that device info directly
+        if self.target_device:
+            # Get the device from daemon
+            try:
+                devices = self.proxy.ListDevices()
+                for dev in devices:
+                    if dev.get("devnode") == self.target_device:
+                        return dev
+            except Exception:
+                pass
+            # Fallback: create minimal device info
+            return {"devnode": self.target_device, "classification": "plaintext"}
+        
         if self.selected_row:
             return self.selected_row.device
         return None
@@ -193,11 +220,28 @@ class WizardWindow(Gtk.ApplicationWindow):
                     parent_devices[devnode] = dev
         
         print(f"[refresh_devices] Parent devices: {parent_devices}")
-        for devnode, dev in parent_devices.items():
-            print(f"[refresh_devices] Adding device: {dev}")
-            row = DeviceRow(dev)
-            self.device_list.append(row)
-            filtered_devices.append(dev)
+        
+        # If target_device is set, update the info label instead of showing list
+        if self.target_device:
+            dev_info = parent_devices.get(self.target_device)
+            if dev_info:
+                classification = dev_info.get("classification", "unknown")
+                serial = dev_info.get("serial", "")
+                info_text = f"<b>Device:</b> {self.target_device}\n<b>Type:</b> {classification}"
+                if serial:
+                    info_text += f"\n<b>Serial:</b> {serial}"
+                self.device_info_label.set_markup(info_text)
+                # Set this as selected device
+                self.selected_row = type('obj', (object,), {'device': dev_info})()
+            else:
+                self.device_info_label.set_markup(f"<b>Device:</b> {self.target_device}\n<i>Device not found</i>")
+        else:
+            # Show device list as before
+            for devnode, dev in parent_devices.items():
+                print(f"[refresh_devices] Adding device: {dev}")
+                row = DeviceRow(dev)
+                self.device_list.append(row)
+                filtered_devices.append(dev)
 
     def on_encrypt(self, _btn):
         print("[on_encrypt] Encrypt button clicked")
@@ -228,11 +272,16 @@ class WizardWindow(Gtk.ApplicationWindow):
         GLib.idle_add(self.progress.set_fraction, 0.1)
         GLib.idle_add(self.progress.set_text, "Encrypting...")
         try:
-            self.proxy.RequestEncrypt(devnode, mapper, password, "ext4", "")
+            self.proxy.RequestEncrypt(devnode, mapper, password, "exfat", "")
             GLib.idle_add(self.progress.set_fraction, 1.0)
-            GLib.idle_add(self.progress.set_text, "Encryption started; watch notifications")
+            GLib.idle_add(self.progress.set_text, "Encryption complete")
+            GLib.idle_add(self.notify, f"Encryption complete: {devnode}")
+            # Close the wizard after 2 seconds
+            GLib.timeout_add_seconds(2, self.close)
         except Exception as exc:
             GLib.idle_add(self.notify, f"Encrypt failed: {exc}", "error")
+            GLib.idle_add(self.progress.set_fraction, 0.0)
+            GLib.idle_add(self.progress.set_text, "Encryption failed")
 
     def on_unlock(self, _btn):
         dev = self.get_selected_device()
@@ -261,20 +310,28 @@ class WizardWindow(Gtk.ApplicationWindow):
 
     def on_event(self, fields):
         # DBus signal callback
+        print(f"[on_event] Received event: {fields}")
         action = fields.get("ACTION", "")
         devnode = fields.get("DEVNODE", "")
         progress = fields.get("PROGRESS", "")
+        print(f"[on_event] action={action} devnode={devnode} progress={progress}")
         if action.startswith("encrypt_"):
+            print(f"[on_event] Updating encryption progress: {progress}%")
             GLib.idle_add(self.progress.set_text, f"Encrypting {devnode} ({progress}%)")
             try:
                 pct = float(progress) / 100.0 if progress else 0
                 GLib.idle_add(self.progress.set_fraction, pct)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[on_event] Error setting progress: {e}")
         elif action == "encrypt_done":
+            print(f"[on_event] Encryption complete")
             GLib.idle_add(self.notify, f"Encryption complete: {devnode}")
             GLib.idle_add(self.progress.set_fraction, 1.0)
+            GLib.idle_add(self.progress.set_text, "Encryption complete")
+            # Close the wizard after 2 seconds
+            GLib.timeout_add_seconds(2, self.close)
         elif action == "encrypt_fail":
+            print(f"[on_event] Encryption failed")
             GLib.idle_add(self.notify, f"Encryption failed: {devnode}", "error")
             GLib.idle_add(self.progress.set_fraction, 0.0)
         elif action == "unlock_done":
@@ -290,6 +347,7 @@ class WizardApp(Adw.Application):
             flags=Gio.ApplicationFlags.NON_UNIQUE  # Allow multiple instances
         )
         self.proxy = None
+        self.target_device = None
 
     def do_activate(self):
         print("[WizardApp] do_activate called")
@@ -304,8 +362,8 @@ class WizardApp(Adw.Application):
             print(f"ERROR: Could not connect to {BUS_NAME}: {exc}")
             self.quit()
             return
-        print("[WizardApp] Creating wizard window...")
-        wizard_win = WizardWindow(self, self.proxy)
+        print(f"[WizardApp] Creating wizard window for device: {self.target_device}...")
+        wizard_win = WizardWindow(self, self.proxy, self.target_device)
         print(f"[WizardApp] Window created, calling present()...")
         wizard_win.present()
         print(f"[WizardApp] Window presented")
@@ -313,11 +371,18 @@ class WizardApp(Adw.Application):
 
 def main():
     import sys
-    print("[main] Starting wizard application...", file=sys.stderr, flush=True)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="USB Encryption Wizard")
+    parser.add_argument("--device", help="Target device to encrypt (e.g., /dev/sda)")
+    args = parser.parse_args()
+    
+    print(f"[main] Starting wizard application for device: {args.device}...", file=sys.stderr, flush=True)
     try:
         app = WizardApp()
+        app.target_device = args.device
         print("[main] WizardApp instance created", file=sys.stderr, flush=True)
-        result = app.run(sys.argv)
+        result = app.run(sys.argv[:1])  # Don't pass --device to GTK
         print(f"[main] app.run() returned: {result}", file=sys.stderr, flush=True)
         return result
     except Exception as e:

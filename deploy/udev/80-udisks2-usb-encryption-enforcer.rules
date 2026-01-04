@@ -2,14 +2,14 @@
 # This prevents interference with partition operations (format, delete, etc.)
 # while still allowing manual mounting through file managers or GNOME Disks
 
-# For USB storage devices
+# For USB partitions (not LUKS or dm devices)
 SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", \
   ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{DM_NAME}!="*", \
   ENV{UDISKS_AUTO}="0", ENV{UDISKS_IGNORE}="0"
 
-# Also handle whole disks with filesystems (rare but possible)
+# For whole disks with any filesystem (not LUKS)
 SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="disk", \
-  ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_TYPE}!="crypto_LUKS", \
+  ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_TYPE}!="", ENV{ID_FS_TYPE}!="crypto_LUKS", \
   ENV{UDISKS_AUTO}="0", ENV{UDISKS_IGNORE}="0"
 
 # Always allow auto-mount for LUKS devices (locked ones won't mount anyway until unlocked)
