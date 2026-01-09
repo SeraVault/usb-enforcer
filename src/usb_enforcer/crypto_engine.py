@@ -6,9 +6,83 @@ import tempfile
 from pathlib import Path
 from typing import Callable, List, Optional
 
+try:
+    import pyudev
+except ImportError:
+    pyudev = None
+
+try:
+    import pydbus
+except ImportError:
+    pydbus = None
+
 
 class CryptoError(Exception):
     pass
+
+
+def _udisks2_unmount(devnode: str) -> bool:
+    """Unmount a device using UDisks2 D-Bus API. Returns True if successful."""
+    if not pydbus:
+        return False
+    
+    try:
+        bus = pydbus.SystemBus()
+        udisks = bus.get("org.freedesktop.UDisks2")
+        
+        # Get the block device object path from device node
+        # UDisks2 uses object paths like /org/freedesktop/UDisks2/block_devices/sda1
+        dev_name = devnode.replace("/dev/", "").replace("/", "_")
+        obj_path = f"/org/freedesktop/UDisks2/block_devices/{dev_name}"
+        
+        try:
+            filesystem = bus.get("org.freedesktop.UDisks2", obj_path)
+            # Call Unmount with empty options dict
+            filesystem.Unmount({})
+            return True
+        except Exception:
+            # Device might not have filesystem interface or not mounted
+            return False
+    except Exception:
+        return False
+
+
+def _get_mounted_devices() -> dict:
+    """Read /proc/mounts and return a dict of device -> mountpoint."""
+    mounted = {}
+    try:
+        with open("/proc/mounts", "r") as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 2 and parts[0].startswith("/dev/"):
+                    mounted[parts[0]] = parts[1]
+    except Exception:
+        pass
+    return mounted
+
+
+def _get_device_partitions(devnode: str) -> List[str]:
+    """Get list of partition device nodes for a given disk device using pyudev."""
+    partitions = []
+    
+    if pyudev:
+        try:
+            context = pyudev.Context()
+            device = pyudev.Devices.from_device_file(context, devnode)
+            
+            # Enumerate child devices (partitions)
+            for child in context.list_devices(parent=device):
+                if child.device_type == 'partition' and child.device_node:
+                    partitions.append(child.device_node)
+        except Exception:
+            pass  # Fall back to checking if it's a partition itself
+    
+    # If devnode itself is a partition, include it
+    if devnode and devnode[-1].isdigit():
+        if devnode not in partitions:
+            partitions.append(devnode)
+    
+    return partitions
 
 
 def _run(cmd: List[str], input_data: Optional[bytes] = None):
@@ -106,46 +180,42 @@ def encrypt_device(
     # Unmount the device if it's currently mounted
     emit("unmount", 5)
     
-    # Try udisksctl first (better for user-mounted devices)
-    try:
-        _run(["udisksctl", "unmount", "-b", devnode])
-    except (CryptoError, FileNotFoundError):
-        pass  # Try regular umount next
+    # Get all partitions for this device using pyudev
+    partitions = _get_device_partitions(devnode)
+    mounted_devices = _get_mounted_devices()
     
-    # Force unmount the device
-    try:
-        _run(["umount", "-f", devnode])
-    except CryptoError:
-        pass  # Device wasn't mounted, continue
-    
-    # If this is a whole disk, unmount all its partitions
-    try:
-        # Get list of partitions and unmount them
-        result = _run(["lsblk", "-n", "-o", "NAME", devnode])
-        lines = result.stdout.strip().split(b'\n') if result.stdout else []
-        for line in lines[1:]:  # Skip first line (parent device)
-            partition = line.decode().strip().replace('└─', '').replace('├─', '').replace('│', '').strip()
-            if partition:
-                part_dev = f"/dev/{partition}"
-                # Try udisksctl first
-                try:
-                    _run(["udisksctl", "unmount", "-b", part_dev])
-                except (CryptoError, FileNotFoundError):
-                    pass
-                # Then force unmount
-                try:
-                    _run(["umount", "-f", part_dev])
-                except CryptoError:
-                    pass  # Continue if partition not mounted
-    except (CryptoError, Exception):
-        pass  # Continue anyway
+    # Unmount all related devices (partitions first, then parent)
+    devices_to_unmount = partitions + [devnode]
+    for dev in devices_to_unmount:
+        if dev in mounted_devices:
+            # Try UDisks2 D-Bus API first (cleanest)
+            if _udisks2_unmount(dev):
+                continue
+            
+            # Fall back to udisksctl command
+            try:
+                _run(["udisksctl", "unmount", "-b", dev])
+            except (CryptoError, FileNotFoundError):
+                pass
+            
+            # Finally try force unmount with lazy flag
+            try:
+                _run(["umount", "-f", "-l", dev])
+            except CryptoError:
+                pass
+            # Then force unmount with lazy flag
+            try:
+                _run(["umount", "-f", "-l", dev])
+            except CryptoError:
+                pass
 
-    # Set device to read-write mode before wiping
+    # Set device and all partitions to read-write mode before wiping
     emit("prepare", 7)
-    try:
-        _run(["blockdev", "--setrw", devnode])
-    except CryptoError:
-        pass  # Continue even if this fails
+    for dev in devices_to_unmount:
+        try:
+            _run(["blockdev", "--setrw", dev])
+        except CryptoError:
+            pass
 
     # Wipe partition table and filesystem signatures
     emit("wipe", 8)
@@ -212,9 +282,40 @@ def encrypt_device(
         mapper = unlock_luks(devnode, mapper_name, passphrase)
         emit("mkfs", 60)
         create_filesystem(mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
+        
+        # Mount the encrypted device automatically (daemon runs as root, no auth needed)
+        emit("mount", 80)
+        mapper_path = f"/dev/mapper/{mapper_name}"
+        
+        # Give udev a moment to process the new device
+        import time
+        time.sleep(1)
+        
+        # Use direct mount command (daemon has root privileges, bypasses PolicyKit)
+        mounted = False
+        mountpoint = None
+        
+        if username:
+            mountpoint = f"/media/{username}/{mapper_name}"
+        else:
+            mountpoint = f"/mnt/{mapper_name}"
+        
+        mount_opts = ["rw"]
+        if uid is not None and gid is not None:
+            mount_opts.extend([f"uid={uid}", f"gid={gid}"])
+        
+        try:
+            mount_device(mapper_path, mountpoint, mount_opts, uid, gid)
+            mounted = True
+            print(f"Auto-mounted {mapper_path} at {mountpoint}")
+        except Exception as e:
+            # If mount fails, still return the mapper - user can mount manually
+            print(f"Auto-mount failed: {e}")
+            pass
+        
         emit("done", 100)
-        # Return mapper path - let system automount handle mounting
-        return f"/dev/mapper/{mapper_name}"
+        # Return mountpoint if mounted, otherwise mapper path
+        return mountpoint if mounted and mountpoint else mapper_path
     except Exception:
         if mapper:
             try:

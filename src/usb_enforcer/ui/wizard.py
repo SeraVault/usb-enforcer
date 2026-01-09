@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
+import tempfile
 import threading
+import time
 from typing import Dict, List, Optional
 
 import gi
@@ -14,8 +19,35 @@ try:
 except Exception:
     pydbus = None
 
+try:
+    import pyudev
+except Exception:
+    pyudev = None
+
+from .. import secret_socket
+
 BUS_NAME = "org.seravault.UsbEncryptionEnforcer"
 BUS_PATH = "/org/seravault/UsbEncryptionEnforcer"
+
+
+def get_mount_point(device_path: str) -> Optional[str]:
+    """Get the mount point for a device by reading /proc/mounts."""
+    try:
+        with open("/proc/mounts", "r") as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 2 and parts[0] == device_path:
+                    # parts[1] is the mount point (may have escape sequences)
+                    # Decode octal escapes like \040 for space
+                    mount_point = parts[1]
+                    mount_point = mount_point.replace("\\040", " ")
+                    mount_point = mount_point.replace("\\011", "\t")
+                    mount_point = mount_point.replace("\\012", "\n")
+                    mount_point = mount_point.replace("\\134", "\\")
+                    return mount_point
+    except Exception as e:
+        print(f"[get_mount_point] Error reading /proc/mounts: {e}")
+    return None
 
 
 def strength_color(length: int) -> str:
@@ -105,6 +137,15 @@ class WizardWindow(Gtk.ApplicationWindow):
         passphrase_box.append(self.confirm_entry)
         passphrase_box.append(self.pass_strength)
         self.content_box.append(passphrase_box)
+
+        # Preserve data option
+        self.preserve_data_check = Gtk.CheckButton(label="Preserve existing data (copy before encrypting)")
+        self.preserve_data_check.set_margin_top(12)
+        self.preserve_data_check.set_tooltip_text(
+            "If checked, existing data will be copied to a temporary location, "
+            "the drive will be encrypted, and data will be restored to the encrypted drive."
+        )
+        self.content_box.append(self.preserve_data_check)
 
         # Actions
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -220,18 +261,36 @@ class WizardWindow(Gtk.ApplicationWindow):
         
         # If target_device is set, update the info label instead of showing list
         if self.target_device:
-            dev_info = parent_devices.get(self.target_device)
+            # Normalize target_device to parent disk if it's a partition
+            lookup_device = self.target_device
+            if lookup_device and lookup_device[-1].isdigit():
+                # This is a partition, get parent device
+                lookup_device = lookup_device.rstrip("0123456789")
+            
+            print(f"[refresh_devices] Looking up target_device={self.target_device}, normalized to {lookup_device}")
+            print(f"[refresh_devices] Available parent devices: {list(parent_devices.keys())}")
+            dev_info = parent_devices.get(lookup_device)
             if dev_info:
                 classification = dev_info.get("classification", "unknown")
                 serial = dev_info.get("serial", "")
-                info_text = f"<b>Device:</b> {self.target_device}\n<b>Type:</b> {classification}"
+                info_text = f"<b>Device:</b> {lookup_device}\n<b>Type:</b> {classification}"
                 if serial:
                     info_text += f"\n<b>Serial:</b> {serial}"
                 self.device_info_label.set_markup(info_text)
-                # Set this as selected device
-                self.selected_row = type('obj', (object,), {'device': dev_info})()
+                # Set this as selected device - create a clean copy with parent devnode
+                self.selected_row = type('obj', (object,), {
+                    'device': {
+                        'devnode': lookup_device,  # Use parent disk explicitly
+                        'classification': classification,
+                        'serial': serial,
+                        'id_bus': dev_info.get('id_bus'),
+                        'id_type': dev_info.get('id_type'),
+                    }
+                })()
+                print(f"[refresh_devices] Selected device will use devnode: {lookup_device}")
             else:
-                self.device_info_label.set_markup(f"<b>Device:</b> {self.target_device}\n<i>Device not found</i>")
+                print(f"[refresh_devices] Lookup failed! {lookup_device} not in parent_devices")
+                self.device_info_label.set_markup(f"<b>Device:</b> {lookup_device}\n<i>Device not found in daemon cache</i>")
         else:
             # Show device list as before
             for devnode, dev in parent_devices.items():
@@ -262,23 +321,263 @@ class WizardWindow(Gtk.ApplicationWindow):
         # Device should already be parent device from refresh_devices
         devnode = dev["devnode"]
         mapper = devnode.split("/")[-1]
-        print(f"[on_encrypt] Starting encryption thread for {devnode}, mapper={mapper}")
-        threading.Thread(target=self._encrypt_thread, args=(devnode, mapper, pwd), daemon=True).start()
+        preserve_data = self.preserve_data_check.get_active()
+        print(f"[on_encrypt] Starting encryption thread for {devnode}, mapper={mapper}, preserve_data={preserve_data}")
+        threading.Thread(target=self._encrypt_thread, args=(devnode, mapper, pwd, preserve_data), daemon=True).start()
 
-    def _encrypt_thread(self, devnode: str, mapper: str, password: str):
-        GLib.idle_add(self.progress.set_fraction, 0.1)
-        GLib.idle_add(self.progress.set_text, "Encrypting...")
+    def _encrypt_thread(self, devnode: str, mapper: str, password: str, preserve_data: bool = False):
+        temp_dir = None
+        mount_point = None
+        
         try:
-            self.proxy.RequestEncrypt(devnode, mapper, password, "exfat", "")
+            # Step 1: Backup data if requested
+            if preserve_data:
+                GLib.idle_add(self.progress.set_fraction, 0.05)
+                GLib.idle_add(self.progress.set_text, "Mounting device to backup data...")
+                
+                # Find if device has partitions or use the device itself
+                target_device = self._find_mountable_partition(devnode)
+                
+                # Create temp directory for backup
+                temp_dir = tempfile.mkdtemp(prefix="usb_backup_")
+                print(f"[_encrypt_thread] Created temp directory: {temp_dir}")
+                
+                # Check if device is already mounted, or mount it
+                mount_point = None
+                we_mounted = False
+                
+                # Check if already mounted by reading /proc/mounts
+                mount_point = get_mount_point(target_device)
+                if mount_point:
+                    print(f"[_encrypt_thread] Device already mounted at {mount_point}")
+                
+                # If not mounted, mount it now
+                if not mount_point:
+                    try:
+                        result = subprocess.run(
+                            ["udisksctl", "mount", "-b", target_device],
+                            check=True,
+                            capture_output=True,
+                            text=True
+                        )
+                        we_mounted = True
+                        
+                        # Get mount point from /proc/mounts instead of parsing output
+                        mount_point = get_mount_point(target_device)
+                        if not mount_point:
+                            raise Exception("Device mounted but could not find mount point")
+                        
+                        print(f"[_encrypt_thread] Mounted {target_device} at {mount_point}")
+                    except subprocess.CalledProcessError as e:
+                        # Check if error is "already mounted"
+                        error_msg = e.stderr if e.stderr else str(e)
+                        if "already mounted" in error_msg.lower():
+                            # Try to find the mount point from /proc/mounts
+                            mount_point = get_mount_point(target_device)
+                            if mount_point:
+                                print(f"[_encrypt_thread] Device was already mounted at {mount_point}")
+                            else:
+                                raise Exception(f"Device already mounted but could not find mount point")
+                        else:
+                            raise Exception(f"Failed to mount device: {error_msg}")
+                    except FileNotFoundError:
+                        raise Exception("udisksctl not found - please install udisks2")
+                
+                # Copy data
+                GLib.idle_add(self.progress.set_fraction, 0.1)
+                GLib.idle_add(self.progress.set_text, "Backing up data...")
+                
+                try:
+                    # Use rsync for better progress, fallback to cp
+                    if shutil.which("rsync"):
+                        subprocess.run(
+                            ["rsync", "-a", "--info=progress2", f"{mount_point}/", f"{temp_dir}/"],
+                            check=True,
+                            capture_output=True
+                        )
+                    else:
+                        shutil.copytree(mount_point, temp_dir, dirs_exist_ok=True, copy_function=shutil.copy2)
+                    print(f"[_encrypt_thread] Data backed up to {temp_dir}")
+                except Exception as e:
+                    raise Exception(f"Failed to backup data: {e}")
+                
+                # Unmount using udisksctl (only if we mounted it)
+                GLib.idle_add(self.progress.set_fraction, 0.2)
+                GLib.idle_add(self.progress.set_text, "Unmounting device...")
+                if we_mounted:
+                    try:
+                        subprocess.run(["udisksctl", "unmount", "-b", target_device], check=True, capture_output=True)
+                        print(f"[_encrypt_thread] Unmounted {target_device}")
+                    except subprocess.CalledProcessError as e:
+                        # Non-critical, continue anyway
+                        print(f"[_encrypt_thread] Warning: Failed to unmount: {e}")
+                else:
+                    print(f"[_encrypt_thread] Skipping unmount (device was already mounted when we started)")
+            
+            # Step 2: Encrypt the device
+            GLib.idle_add(self.progress.set_fraction, 0.25)
+            GLib.idle_add(self.progress.set_text, "Starting encryption...")
+            token = secret_socket.send_secret("encrypt", devnode, password, mapper)
+            self.proxy.RequestEncrypt(devnode, mapper, token, "exfat", "")
+            
+            # Wait for encryption to complete (monitor via events)
+            # The on_event handler will update progress
+            import time
+            max_wait = 300  # 5 minutes timeout
+            waited = 0
+            encryption_done = False
+            
+            while waited < max_wait and not encryption_done:
+                time.sleep(1)
+                waited += 1
+                # Check if mapper device exists (indicates encryption completed)
+                mapper_path = f"/dev/mapper/{mapper}"
+                if os.path.exists(mapper_path):
+                    encryption_done = True
+                    break
+            
+            if not encryption_done:
+                raise Exception("Encryption timeout - device may still be encrypting")
+            
+            # Step 3: Restore data if we backed it up
+            if preserve_data and temp_dir:
+                GLib.idle_add(self.progress.set_fraction, 0.85)
+                GLib.idle_add(self.progress.set_text, "Waiting for encrypted device...")
+                
+                mapper_path = f"/dev/mapper/{mapper}"
+                encrypted_mount = None
+                
+                # Wait for the daemon to auto-mount the device (up to 10 seconds)
+                max_mount_wait = 10
+                for i in range(max_mount_wait):
+                    time.sleep(1)
+                    encrypted_mount = get_mount_point(mapper_path)
+                    if encrypted_mount:
+                        print(f"[_encrypt_thread] Daemon auto-mounted at {encrypted_mount}")
+                        break
+                
+                # If not auto-mounted, try to mount it ourselves
+                if not encrypted_mount:
+                    print(f"[_encrypt_thread] Device not auto-mounted, attempting manual mount")
+                    try:
+                        result = subprocess.run(
+                            ["udisksctl", "mount", "-b", mapper_path],
+                            check=True,
+                            capture_output=True,
+                            text=True
+                        )
+                        encrypted_mount = get_mount_point(mapper_path)
+                        if not encrypted_mount:
+                            raise Exception("Device mounted but could not find mount point")
+                    except subprocess.CalledProcessError as e:
+                        error_msg = e.stderr if e.stderr else str(e)
+                        raise Exception(f"Failed to mount encrypted device: {error_msg}")
+                
+                print(f"[_encrypt_thread] Mounted encrypted device at {encrypted_mount}")
+                
+                # Restore data
+                GLib.idle_add(self.progress.set_fraction, 0.9)
+                GLib.idle_add(self.progress.set_text, "Restoring data...")
+                
+                try:
+                    # Copy files back
+                    for item in os.listdir(temp_dir):
+                        src = os.path.join(temp_dir, item)
+                        dst = os.path.join(encrypted_mount, item)
+                        if os.path.isdir(src):
+                            shutil.copytree(src, dst)
+                        else:
+                            shutil.copy2(src, dst)
+                    print(f"[_encrypt_thread] Data restored to encrypted device")
+                except Exception as e:
+                    # Don't fail completely if restore has issues
+                    GLib.idle_add(self.notify, f"Warning: Data restore incomplete: {e}", "warning")
+                
+                # Sync filesystem to ensure all data is written
+                subprocess.run(["sync"], check=False)
+                
+                # Leave the device mounted for user convenience - no unmount to avoid auth prompt
+                # The device was auto-mounted by the daemon and contains the restored data
+                print(f"[_encrypt_thread] Leaving device mounted at {encrypted_mount} for user access")
+            
+            # Success
             GLib.idle_add(self.progress.set_fraction, 1.0)
-            GLib.idle_add(self.progress.set_text, "Encryption complete")
-            GLib.idle_add(self.notify, f"Encryption complete: {devnode}")
-            # Close the wizard after 2 seconds
-            GLib.timeout_add_seconds(2, self.close)
+            if preserve_data:
+                GLib.idle_add(self.progress.set_text, "Encryption complete - Data restored")
+                GLib.idle_add(self.notify, f"Encryption complete with data preserved: {devnode}")
+            else:
+                GLib.idle_add(self.progress.set_text, "Encryption complete")
+                GLib.idle_add(self.notify, f"Encryption complete: {devnode}")
+            
+            # Close the wizard after 3 seconds
+            GLib.timeout_add_seconds(3, self.close)
+            
         except Exception as exc:
+            print(f"[_encrypt_thread] Error: {exc}")
             GLib.idle_add(self.notify, f"Encrypt failed: {exc}", "error")
             GLib.idle_add(self.progress.set_fraction, 0.0)
             GLib.idle_add(self.progress.set_text, "Encryption failed")
+        
+        finally:
+            # Cleanup temp directories
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir)
+                    print(f"[_encrypt_thread] Cleaned up temp directory: {temp_dir}")
+                except Exception as e:
+                    print(f"[_encrypt_thread] Failed to cleanup temp dir: {e}")
+            
+            if mount_point and os.path.exists(mount_point):
+                try:
+                    # mount_point might be managed by udisks, just try to clean temp dirs
+                    # Don't try to unmount as udisksctl already handled it
+                    if mount_point.startswith('/tmp/'):
+                        os.rmdir(mount_point)
+                        print(f"[_encrypt_thread] Cleaned up temp mount point: {mount_point}")
+                except Exception as e:
+                    print(f"[_encrypt_thread] Failed to cleanup mount point: {e}")
+    
+    def _find_mountable_partition(self, devnode: str) -> str:
+        """Find the first mountable partition on a device using pyudev."""
+        # If the devnode itself is a partition (ends with digit), return it
+        if devnode and devnode[-1].isdigit():
+            print(f"[_find_mountable_partition] Device is already a partition: {devnode}")
+            return devnode
+        
+        # Use pyudev to find partitions
+        if pyudev:
+            try:
+                context = pyudev.Context()
+                device = pyudev.Devices.from_device_file(context, devnode)
+                
+                # Iterate through children to find partitions
+                for child in context.list_devices(parent=device):
+                    if child.device_type == 'partition' and child.device_node:
+                        partition = child.device_node
+                        print(f"[_find_mountable_partition] Found partition via pyudev: {partition}")
+                        return partition
+            except Exception as e:
+                print(f"[_find_mountable_partition] Error using pyudev: {e}")
+        
+        # Fallback: check /sys/block for partitions
+        try:
+            device_name = os.path.basename(devnode)
+            sys_path = f"/sys/block/{device_name}"
+            
+            if os.path.exists(sys_path):
+                # Look for partition subdirectories (e.g., sdb1, sdb2)
+                for entry in os.listdir(sys_path):
+                    if entry.startswith(device_name) and entry[len(device_name):].lstrip('p').isdigit():
+                        partition = f"/dev/{entry}"
+                        if os.path.exists(partition):
+                            print(f"[_find_mountable_partition] Found partition via sysfs: {partition}")
+                            return partition
+        except Exception as e:
+            print(f"[_find_mountable_partition] Error checking sysfs: {e}")
+        
+        # Return the device itself as final fallback
+        print(f"[_find_mountable_partition] No partition found, using device: {devnode}")
+        return devnode
 
     def on_unlock(self, _btn):
         dev = self.get_selected_device()
@@ -299,7 +598,8 @@ class WizardWindow(Gtk.ApplicationWindow):
         GLib.idle_add(self.progress.set_fraction, 0.1)
         GLib.idle_add(self.progress.set_text, "Unlocking...")
         try:
-            self.proxy.RequestUnlock(devnode, mapper, password)
+            token = secret_socket.send_secret("unlock", devnode, password, mapper)
+            self.proxy.RequestUnlock(devnode, mapper, token)
             GLib.idle_add(self.progress.set_fraction, 1.0)
             GLib.idle_add(self.progress.set_text, "Unlock requested; watch notifications")
         except Exception as exc:

@@ -25,20 +25,28 @@ NOTIFY_PATH = "/org/freedesktop/Notifications"
 class NotificationManager:
     def __init__(self):
         self.bus = pydbus.SessionBus()
+        self.iface = None
+        self.callbacks = {}
+        self.recent_events: Dict[str, float] = {}
+        self._connect()
+
+    def _connect(self):
+        """Attempt to connect to the notification service."""
+        if self.iface:
+            return True
         try:
             self.iface = self.bus.get(NOTIFY_BUS, NOTIFY_PATH)
             print(f"[NotificationManager] Connected to {NOTIFY_BUS}")
-        except Exception as e:
-            print(f"[NotificationManager] Failed to connect to {NOTIFY_BUS}: {e}")
-            self.iface = None
-        self.callbacks = {}
-        self.recent_events: Dict[str, float] = {}
-        if self.iface:
             try:
                 self.iface.onActionInvoked = self._on_action
                 print(f"[NotificationManager] Registered ActionInvoked callback")
             except Exception as e:
                 print(f"[NotificationManager] Failed to register ActionInvoked: {e}")
+            return True
+        except Exception as e:
+            print(f"[NotificationManager] Failed to connect to {NOTIFY_BUS}: {e}")
+            self.iface = None
+            return False
 
     def _on_action(self, notif_id: int, action: str):
         print(f"[_on_action] Notification {notif_id} action invoked: {action}")
@@ -77,6 +85,10 @@ class NotificationManager:
         return False
 
     def notify(self, summary: str, body: str, actions: Optional[Dict[str, Callable[[str], None]]] = None):
+        # Retry connection if not connected
+        if not self.iface:
+            self._connect()
+        
         if not self.iface:
             print(f"[notify] {summary}: {body}")
             return

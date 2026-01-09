@@ -1,12 +1,13 @@
 [Unit]
 Description=USB Encryption Enforcer UI bridge (notifications)
-After=graphical-session.target
+After=graphical-session.target dbus.service
 Wants=graphical-session.target
 
 [Service]
 Type=simple
 ExecStart=/usr/lib/usb-encryption-enforcer/.venv/bin/python3 -u /usr/libexec/usb-encryption-enforcer-ui
 Restart=on-failure
+RestartSec=2
 StandardOutput=journal
 StandardError=journal
 
