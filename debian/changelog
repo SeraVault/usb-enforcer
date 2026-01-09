@@ -1,0 +1,10 @@
+usb-encryption-enforcer (1.0.0-1) unstable; urgency=medium
+
+  * Initial release
+  * USB encryption enforcement daemon
+  * System-wide udev and systemd integration
+  * User notification GUI
+  * Configuration management
+  * Support for encrypted LUKS devices
+
+ -- Your Name <your.email@example.com>  Thu, 09 Jan 2025 00:00:00 +0000

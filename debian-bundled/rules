@@ -1,0 +1,57 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+export PYBUILD_DISABLE = 1
+
+%:
+	dh $@ --with python3
+
+override_dh_auto_build:
+	# Nothing to compile
+
+override_dh_auto_install:
+	# Install Python package
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/usb-encryption-enforcer
+	cp -r src/usb_enforcer $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/usb-encryption-enforcer/
+	
+	# Install bundled Python wheels
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/usb-encryption-enforcer/wheels
+	cp wheels/*.whl $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/usb-encryption-enforcer/wheels/
+	
+	# Install executable scripts
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/libexec
+	install -m 0755 scripts/usb-encryption-enforcerd $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/libexec/
+	install -m 0755 scripts/usb-encryption-enforcer-helper $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/libexec/
+	install -m 0755 scripts/usb-encryption-enforcer-ui $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/libexec/
+	install -m 0755 scripts/usb-encryption-enforcer-wizard $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/libexec/
+	
+	# Install configuration
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/etc/usb-encryption-enforcer
+	install -m 0644 deploy/config.toml.sample $(CURDIR)/debian/usb-encryption-enforcer-bundled/etc/usb-encryption-enforcer/config.toml
+	
+	# Install udev rules
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/udev/rules.d
+	install -m 0644 deploy/udev/49-usb-encryption-enforcer.rules $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/udev/rules.d/
+	install -m 0644 deploy/udev/80-udisks2-usb-encryption-enforcer.rules $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/udev/rules.d/
+	
+	# Install polkit rules
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/etc/polkit-1/rules.d
+	install -m 0644 deploy/polkit/49-usb-encryption-enforcer.rules $(CURDIR)/debian/usb-encryption-enforcer-bundled/etc/polkit-1/rules.d/
+	
+	# Install DBus configuration
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/etc/dbus-1/system.d
+	install -m 0644 deploy/dbus/org.seravault.UsbEncryptionEnforcer.conf $(CURDIR)/debian/usb-encryption-enforcer-bundled/etc/dbus-1/system.d/
+	
+	# Install systemd units
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/systemd/system
+	install -m 0644 deploy/systemd/usb-encryption-enforcerd.service $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/systemd/system/
+	install -d $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/systemd/user
+	install -m 0644 deploy/systemd/usb-encryption-enforcer-ui.service $(CURDIR)/debian/usb-encryption-enforcer-bundled/usr/lib/systemd/user/
+
+override_dh_auto_test:
+	# Skip tests
+
+override_dh_auto_clean:
+	rm -rf build
+	find . -name "*.pyc" -delete
+	find . -name "__pycache__" -type d -delete

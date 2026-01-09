@@ -1,0 +1,29 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    remove|purge)
+        # Remove user service symlink
+        rm -f /etc/systemd/user/default.target.wants/usb-encryption-enforcer-ui.service || true
+        
+        # Reload systemd and udev
+        systemctl daemon-reload || true
+        udevadm control --reload-rules || true
+        udevadm trigger || true
+        ;;
+    
+    purge)
+        # Remove virtual environment
+        rm -rf /usr/lib/usb-encryption-enforcer/.venv || true
+        
+        # Remove bundled wheels
+        rm -rf /usr/lib/usb-encryption-enforcer/wheels || true
+        
+        # Remove configuration (only on purge)
+        rm -rf /etc/usb-encryption-enforcer || true
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

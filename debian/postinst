@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    configure)
+        # Create Python virtual environment
+        if [ ! -d /usr/lib/usb-encryption-enforcer/.venv ]; then
+            echo "Creating Python virtual environment..."
+            python3 -m venv /usr/lib/usb-encryption-enforcer/.venv
+        fi
+        
+        # Upgrade pip
+        /usr/lib/usb-encryption-enforcer/.venv/bin/pip install --upgrade pip
+        
+        # Install Python dependencies from PyPI
+        echo "Installing Python dependencies from PyPI..."
+        /usr/lib/usb-encryption-enforcer/.venv/bin/pip install \
+            pyudev>=0.24.0 \
+            pydbus>=0.6.0 \
+            typing-extensions>=4.8.0
+        
+        # Reload systemd and udev
+        systemctl daemon-reload || true
+        udevadm control --reload-rules || true
+        udevadm trigger || true
+        
+        # Enable and start daemon
+        systemctl enable usb-encryption-enforcerd.service || true
+        systemctl start usb-encryption-enforcerd.service || true
+        
+        # Enable user service for all users
+        mkdir -p /etc/systemd/user/default.target.wants
+        ln -sf /usr/lib/systemd/user/usb-encryption-enforcer-ui.service \
+            /etc/systemd/user/default.target.wants/usb-encryption-enforcer-ui.service || true
+        
+        echo "USB Encryption Enforcer has been installed and started."
+        echo "Configuration file: /etc/usb-encryption-enforcer/config.toml"
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
