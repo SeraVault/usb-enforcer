@@ -1,6 +1,6 @@
-# Building Debian Packages for USB Encryption Enforcer
+# Building Debian Packages for USB Enforcer
 
-This guide explains how to build Debian (.deb) packages for the USB Encryption Enforcer.
+This guide explains how to build Debian (.deb) packages for the USB Enforcer.
 
 ## Package Variants
 

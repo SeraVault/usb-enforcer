@@ -1,6 +1,6 @@
 # Building RPM Packages
 
-This guide shows how to build RPM packages for USB Encryption Enforcer.
+This guide shows how to build RPM packages for USB Enforcer.
 
 ## Two RPM Variants
 

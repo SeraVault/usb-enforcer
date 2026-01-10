@@ -1,7 +1,7 @@
 # Group-Based USB Enforcement Exemptions
 
 ## Overview
-The USB Encryption Enforcer now supports per-user exemptions based on Linux group membership. Administrators can designate specific groups whose members bypass all USB encryption enforcement, allowing trusted personnel to use plaintext USB drives with full read-write access while maintaining DLP restrictions for other users.
+The USB Enforcer now supports per-user exemptions based on Linux group membership. Administrators can designate specific groups whose members bypass all USB encryption enforcement, allowing trusted personnel to use plaintext USB drives with full read-write access while maintaining DLP restrictions for other users.
 
 ## How It Works
 When a USB device is detected, the enforcement daemon checks if any currently logged-in user is a member of a group listed in the `exempted_groups` configuration. If a match is found:
