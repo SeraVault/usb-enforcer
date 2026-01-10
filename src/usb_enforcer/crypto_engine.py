@@ -278,6 +278,14 @@ def encrypt_device(
     mapper = None
     try:
         _run(luks_format_cmd, input_data=passphrase.encode())
+        
+        # Set LUKS2 label if provided
+        if label:
+            try:
+                _run(["cryptsetup", "config", devnode, "--label", label])
+            except CryptoError:
+                pass  # Continue even if label setting fails
+        
         emit("unlock", 40)
         mapper = unlock_luks(devnode, mapper_name, passphrase)
         emit("mkfs", 60)

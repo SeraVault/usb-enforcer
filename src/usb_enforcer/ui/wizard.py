@@ -122,6 +122,16 @@ class WizardWindow(Gtk.ApplicationWindow):
         else:
             self.content_box.append(self.scrolled)
 
+        # Label field
+        label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        label_label = Gtk.Label(label="Volume Label (optional)", xalign=0)
+        self.label_entry = Gtk.Entry()
+        self.label_entry.set_placeholder_text("Enter a label for the encrypted volume")
+        self.label_entry.set_max_length(48)  # LUKS2 label max length
+        label_box.append(label_label)
+        label_box.append(self.label_entry)
+        self.content_box.append(label_box)
+
         # Passphrase area
         passphrase_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         passphrase_label = Gtk.Label(label="Passphrase (min 12 chars)", xalign=0)
@@ -322,10 +332,11 @@ class WizardWindow(Gtk.ApplicationWindow):
         devnode = dev["devnode"]
         mapper = devnode.split("/")[-1]
         preserve_data = self.preserve_data_check.get_active()
-        print(f"[on_encrypt] Starting encryption thread for {devnode}, mapper={mapper}, preserve_data={preserve_data}")
-        threading.Thread(target=self._encrypt_thread, args=(devnode, mapper, pwd, preserve_data), daemon=True).start()
+        label = self.label_entry.get_text().strip() or None
+        print(f"[on_encrypt] Starting encryption thread for {devnode}, mapper={mapper}, preserve_data={preserve_data}, label={label}")
+        threading.Thread(target=self._encrypt_thread, args=(devnode, mapper, pwd, preserve_data, label), daemon=True).start()
 
-    def _encrypt_thread(self, devnode: str, mapper: str, password: str, preserve_data: bool = False):
+    def _encrypt_thread(self, devnode: str, mapper: str, password: str, preserve_data: bool = False, label: Optional[str] = None):
         temp_dir = None
         mount_point = None
         
@@ -418,7 +429,7 @@ class WizardWindow(Gtk.ApplicationWindow):
             GLib.idle_add(self.progress.set_fraction, 0.25)
             GLib.idle_add(self.progress.set_text, "Starting encryption...")
             token = secret_socket.send_secret("encrypt", devnode, password, mapper)
-            self.proxy.RequestEncrypt(devnode, mapper, token, "exfat", "")
+            self.proxy.RequestEncrypt(devnode, mapper, token, "exfat", label or "")
             
             # Wait for encryption to complete (monitor via events)
             # The on_event handler will update progress
