@@ -67,6 +67,7 @@ srpm: prepare-rpm
 
 rpm: prepare-rpm
 	@echo "Building binary RPM (standard version)..."
+	@rm -f ~/rpmbuild/RPMS/noarch/$(NAME)-$(VERSION)-*.noarch.rpm
 	@rpmbuild -bb ~/rpmbuild/SPECS/$(NAME).spec
 	@mkdir -p dist
 	@cp ~/rpmbuild/RPMS/noarch/$(NAME)-$(VERSION)-*.noarch.rpm dist/
@@ -84,6 +85,7 @@ rpm-bundled: dist bundle-deps
 	@cp $(PYTHON_DEPS) ~/rpmbuild/SOURCES/
 	@cp $(SPEC_FILE_BUNDLED) ~/rpmbuild/SPECS/$(NAME_BUNDLED).spec
 	@echo "Building bundled binary RPM..."
+	@rm -f ~/rpmbuild/RPMS/noarch/$(NAME_BUNDLED)-$(VERSION)-*.noarch.rpm
 	@rpmbuild -bb ~/rpmbuild/SPECS/$(NAME_BUNDLED).spec
 	@mkdir -p dist
 	@cp ~/rpmbuild/RPMS/noarch/$(NAME_BUNDLED)-$(VERSION)-*.noarch.rpm dist/
