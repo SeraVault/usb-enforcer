@@ -17,7 +17,7 @@ Vcs-Git: https://github.com/seravault/usb-enforcer.git
 Vcs-Browser: https://github.com/seravault/usb-enforcer
 
 Package: usb-enforcer-bundled
-Architecture: all
+Architecture:PyGObject all
 Depends: ${misc:Depends},
          python3 (>= 3.8),
          python3-venv,

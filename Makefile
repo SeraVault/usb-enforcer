@@ -1,12 +1,12 @@
 .PHONY: help rpm srpm clean prepare-rpm dist rpm-bundled bundle-deps deb deb-bundled
 
-NAME := usb-encryption-enforcer
-NAME_BUNDLED := usb-encryption-enforcer-bundled
+NAME := usb-enforcer
+NAME_BUNDLED := usb-enforcer-bundled
 VERSION := 1.0.0
 RELEASE := 1
 TARBALL := $(NAME)-$(VERSION).tar.gz
-SPEC_FILE := rpm/$(NAME).spec
-SPEC_FILE_BUNDLED := rpm-bundled/$(NAME_BUNDLED).spec
+SPEC_FILE := rpm/usb-enforcer.spec
+SPEC_FILE_BUNDLED := rpm-bundled/usb-enforcer-bundled.spec
 PYTHON_DEPS := python-deps.tar.gz
 
 help:
@@ -34,8 +34,9 @@ help:
 	@echo "  For RPM: rpm-build, rpmdevtools packages"
 	@echo "  For DEB: debhelper, dh-python, devscripts packages"
 
-dist: clean
+dist:
 	@echo "Creating source tarball $(TARBALL)..."
+	@rm -rf $(NAME)-$(VERSION)
 	@mkdir -p $(NAME)-$(VERSION)
 	@cp -r src/ scripts/ deploy/ docs/ $(NAME)-$(VERSION)/
 	@cp README.md requirements.txt $(NAME)-$(VERSION)/
@@ -68,10 +69,10 @@ rpm: prepare-rpm
 	@echo "Building binary RPM (standard version)..."
 	@rpmbuild -bb ~/rpmbuild/SPECS/$(NAME).spec
 	@mkdir -p dist
-	@cp ~/rpmbuild/RPMS/noarch/$(NAME)-$(VERSION)-$(RELEASE).*.noarch.rpm dist/
+	@cp ~/rpmbuild/RPMS/noarch/$(NAME)-$(VERSION)-$(RELEASE).noarch.rpm dist/
 	@echo ""
 	@echo "Binary RPM created in dist/"
-	@ls -lh dist/$(NAME)-$(VERSION)-*.noarch.rpm
+	@ls -lh dist/$(NAME)-$(VERSION)-$(RELEASE).noarch.rpm
 
 rpm-bundled: dist bundle-deps
 	@echo "Preparing bundled RPM build environment..."
@@ -85,10 +86,10 @@ rpm-bundled: dist bundle-deps
 	@echo "Building bundled binary RPM..."
 	@rpmbuild -bb ~/rpmbuild/SPECS/$(NAME_BUNDLED).spec
 	@mkdir -p dist
-	@cp ~/rpmbuild/RPMS/noarch/$(NAME_BUNDLED)-$(VERSION)-$(RELEASE).*.noarch.rpm dist/
+	@cp ~/rpmbuild/RPMS/noarch/$(NAME_BUNDLED)-$(VERSION)-$(RELEASE).noarch.rpm dist/
 	@echo ""
 	@echo "Bundled binary RPM created in dist/"
-	@ls -lh dist/$(NAME_BUNDLED)-$(VERSION)-*.noarch.rpm
+	@ls -lh dist/$(NAME_BUNDLED)-$(VERSION)-$(RELEASE).noarch.rpm
 
 clean:
 	@echo "Cleaning build artifacts..."
