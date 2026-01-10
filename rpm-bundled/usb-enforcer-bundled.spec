@@ -1,6 +1,6 @@
 Name:           usb-enforcer-bundled
 Version:        1.0.0
-Release:        1
+Release:        0.1.rc1
 Summary:        USB data loss prevention for Linux desktops (bundled Python deps)
 
 License:        MIT

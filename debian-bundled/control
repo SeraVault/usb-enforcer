@@ -1,6 +1,7 @@
 Source: usb-enforcer-bundled
 Section: admin
 Priority: optional
+Version: 1.0.0~rc1
 Maintainer: Donnie Guedry (dguedry@gmail.com)
 Build-Depends: debhelper-compat (= 13),
                dh-python,
