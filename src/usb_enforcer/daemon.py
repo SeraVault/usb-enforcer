@@ -94,6 +94,74 @@ class Daemon:
         log_fields = enforcer.enforce_policy(device_props, devnode, self.logger, self.config)
         log_fields[constants.LOG_KEY_EVENT] = constants.EVENT_ENFORCE
         self._log_event(f"handled {devnode} action={action} classification={classification}", log_fields)
+        
+        # Trigger automount for plaintext devices after setting them read-only
+        if log_fields.get(constants.LOG_KEY_ACTION) == "block_rw" and log_fields.get(constants.LOG_KEY_RESULT) == "allow":
+            self._trigger_mount_ro(devnode)
+
+    def _trigger_mount_ro(self, devnode: str) -> None:
+        """
+        Trigger a read-only mount via udisks2 for plaintext devices.
+        This is needed because our udev rules disable automounting for security.
+        """
+        def do_mount():
+            try:
+                # Get the active session user
+                uid = None
+                gid = None
+                username = None
+                
+                # Try to find logged-in user
+                try:
+                    result = subprocess.run(["who"], capture_output=True, text=True, check=False)
+                    for line in result.stdout.splitlines():
+                        parts = line.split()
+                        if parts:
+                            user = parts[0]
+                            if user != "root":
+                                try:
+                                    pw = pwd.getpwnam(user)
+                                    uid = pw.pw_uid
+                                    gid = pw.pw_gid
+                                    username = user
+                                    break
+                                except KeyError:
+                                    continue
+                except Exception:
+                    pass
+                
+                # Wait briefly for udev to settle
+                time.sleep(0.5)
+                
+                # Use udisksctl to mount the device - it will respect the read-only block device setting
+                result = subprocess.run(
+                    ["udisksctl", "mount", "-b", devnode, "--no-user-interaction"],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                if result.returncode == 0:
+                    self.logger.info(f"Auto-mounted read-only: {devnode}")
+                    
+                    # Fix ownership if we found a user and the mount succeeded
+                    if uid is not None and gid is not None and "at " in result.stdout:
+                        mountpoint = result.stdout.split("at ")[-1].strip().rstrip(".")
+                        try:
+                            # Wait a moment for the mount to settle
+                            time.sleep(0.2)
+                            # Change ownership of the mountpoint
+                            os.chown(mountpoint, uid, gid)
+                            self.logger.info(f"Fixed ownership of {mountpoint} to {username} ({uid}:{gid})")
+                        except Exception as e:
+                            self.logger.warning(f"Failed to fix ownership of {mountpoint}: {e}")
+                else:
+                    # Device might already be mounted or mount might fail for other reasons
+                    self.logger.debug(f"Mount via udisksctl failed for {devnode}: {result.stderr.strip()}")
+            except Exception as e:
+                self.logger.debug(f"Failed to trigger mount for {devnode}: {e}")
+        
+        # Run in background thread to avoid blocking udev processing
+        threading.Thread(target=do_mount, daemon=True).start()
 
     def list_devices(self) -> List[Dict[str, str]]:
         return list(self.devices.values())
@@ -140,44 +208,6 @@ class Daemon:
         basename = devnode.split("/")[-1]
         return f"usbenc-{basename}"
 
-    def _fix_ownership_after_mount(self, mapper_path: str, uid: int, gid: int, max_wait: int = 10) -> None:
-        """
-        Wait for udisks2 to automount the mapper device, then fix ownership.
-        This runs in a background thread to avoid blocking the unlock operation.
-        """
-        def fix_ownership():
-            # Wait for the device to be mounted (check every 0.5s for up to max_wait seconds)
-            mountpoint = None
-            for _ in range(max_wait * 2):
-                try:
-                    result = subprocess.run(
-                        ["findmnt", "-n", "-o", "TARGET", mapper_path],
-                        capture_output=True,
-                        text=True,
-                        check=False
-                    )
-                    if result.returncode == 0 and result.stdout.strip():
-                        mountpoint = result.stdout.strip()
-                        break
-                except Exception:
-                    pass
-                time.sleep(0.5)
-            
-            if mountpoint:
-                try:
-                    # Fix ownership of mountpoint and top-level contents
-                    os.chown(mountpoint, uid, gid)
-                    for root, dirs, files in os.walk(mountpoint):
-                        os.chown(root, uid, gid)
-                        for d in dirs:
-                            os.chown(os.path.join(root, d), uid, gid)
-                        break  # Only process top level
-                    self.logger.info(f"Fixed ownership of {mountpoint} to {uid}:{gid}")
-                except Exception as e:
-                    self.logger.warning(f"Failed to fix ownership of {mountpoint}: {e}")
-        
-        threading.Thread(target=fix_ownership, daemon=True).start()
-
     def request_unlock(self, devnode: str, mapper_name: Optional[str], passphrase: str) -> str:
         token = passphrase  # now treated as token from secret socket
         passphrase = self._consume_secret(token, "unlock")
@@ -209,11 +239,8 @@ class Daemon:
         
         try:
             mapper_path = crypto_engine.unlock_luks(devnode, mapper, passphrase)
-            
-            # Schedule ownership fix after automount
-            if uid is not None and gid is not None:
-                self._fix_ownership_after_mount(mapper_path, uid, gid)
-            
+            # Encrypted devices are auto-mounted by the system (UDISKS_AUTO=1 in udev rules)
+            # The desktop environment handles ownership automatically
             self._log_event(
                 "unlock_done",
                 {

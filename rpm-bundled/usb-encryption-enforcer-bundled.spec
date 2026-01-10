@@ -13,6 +13,9 @@ BuildArch:      noarch
 
 BuildRequires:  python3-devel >= 3.8
 BuildRequires:  systemd-rpm-macros
+BuildRequires:  pkgconfig
+BuildRequires:  cairo-devel
+BuildRequires:  gobject-introspection-devel
 
 # System dependencies (can't bundle these)
 Requires:       python3 >= 3.8
@@ -22,6 +25,7 @@ Requires:       cryptsetup
 Requires:       udisks2
 Requires:       util-linux
 Requires:       parted
+Requires:       exfatprogs
 Requires:       systemd
 Requires:       polkit
 Requires:       dbus

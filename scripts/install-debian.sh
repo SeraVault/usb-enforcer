@@ -51,11 +51,31 @@ check_dependencies() {
   if ! command -v notify-send >/dev/null 2>&1; then
     missing+=("libnotify-bin")
   fi
+  if ! command -v mkfs.exfat >/dev/null 2>&1; then
+    missing+=("exfatprogs")
+  fi
   if ! dpkg -s python3-gi >/dev/null 2>&1; then
     missing+=("python3-gi")
   fi
   if ! dpkg -s gir1.2-gtk-4.0 >/dev/null 2>&1; then
     missing+=("gir1.2-gtk-4.0")
+  fi
+  
+  # Build dependencies for PyGObject/pycairo
+  if ! command -v pkg-config >/dev/null 2>&1; then
+    missing+=("pkg-config")
+  fi
+  if ! dpkg -s libcairo2-dev >/dev/null 2>&1; then
+    missing+=("libcairo2-dev")
+  fi
+  if ! dpkg -s libgirepository1.0-dev >/dev/null 2>&1; then
+    missing+=("libgirepository1.0-dev")
+  fi
+  if ! dpkg -s libgirepository-2.0-dev >/dev/null 2>&1; then
+    missing+=("libgirepository-2.0-dev")
+  fi
+  if ! dpkg -s python3-dev >/dev/null 2>&1; then
+    missing+=("python3-dev")
   fi
   
   if [[ ${#missing[@]} -gt 0 ]]; then

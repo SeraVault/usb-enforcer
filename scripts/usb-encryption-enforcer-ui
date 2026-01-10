@@ -221,7 +221,8 @@ def main():
     def on_event(fields):
         handle_event(fields, notifier)
 
-    proxy.onEvent = on_event
+    # Subscribe to Event signal using pydbus subscription pattern
+    proxy.Event.connect(on_event)
     print("usb-encryption-enforcer-ui listening for events...")
     loop = GLib.MainLoop()
     loop.run()

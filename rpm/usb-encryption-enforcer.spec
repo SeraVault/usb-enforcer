@@ -22,6 +22,7 @@ Requires:       cryptsetup
 Requires:       udisks2
 Requires:       util-linux
 Requires:       parted
+Requires:       exfatprogs
 Requires:       systemd
 Requires:       polkit
 Requires:       dbus

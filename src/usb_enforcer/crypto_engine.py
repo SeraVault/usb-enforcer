@@ -283,39 +283,12 @@ def encrypt_device(
         emit("mkfs", 60)
         create_filesystem(mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
         
-        # Mount the encrypted device automatically (daemon runs as root, no auth needed)
-        emit("mount", 80)
-        mapper_path = f"/dev/mapper/{mapper_name}"
-        
-        # Give udev a moment to process the new device
-        import time
-        time.sleep(1)
-        
-        # Use direct mount command (daemon has root privileges, bypasses PolicyKit)
-        mounted = False
-        mountpoint = None
-        
-        if username:
-            mountpoint = f"/media/{username}/{mapper_name}"
-        else:
-            mountpoint = f"/mnt/{mapper_name}"
-        
-        mount_opts = ["rw"]
-        if uid is not None and gid is not None:
-            mount_opts.extend([f"uid={uid}", f"gid={gid}"])
-        
-        try:
-            mount_device(mapper_path, mountpoint, mount_opts, uid, gid)
-            mounted = True
-            print(f"Auto-mounted {mapper_path} at {mountpoint}")
-        except Exception as e:
-            # If mount fails, still return the mapper - user can mount manually
-            print(f"Auto-mount failed: {e}")
-            pass
-        
+        # Let the system automount handle encrypted devices
+        # The udev rules have UDISKS_AUTO=1 for mapper devices
         emit("done", 100)
-        # Return mountpoint if mounted, otherwise mapper path
-        return mountpoint if mounted and mountpoint else mapper_path
+        mapper_path = f"/dev/mapper/{mapper_name}"
+        print(f"Encryption complete. Device will be auto-mounted by the system: {mapper_path}")
+        return mapper_path
     except Exception:
         if mapper:
             try:
