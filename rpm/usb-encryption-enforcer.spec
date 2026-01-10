@@ -1,10 +1,10 @@
-Name:           usb-encryption-enforcer
+Name:           usb-enforcer
 Version:        1.0.0
 Release:        1%{?dist}
 Summary:        USB data loss prevention for Linux desktops
 
 License:        MIT
-URL:            https://github.com/seravault/usb-encryption-enforcer
+URL:            https://github.com/seravault/usb-enforcer
 Source0:        %{name}-%{version}.tar.gz
 
 BuildArch:      noarch

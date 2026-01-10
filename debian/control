@@ -1,4 +1,4 @@
-Source: usb-encryption-enforcer
+Source: usb-enforcer
 Section: admin
 Priority: optional
 Maintainer: Donnie Guedry (dguedry@gmail.com)
@@ -7,11 +7,11 @@ Build-Depends: debhelper-compat (= 13),
                python3-all,
                python3-setuptools
 Standards-Version: 4.6.0
-Homepage: https://github.com/seravault/usb-enforce-encryption
-Vcs-Git: https://github.com/seravault/usb-enforce-encryption.git
-Vcs-Browser: https://github.com/seravault/usb-enforce-encryption
+Homepage: https://github.com/seravault/usb-enforcer
+Vcs-Git: https://github.com/seravault/usb-enforcer.git
+Vcs-Browser: https://github.com/seravault/usb-enforcer
 
-Package: usb-encryption-enforcer
+Package: usb-enforcer
 Architecture: all
 Depends: ${misc:Depends},
          ${python3:Depends},

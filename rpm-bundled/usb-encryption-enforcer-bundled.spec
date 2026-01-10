@@ -1,10 +1,10 @@
-Name:           usb-encryption-enforcer-bundled
+Name:           usb-enforcer-bundled
 Version:        1.0.0
 Release:        1%{?dist}
 Summary:        USB data loss prevention for Linux desktops (bundled Python deps)
 
 License:        MIT
-URL:            https://github.com/seravault/usb-encryption-enforcer
+URL:            https://github.com/seravault/usb-enforcer
 Source0:        usb-encryption-enforcer-%{version}.tar.gz
 # Bundled Python dependencies (download these separately)
 Source1:        python-deps.tar.gz

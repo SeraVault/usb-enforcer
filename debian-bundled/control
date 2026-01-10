@@ -1,4 +1,4 @@
-Source: usb-encryption-enforcer-bundled
+Source: usb-enforcer-bundled
 Section: admin
 Priority: optional
 Maintainer: Donnie Guedry (dguedry@gmail.com)
@@ -12,11 +12,11 @@ Build-Depends: debhelper-compat (= 13),
                libgirepository1.0-dev,
                libgirepository-2.0-dev
 Standards-Version: 4.6.0
-Homepage: https://github.com/seravault/usb-enforce-encryption
-Vcs-Git: https://github.com/seravault/usb-enforce-encryption.git
-Vcs-Browser: https://github.com/seravault/usb-enforce-encryption
+Homepage: https://github.com/seravault/usb-enforcer
+Vcs-Git: https://github.com/seravault/usb-enforcer.git
+Vcs-Browser: https://github.com/seravault/usb-enforcer
 
-Package: usb-encryption-enforcer-bundled
+Package: usb-enforcer-bundled
 Architecture: all
 Depends: ${misc:Depends},
          python3 (>= 3.8),
