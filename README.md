@@ -4,6 +4,15 @@ USB data loss prevention for Linux desktops: plaintext USB mass-storage devices 
 
 **Available as RPM and DEB packages** for easy installation on Fedora, RHEL, Debian, Ubuntu, and derivatives. Both standard (online) and bundled (offline/airgapped) package variants are provided.
 
+## Quick Links
+
+- **[Installation](#installing-and-running)** - Install via RPM/DEB packages or scripts
+- **[Headless/Server Usage](docs/HEADLESS-USAGE.md)** - Command-line usage without GUI
+- **[Windows Access](#accessing-encrypted-drives-on-windows)** - Using encrypted drives on Windows
+- **[Group Exemptions](docs/GROUP-EXEMPTIONS.md)** - Exempt specific users/groups from enforcement
+- **[Building Packages](#building-packages)** - Build RPM/DEB packages
+- **[Technical Details](docs/usb-enforcer.md)** - Architecture and design
+
 ## Supported Distributions
 
 ### Tested Distributions
@@ -49,7 +58,7 @@ This tool has been tested and is supported on:
 ### Notes
 - **Desktop compatibility**: Core enforcement daemon is desktop-agnostic and works on any systemd-based Linux system. GTK4 UI components (wizard, notifications) are designed for GNOME but will run on other desktops (KDE, XFCE, etc.) with visual inconsistencies.
 - **Wayland/X11**: Both display servers are supported
-- **Headless systems**: Core daemon works without GUI; UI components are optional
+- **Headless systems**: Core daemon works without GUI; UI components are optional. See [docs/HEADLESS-USAGE.md](docs/HEADLESS-USAGE.md) for command-line usage.
 - **ARM support**: Compatible with ARM64/AArch64 systems (Raspberry Pi 4+, etc.)
 - **Older distributions**: May work on older versions but are not officially tested
 
@@ -216,7 +225,11 @@ If you frequently need Windows access, consider these alternatives to LUKS2:
 - **macOS support**: LUKS2 can be accessed on macOS via Homebrew's `cryptsetup` package
 
 ## More Detail
-The legacy design document lives at `docs/usb-enforcer.md` and outlines goals, UX, and policy rationale. Update both this README and the doc if behavior changes (e.g., default filesystem, notification flow, or polkit rules).
+- **[docs/usb-enforcer.md](docs/usb-enforcer.md)**: Legacy design document with goals, UX, and policy rationale
+- **[docs/HEADLESS-USAGE.md](docs/HEADLESS-USAGE.md)**: Complete guide for using USB Enforcer on headless/server systems without GUI
+- **[docs/GROUP-EXEMPTIONS.md](docs/GROUP-EXEMPTIONS.md)**: Group-based exemption configuration
+
+Update both this README and the docs if behavior changes (e.g., default filesystem, notification flow, or polkit rules).
 
 ## Project Structure
 ```
