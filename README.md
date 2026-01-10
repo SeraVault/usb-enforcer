@@ -4,6 +4,55 @@ USB data loss prevention for Linux desktops: plaintext USB mass-storage devices 
 
 **Available as RPM and DEB packages** for easy installation on Fedora, RHEL, Debian, Ubuntu, and derivatives. Both standard (online) and bundled (offline/airgapped) package variants are provided.
 
+## Supported Distributions
+
+### Tested Distributions
+This tool has been tested and is supported on:
+
+**RPM-based:**
+- Fedora 38+
+- RHEL 9+ / AlmaLinux 9+ / Rocky Linux 9+
+- CentOS Stream 9+
+- openSUSE Leap 15.4+ / Tumbleweed
+
+**DEB-based:**
+- Ubuntu 22.04 LTS (Jammy) and newer
+- Debian 12 (Bookworm) and newer
+- Linux Mint 21+ (based on Ubuntu 22.04+)
+- Pop!_OS 22.04+
+
+### System Requirements
+- **Python**: 3.8 or newer
+- **Kernel**: Linux 5.10+ (for LUKS2 and modern udev features)
+- **Systemd**: Version 245+ (for service management)
+- **Desktop Environment**: 
+  - **GNOME 40+** (Recommended - native GTK4/libadwaita support)
+  - **Other desktops** (KDE Plasma, XFCE, etc.): Core daemon works universally, but GTK4 UI components may not match desktop theme
+- **Init System**: systemd (required for service management)
+- **DBus**: System and session bus support (available on all major desktops)
+
+### Core Dependencies
+- `udev` - Device management
+- `udisks2` - Disk/partition operations
+- `cryptsetup` 2.4.0+ - LUKS2 encryption
+- `policykit-1` / `polkit` - Permission management
+- `dbus` - Inter-process communication
+- `python3-gi` / `PyGObject` - GTK bindings
+- `gir1.2-gtk-3.0` - GTK3 introspection (for notifications)
+- `gtk4` / `libadwaita` - For encryption wizard UI
+
+### Filesystem Support
+- `exfatprogs` - For exFAT formatting (default)
+- `e2fsprogs` - For ext4 formatting (optional)
+- `dosfstools` - For FAT32 formatting (optional)
+
+### Notes
+- **Desktop compatibility**: Core enforcement daemon is desktop-agnostic and works on any systemd-based Linux system. GTK4 UI components (wizard, notifications) are designed for GNOME but will run on other desktops (KDE, XFCE, etc.) with visual inconsistencies.
+- **Wayland/X11**: Both display servers are supported
+- **Headless systems**: Core daemon works without GUI; UI components are optional
+- **ARM support**: Compatible with ARM64/AArch64 systems (Raspberry Pi 4+, etc.)
+- **Older distributions**: May work on older versions but are not officially tested
+
 ## How It Works
 - **Udev backstop:** `deploy/udev/49-usb-encryption-enforcer.rules` marks USB partitions with filesystems read-only (excludes LUKS and dm-crypt mappers). Automount is disabled for plaintext via `deploy/udev/80-udisks2-usb-encryption-enforcer.rules`, but encrypted/mapped devices keep automount enabled.
 - **Polkit policy:** `deploy/polkit/49-usb-encryption-enforcer.rules` denies `rw` mounts/remounts for plaintext USB and LUKS1 devices (ro is allowed). A permissive rule also allows udisks encryption/mount actions so the daemon/UI can operate.
