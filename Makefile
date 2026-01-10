@@ -1,4 +1,4 @@
-.PHONY: help rpm srpm clean prepare-rpm dist rpm-bundled bundle-deps deb deb-bundled
+.PHONY: help rpm srpm clean prepare-rpm dist rpm-bundled bundle-deps deb deb-bundled test test-unit test-integration test-coverage test-lint test-all
 
 NAME := usb-enforcer
 NAME_BUNDLED := usb-enforcer-bundled
@@ -21,6 +21,14 @@ help:
 	@echo "  make deb         - Build Debian package (downloads deps during install)"
 	@echo "  make deb-bundled - Build Debian package with bundled Python deps"
 	@echo ""
+	@echo "Test Targets:"
+	@echo "  make test            - Run unit tests (no root required)"
+	@echo "  make test-unit       - Run unit tests"
+	@echo "  make test-integration- Run integration tests (requires root)"
+	@echo "  make test-coverage   - Run tests with coverage report"
+	@echo "  make test-lint       - Run code quality checks"
+	@echo "  make test-all        - Run all tests and checks"
+	@echo ""
 	@echo "Utility Targets:"
 	@echo "  make dist        - Create source tarball"
 	@echo "  make bundle-deps - Download Python dependencies as wheels"
@@ -33,6 +41,7 @@ help:
 	@echo "Requirements:"
 	@echo "  For RPM: rpm-build, rpmdevtools packages"
 	@echo "  For DEB: debhelper, dh-python, devscripts packages"
+	@echo "  For Tests: pip install -r requirements-test.txt"
 
 dist:
 	@echo "Creating source tarball $(TARBALL)..."
@@ -155,3 +164,30 @@ deb-bundled:
 	@echo "Bundled Debian package created in dist/"
 	@ls -lh dist/$(NAME_BUNDLED)_*.deb
 
+# Test targets
+test: test-unit
+
+test-unit:
+	@echo "Running unit tests..."
+	@./run-tests.sh unit
+
+test-integration:
+	@echo "Running integration tests (requires root)..."
+	@if [ "$$(id -u)" -ne 0 ]; then \
+		echo "Error: Integration tests require root privileges"; \
+		echo "Run with: sudo make test-integration"; \
+		exit 1; \
+	fi
+	@./run-tests.sh integration
+
+test-coverage:
+	@echo "Running tests with coverage..."
+	@./run-tests.sh coverage
+
+test-lint:
+	@echo "Running code quality checks..."
+	@./run-tests.sh lint
+
+test-all:
+	@echo "Running all tests and checks..."
+	@./run-tests.sh all

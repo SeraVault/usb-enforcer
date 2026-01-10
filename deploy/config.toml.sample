@@ -6,7 +6,7 @@ default_encrypted_mount_opts = ["nodev", "nosuid", "rw"]
 require_noexec_on_plain = true
 min_passphrase_length = 12
 encryption_target_mode = "whole_disk"
-filesystem_type = "ext4"
+filesystem_type = "exfat"
 notification_enabled = true
 
 # Group-based exemptions: Users in these groups will bypass USB encryption enforcement

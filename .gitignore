@@ -41,6 +41,19 @@ env/
 #*.deb
 #*.rpm
 python-deps.tar.gz
+dist/
+wheels/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+.tox/
+*.cover
+test-results/
+.mypy_cache/
+.ruff_cache/
 
 # Logs
 *.log
