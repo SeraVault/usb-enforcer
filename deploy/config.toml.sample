@@ -9,6 +9,11 @@ encryption_target_mode = "whole_disk"
 filesystem_type = "ext4"
 notification_enabled = true
 
+# Group-based exemptions: Users in these groups will bypass USB encryption enforcement
+# This allows administrators to exempt specific users from DLP restrictions
+# Example: exempted_groups = ["usb-exempt", "developers", "sysadmin"]
+exempted_groups = []
+
 [kdf]
 type = "argon2id"
 

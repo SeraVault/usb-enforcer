@@ -16,6 +16,7 @@ USB data loss prevention for Linux desktops: plaintext USB mass-storage devices 
 - Primary config lives at `/etc/usb-encryption-enforcer/config.toml` (sample in `deploy/config.toml.sample`).
 - Defaults (`src/usb_enforcer/config.py`): `enforce_on_usb_only=true`, `default_plain_mount_opts=["nodev","nosuid","noexec","ro"]`, `default_encrypted_mount_opts=["nodev","nosuid","rw"]`, `allow_luks1_readonly=true`, `min_passphrase_length=12`, `filesystem_type="exfat"` (sample config uses ext4), `kdf.type="argon2id"`, `cipher.type="aes-xts-plain64"` with a 512-bit key.
 - Daemon skips block-level RO while an encryption operation is in progress to allow formatting; otherwise plaintext partitions/disks with filesystems are forced `ro`.
+- **Group-based exemptions:** Set `exempted_groups = ["groupname"]` in config.toml to bypass enforcement for users in specific Linux groups. This allows administrators to exempt trusted personnel (e.g., `usb-exempt`, `developers`, `sysadmin`) from DLP restrictions while maintaining enforcement for other users. See [docs/usb-encryption-enforcer.md](docs/usb-encryption-enforcer.md#group-based-exemptions) for setup instructions.
 
 ## Installing and Running
 

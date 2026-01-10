@@ -47,7 +47,36 @@ Endpoint DLP control for Linux desktops: USB mass-storage devices mount read-onl
 - `encryption_target_mode` (`whole_disk`|`single_partition`, default whole_disk)
 - `filesystem_type` (`ext4`|`exfat`, default ext4)
 - `notification_enabled` (bool)
+- `exempted_groups` (list of strings, default empty): Linux group names whose members bypass all USB encryption enforcement. Users in any of these groups will have full read-write access to USB devices without encryption requirements. This allows administrators to exempt specific users (e.g., developers, sysadmins, or trusted personnel) from DLP restrictions while maintaining enforcement for all other users.
 - `kdf` params (argon2id tunables) and `cipher` policy (AES-XTS 512-bit)
+
+### Group-Based Exemptions
+The `exempted_groups` configuration allows administrators to create per-user enforcement exemptions based on Linux group membership. When any logged-in user is a member of a group listed in `exempted_groups`, USB encryption enforcement is completely bypassed for all users on that system session.
+
+**Use cases:**
+- IT administrators who need unrestricted USB access for system maintenance
+- Developers requiring frequent data transfers during testing
+- Trusted personnel with approved business needs for plaintext USB access
+- Emergency/temporary exemptions for specific projects
+
+**Configuration example:**
+```toml
+# Create a group and add users who should bypass enforcement
+exempted_groups = ["usb-exempt", "developers", "sysadmin"]
+```
+
+**Setup instructions:**
+1. Create the exemption group: `sudo groupadd usb-exempt`
+2. Add users to the group: `sudo usermod -aG usb-exempt username`
+3. Update config.toml with the group name(s)
+4. Restart the daemon: `sudo systemctl restart usb-encryption-enforcerd`
+5. User must log out and back in for group membership to take effect
+
+**Security considerations:**
+- Audit group membership regularly
+- Log all exempted access events with the user and group identified
+- Consider using time-limited group memberships for temporary exemptions
+- Group exemptions apply system-wide when those users are logged in
 
 ## 6) Enforcement Architecture
 - **EA-1: udisks2 automount control + polkit (primary)**

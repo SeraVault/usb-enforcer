@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from . import classify, constants
+from . import user_utils
 
 
 def set_block_read_only(devnode: str, logger: logging.Logger) -> bool:
@@ -43,6 +44,7 @@ def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.L
     """
     Apply block-level RO for plaintext USB partitions with filesystems.
     Whole disks are left writable to allow partitioning operations.
+    Users in exempted groups bypass all enforcement.
     """
     classification = classify.classify_device(device_props, devnode=devnode)
     result = {
@@ -55,6 +57,15 @@ def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.L
         constants.LOG_KEY_BUS: device_props.get("ID_BUS", "unknown"),
         constants.LOG_KEY_SERIAL: device_props.get("ID_SERIAL_SHORT", device_props.get("ID_SERIAL", "")),
     }
+
+    # Check if any active user is in an exempted group
+    is_exempted, exemption_reason = user_utils.any_active_user_in_groups(config.exempted_groups, logger)
+    if is_exempted:
+        result[constants.LOG_KEY_ACTION] = "exempt"
+        result[constants.LOG_KEY_RESULT] = "allow"
+        result["exemption_reason"] = exemption_reason
+        logger.info(f"Exempting {devnode}: {exemption_reason}")
+        return result
 
     # Apply block-level RO to partitions with filesystems OR whole disks with filesystems
     # Leave unformatted whole disks writable to allow partitioning

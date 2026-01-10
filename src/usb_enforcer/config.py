@@ -20,6 +20,7 @@ class Config:
     encryption_target_mode: str = "whole_disk"
     filesystem_type: str = "exfat"
     notification_enabled: bool = True
+    exempted_groups: List[str] = field(default_factory=list)
     kdf: dict = field(default_factory=lambda: {"type": "argon2id"})
     cipher: dict = field(default_factory=lambda: {"type": "aes-xts-plain64", "key_size": 512})
 
@@ -40,6 +41,7 @@ class Config:
             encryption_target_mode=parsed.get("encryption_target_mode", "whole_disk"),
             filesystem_type=parsed.get("filesystem_type", "exfat"),
             notification_enabled=parsed.get("notification_enabled", True),
+            exempted_groups=parsed.get("exempted_groups", []),
             kdf=parsed.get("kdf", {"type": "argon2id"}),
             cipher=parsed.get("cipher", {"type": "aes-xts-plain64", "key_size": 512}),
         )
