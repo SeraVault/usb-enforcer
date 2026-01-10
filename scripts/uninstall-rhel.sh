@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uninstall USB Encryption Enforcer (DLP) from RHEL/Fedora-family systems.
+# Uninstall USB Enforcer (DLP) from RHEL/Fedora-family systems.
 set -euo pipefail
 
 PREFIX="${PREFIX:-/usr}"

@@ -10,7 +10,7 @@ SPEC_FILE_BUNDLED := rpm-bundled/usb-enforcer-bundled.spec
 PYTHON_DEPS := python-deps.tar.gz
 
 help:
-	@echo "USB Encryption Enforcer - Build System"
+	@echo "USB Enforcer - Build System"
 	@echo ""
 	@echo "RPM Targets:"
 	@echo "  make rpm         - Build binary RPM (downloads deps during install)"

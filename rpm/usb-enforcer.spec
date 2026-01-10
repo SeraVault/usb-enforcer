@@ -31,7 +31,7 @@ Requires:       gtk4
 Requires:       libadwaita
 
 %description
-USB Encryption Enforcer enforces encryption on USB mass-storage devices.
+USB Enforcer enforces encryption on USB mass-storage devices.
 Plaintext USB devices are forced read-only, while LUKS2-encrypted devices
 can be unlocked and mounted writable. A Python daemon watches udev, enforces
 block-level read-only mode, and provides a DBus API. Includes a GTK wizard

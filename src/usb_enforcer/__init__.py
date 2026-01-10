@@ -1,1 +1,1 @@
-# USB Encryption Enforcer package marker
+# USB Enforcer package marker

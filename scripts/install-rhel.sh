@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install USB Encryption Enforcer (DLP) on RHEL/Fedora-family systems.
+# Install USB Enforcer (DLP) on RHEL/Fedora-family systems.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" && pwd)"

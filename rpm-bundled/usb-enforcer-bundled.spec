@@ -39,7 +39,7 @@ Provides:       bundled(python3dist(pydbus)) = 0.6.0
 Provides:       bundled(python3dist(typing-extensions)) = 4.15.0
 
 %description
-USB Encryption Enforcer enforces encryption on USB mass-storage devices.
+USB Enforcer enforces encryption on USB mass-storage devices.
 Plaintext USB devices are forced read-only, while LUKS2-encrypted devices
 can be unlocked and mounted writable. A Python daemon watches udev, enforces
 block-level read-only mode, and provides a DBus API. Includes a GTK wizard

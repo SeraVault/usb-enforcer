@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install USB Encryption Enforcer (DLP) on Debian/Ubuntu/Mint systems.
+# Install USB Enforcer (DLP) on Debian/Ubuntu/Mint systems.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" && pwd)"

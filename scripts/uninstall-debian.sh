@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uninstall USB Encryption Enforcer (DLP) from Debian/Ubuntu/Mint systems.
+# Uninstall USB Enforcer (DLP) from Debian/Ubuntu/Mint systems.
 set -euo pipefail
 
 PREFIX="${PREFIX:-/usr}"
