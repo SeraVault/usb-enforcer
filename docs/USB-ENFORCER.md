@@ -1,7 +1,11 @@
-# USB Encryption Enforcement (DLP: Read-Only Plaintext, Write-Only Encrypted)
+# USB Enforcer - Technical Architecture
 
 ## 0) Summary
-Endpoint DLP control for Linux desktops: USB mass-storage devices mount read-only when unencrypted and writable only when protected with LUKS2. Plaintext devices are forced block-level `ro` and cannot be remounted `rw`; encrypted media can be unlocked and mounted `rw`. Desktop notifications guide users to unlock or encrypt devices through a wizard. All decisions are audited to journald. Stack: udisks2 + polkit (policy), udev backstop, systemd services (root + user session), DBus API, notifications/GTK wizard (desktop-agnostic).
+USB Enforcer provides endpoint DLP (Data Loss Prevention) control for Linux systems. USB mass-storage devices mount read-only when unencrypted and writable only when protected with LUKS2 encryption. Plaintext devices are forced block-level `ro` and cannot be remounted `rw`; encrypted media can be unlocked and mounted `rw`. Desktop notifications guide users to unlock or encrypt devices through a GTK wizard. All decisions are audited to journald.
+
+**Current Implementation**: Python-based daemon with udev monitoring, DBus API, polkit enforcement, optional GTK4/libadwaita UI. Available as RPM and DEB packages for all major Linux distributions. Supports both desktop and headless deployments.
+
+**Technology Stack**: udisks2 + polkit (policy enforcement), udev (device detection + backstop), systemd services (root daemon + optional user session UI), DBus API (command/control), PyGObject + GTK4/libadwaita (optional desktop notifications and wizard).
 
 ## 1) Goals and Non-Goals
 - Enforce: plaintext USB mounts read-only; writes/remount to `rw` blocked; LUKS2 devices can be unlocked and mounted `rw`.
@@ -11,8 +15,24 @@ Endpoint DLP control for Linux desktops: USB mass-storage devices mount read-onl
 - Non-goals: cross-platform; protection against malicious root (root can override unless system lockdown is added).
 
 ## 2) Supported Platforms
-- Linux desktops with udisks2 + systemd: Ubuntu 22.04+/24.04+, Debian 12+, RHEL 9+, Fedora 39+.
-- File managers that use udisks (GNOME Files, etc.). Plaintext USB devices don't auto-mount but can be manually mounted with one click.
+
+### Current Package Support
+- **RPM-based**: Fedora 38+, RHEL 9+, AlmaLinux 9+, Rocky Linux 9+, CentOS Stream 9+, openSUSE Leap 15.4+/Tumbleweed
+- **DEB-based**: Ubuntu 22.04 LTS+, Debian 12+, Linux Mint 21+, Pop!_OS 22.04+
+- **Architecture**: x86_64, ARM64/AArch64 (Raspberry Pi 4+, etc.)
+- **Deployment**: Desktop systems with GUI (GNOME, KDE, XFCE, etc.) and headless/server systems
+
+### System Requirements
+- Linux kernel 5.10+ (for LUKS2 and modern udev features)
+- systemd 245+ (for service management)
+- Python 3.8 or newer
+- udisks2, cryptsetup 2.4.0+, polkit, dbus
+
+### Desktop Integration
+- File managers that use udisks (GNOME Files, Dolphin, Thunar, etc.) respect enforcement
+- Plaintext USB devices don't auto-mount but can be manually mounted read-only with one click
+- GTK4 wizard and notifications designed for GNOME but work on all desktops (with visual theme differences)
+- Headless systems: Core daemon and DBus API work without any GUI components (see [HEADLESS-USAGE.md](HEADLESS-USAGE.md))
 
 ## 3) Definitions
 - USB mass storage: block devices with `ID_BUS=usb` and `ID_TYPE=disk` (and their partitions).
@@ -45,7 +65,7 @@ Endpoint DLP control for Linux desktops: USB mass-storage devices mount read-onl
 - `require_noexec_on_plain` (bool)
 - `min_passphrase_length` (int, default 12)
 - `encryption_target_mode` (`whole_disk`|`single_partition`, default whole_disk)
-- `filesystem_type` (`ext4`|`exfat`, default ext4)
+- `filesystem_type` (`exfat`|`ext4`|`vfat`, default exfat)
 - `notification_enabled` (bool)
 - `exempted_groups` (list of strings, default empty): Linux group names whose members bypass all USB encryption enforcement. Users in any of these groups will have full read-write access to USB devices without encryption requirements. This allows administrators to exempt specific users (e.g., developers, sysadmins, or trusted personnel) from DLP restrictions while maintaining enforcement for all other users.
 - `kdf` params (argon2id tunables) and `cipher` policy (AES-XTS 512-bit)
@@ -96,16 +116,24 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 
 ## 7) Components
 - **C-1 Root daemon: usb-enforcerd**
-  - Language: Python (pyudev + pydbus) or Go.
-  - Functions:
+  - **Language**: Python 3.8+ (implemented with pyudev + pydbus)
+  - **Location**: `/usr/lib/usb-enforcer/venv/` (virtualenv) with wrapper script in `/usr/sbin/usb-enforcerd`
+  - **Service**: `usb-enforcerd.service` (systemd system service)
+  - **Functions**:
     - Listen for add/change/remove udev events; classify devices (USB? plain? LUKS1? LUKS2? mapper?).
     - Enforce block-level RO for plaintext per config.
     - Publish journald logs with structured fields.
-    - Expose DBus API:
-      - `list_devices()`: returns device list with status (plain_ro, luks2_locked, luks2_unlocked_rw, blocked).
-      - `get_device_status(devnode)`
-      - `request_encrypt(devnode, options)`
-      - `request_unlock(devnode)`
+    - Expose DBus API (`org.seravault.UsbEnforcer` on system bus):
+      - `ListDevices()`: returns array of device dictionaries with status, type, filesystem info.
+      - `GetDeviceStatus(devnode)`: returns dictionary with detailed device information.
+      - `RequestUnlock(devnode, mapper_name, token)`: unlocks LUKS2 device using passphrase token from secret socket.
+      - `RequestEncrypt(devnode, mapper_name, token, fs_type, label)`: encrypts device using passphrase token from secret socket.
+      - `Event` signal: emits structured events for device state changes (insert, remove, classify, mount, unlock, encrypt).
+    - **Secret Socket** (`/run/usb-enforcer.sock`): UNIX domain socket for secure passphrase transmission.
+      - Clients send passphrase over socket, receive one-time token.
+      - Token is then passed via DBus methods (passphrases never traverse DBus).
+      - Socket only accessible by root; permissions enforced by filesystem.
+      - Tokens expire after single use or timeout.
       - `subscribe_events()` signal stream (insert, classify, enforcement, wizard state).
 - **C-2 Polkit rules**
   - File: `/etc/polkit-1/rules.d/49-usb-enforcer.rules`.
@@ -113,10 +141,12 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 - **C-3 Desktop UI (systemd --user + libnotify/GTK4)**
   - User service listens on daemon DBus signals.
   - Shows notifications via `org.freedesktop.Notifications` with action buttons wired to daemon calls.
-  - GTK4/libadwaita app `usb-enforcer-ui`:
-    - Device picker (USB only).
-    - Encryption wizard (confirmation, passphrase entry + strength meter/show toggle, progress).
-    - Unlock prompt (or defer to udisks unlock dialog).
+  - GTK4/libadwaita app `usb-enforcer-wizard`:
+    - Device picker (USB only) with model/size information.
+    - Encryption wizard with data preservation option (backs up existing data, encrypts device, then restores data).
+    - Passphrase entry with visibility toggle and minimum length enforcement (default 12 chars).
+    - Real-time progress display during encryption/formatting.
+  - Helper app `usb-enforcer-helper`: Simple GTK4 unlock dialog for encrypted devices.
   - Alternate Shell extension acceptable; path above is the default.
 - **C-4 Encryption engine**
   - Uses `cryptsetup` CLI (root daemon) with policy parameters:
@@ -137,12 +167,22 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
   2. Notification: “Encrypted USB detected. Unlock to enable access.” Action: Unlock…
   3. On unlock: daemon runs `cryptsetup open`; polkit permits; mount `rw` with policy opts; success notification; optional auto-open.
 - **Encryption wizard**:
-  1. User triggers Encrypt… action or runs UI directly.
-  2. UI lists USB devices; user selects target; warned about data loss; confirms.
-  3. Passphrase entry with policy enforcement; strength meter optional; confirm/passphrase visibility toggle.
-  4. Daemon wipes/creates LUKS2, opens mapper, formats filesystem, mounts `rw`, sends progress/events.
-  5. On success: notification and optional auto-open mount.
-  6. On failure/cancel: notification with error and log reference ID.
+  1. User triggers Encrypt… action from notification or runs `usb-enforcer-wizard` directly.
+  2. UI lists USB devices with model, serial, size, and partition information; user selects target.
+  3. **Data preservation option**: Checkbox to "Preserve existing data" - backs up data to temporary location before encryption, then restores after.
+  4. User warned about data loss (if not preserving); confirms operation.
+  5. Passphrase entry with visibility toggle, double-entry confirmation, and minimum length enforcement (configurable, default 12 chars).
+  6. Daemon performs encryption workflow:
+     - If preserving data: mount device, copy data to `/tmp/usb-enforcer-backup-*`, unmount
+     - Wipe device (optional secure wipe)
+     - Create LUKS2 container with argon2id KDF and AES-XTS 512-bit cipher
+     - Open LUKS2 mapper
+     - Format filesystem (exfat default, configurable to ext4/vfat)
+     - Mount encrypted device read-write
+     - If preserving data: restore files from backup, clean up temp directory
+  7. Progress events sent via DBus; UI shows real-time progress bar and status messages.
+  8. On success: notification with mount point; device ready to use with full read-write access.
+  9. On failure/cancel: notification with error message; journald log entry with details.
 
 ## 9) Policy Details
 - Mount options:
@@ -155,13 +195,27 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 - Non-storage USB (ID_TYPE!=disk) ignored.
 
 ## 10) Logging and Audit (journald)
-- Structured fields (examples): `USB_EE_EVENT=insert|classify|enforce|unlock|encrypt|error`, `DEVNODE=/dev/sdX`, `DEVTYPE=disk|part|mapper`, `BUS=usb`, `SERIAL=...`, `CLASSIFICATION=plaintext|luks1|luks2_locked|luks2_unlocked`, `ACTION=mount_ro|mount_rw|block_rw|remount_denied|encrypt_start|encrypt_done|encrypt_fail|unlock_start|unlock_done|unlock_fail`, `RESULT=allow|deny|fail`, `POLICY_SOURCE=polkit|udev|daemon`.
-- No secrets logged; passphrases never written; include reference IDs for errors to correlate UI messages with logs.
+- Structured fields (examples): `USB_EE_EVENT=insert|classify|enforce|unlock|encrypt|error`, `DEVNODE=/dev/sdX`, `DEVTYPE=disk|part|mapper`, `BUS=usb`, `SERIAL=...`, `CLASSIFICATION=plaintext|luks1|luks2_locked|luks2_unlocked`, `ACTION=mount_ro|mount_rw|block_rw|remount_denied|encrypt_start|encrypt_done|encrypt_fail|unlock_start|unlock_done|unlock_fail`, `RESULT=allow|deny|fail`, `POLICY_SOURCE=polkit|udev|daemon`, `USER=<username>` (for exemption tracking), `EXEMPTED_BY_GROUP=<groupname>` (when bypass is active).
+- No secrets logged; passphrases never written to logs or files; include reference IDs for errors to correlate UI messages with logs.
+- Group exemptions: when enforcement is bypassed due to group membership, log entries include user identity and exempting group name for audit trail.
 
 ## 11) Security Requirements
-- Crypto: LUKS2, argon2id KDF, AES-XTS 512-bit; enforce minimum KDF params from config.
-- Secrets handling: passphrases only in-memory; no logging; clear buffers after use.
-- Least privilege: UI unprivileged; privileged operations through daemon + polkit. Root still able to override (out of scope).
+- **Cryptography**: LUKS2 with argon2id KDF and AES-XTS 512-bit cipher; enforce minimum KDF parameters from configuration.
+- **Secrets handling**: 
+  - Passphrases transmitted via UNIX domain socket (`/run/usb-enforcer.sock`), never via DBus.
+  - Passphrases only kept in-memory; never written to disk or logs.
+  - Memory buffers cleared after use; tokens expire after single use.
+  - Socket permissions restrict access to root only.
+- **Privilege separation**: 
+  - UI components run unprivileged (user context).
+  - Privileged operations (cryptsetup, blockdev) only through daemon + polkit.
+  - DBus policy restricts API access to authorized processes.
+- **Group exemptions**: 
+  - Configured in `/etc/usb-enforcer/config.toml` with `exempted_groups` list.
+  - All exempted access logged with user and group information.
+  - Administrators should audit group membership regularly.
+  - See [GROUP-EXEMPTIONS.md](GROUP-EXEMPTIONS.md) for setup and security considerations.
+- **Limitations**: Root users can still override enforcement (system-level lockdown out of scope). Physical access to hardware allows bypass via external boot media.
 
 ## 12) Edge Cases and Reliability
 - Multiple partitions: each evaluated; mixed plain/LUKS handled per-partition.
@@ -171,14 +225,71 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 - Config reload: daemon reloads on SIGHUP or via DBus method; applies new policy to subsequent events.
 
 ## 13) Deployment and Packaging
-- Install daemon binary/script to `/usr/libexec/usb-enforcerd` with systemd service unit.
-- Install polkit rule to `/etc/polkit-1/rules.d/49-usb-enforcer.rules`.
-- Install udev rule to `/etc/udev/rules.d/49-usb-enforcer.rules`.
-- Install DBus policy `/etc/dbus-1/system.d/org.seravault.UsbEnforcer.conf` so the daemon can own the system bus name.
-- Install user service (`~/.config/systemd/user/usb-enforcer-ui.service`) and GTK app/desktop entry for wizard.
-- If enabling the user notification bridge via `/etc/systemd/user/default.target.wants`, user sessions pick it up on next login; to start immediately for the current user run: `systemctl --user daemon-reload && systemctl --user enable --now usb-enforcer-ui`.
-- Wizard: `usb-enforcer-wizard` (GTK4/libadwaita) connects to the daemon over DBus for encrypt/unlock flows. Requires PyGObject and system GTK/libadwaita packages.
-- Provide man page or `--help` for CLI/Wizard; ship local help page for “Learn more”.
+
+### Current Package Structure
+USB Enforcer is distributed as native RPM and DEB packages in two variants:
+- **Standard packages**: `usb-enforcer` (downloads Python dependencies during installation)
+- **Bundled packages**: `usb-enforcer-bundled` (includes all dependencies for offline/airgapped systems)
+
+### Installation Layout
+- **Daemon**: `/usr/lib/usb-enforcer/` (Python package + virtualenv)
+- **Scripts**: `/usr/sbin/{usb-enforcerd,usb-enforcer-ui,usb-enforcer-wizard,usb-enforcer-helper}`
+- **Configuration**: `/etc/usb-enforcer/config.toml` (user-editable)
+- **Polkit rules**: `/etc/polkit-1/rules.d/49-usb-enforcer.rules`
+- **Udev rules**: `/etc/udev/rules.d/{49-usb-enforcer.rules,80-udisks2-usb-enforcer.rules}`
+- **DBus policy**: `/etc/dbus-1/system.d/org.seravault.UsbEnforcer.conf`
+- **Systemd services**:
+  - System: `/etc/systemd/system/usb-enforcerd.service` (daemon)
+  - User: `/etc/systemd/user/usb-enforcer-ui.service` (optional desktop notifications/UI)
+
+### Package Installation
+```bash
+# RPM-based systems
+sudo dnf install usb-enforcer-1.0.0-1.*.noarch.rpm
+# OR bundled version
+sudo dnf install usb-enforcer-bundled-1.0.0-1.*.noarch.rpm
+
+# DEB-based systems
+sudo apt install ./usb-enforcer_1.0.0-1_all.deb
+# OR bundled version
+sudo apt install ./usb-enforcer-bundled_1.0.0-1_all.deb
+```
+
+### Building Packages
+See [BUILD-RPM.md](../BUILD-RPM.md) and [BUILD-DEB.md](../BUILD-DEB.md) for complete build instructions.
+
+```bash
+make rpm          # Build standard RPM
+make rpm-bundled  # Build bundled RPM (offline)
+make deb          # Build standard DEB (requires Debian/Ubuntu)
+make deb-bundled  # Build bundled DEB (offline)
+```
+
+### Service Management
+Both system and user services are enabled automatically by package installers:
+
+```bash
+# Check daemon status
+sudo systemctl status usb-enforcerd
+
+# Check user UI service (desktop only)
+systemctl --user status usb-enforcer-ui
+
+# Manual enable/restart
+sudo systemctl enable --now usb-enforcerd
+systemctl --user enable --now usb-enforcer-ui
+
+# View logs
+sudo journalctl -u usb-enforcerd -f
+journalctl --user -u usb-enforcer-ui -f
+```
+
+### Headless/Server Deployment
+For systems without GUI, install the package normally - the daemon works without UI components:
+- System daemon (`usb-enforcerd`) runs and enforces policies
+- User UI service won't start (no display server)
+- All operations accessible via DBus API from command-line
+- See [HEADLESS-USAGE.md](HEADLESS-USAGE.md) for command-line usage examples
 
 ### System package requirements for the GTK wizard (examples)
 - RHEL/Fedora: `./`
@@ -186,9 +297,103 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 - After installing system packages: `. .venv/bin/activate && pip install -r requirements.txt`
 
 ## 14) Testing and Validation
-- Unit: device classification, config parsing, DBus API behaviors.
-- Integration (VM): insert plaintext USB → mounts `ro`, write fails, notification present; remount attempt denied; journald entries recorded.
-- Encrypted flow: LUKS2 insert → unlock → `rw` mount; audit entries; notification.
-- LUKS1 flow: verify `ro` (or blocked) per config.
-- Regression: ensure non-USB disks unaffected; ensure `/dev/mapper` not forced `ro`.
-- UX: notifications appear; wizard encrypts and remounts writable; error handling messages show reference IDs.
+
+### Unit Testing
+- Device classification logic (plaintext, LUKS1, LUKS2, mapper identification)
+- Configuration parsing and validation
+- DBus API method signatures and return values
+- Secret socket token generation and expiration
+- Group exemption detection and logging
+
+### Integration Testing (VM/Test Environment)
+- **Plaintext USB workflow**:
+  - Insert plaintext USB → daemon classifies and sets block-level read-only
+  - Verify mount is read-only via udisksctl and file manager
+  - Attempt write operations → should fail with EROFS
+  - Attempt remount read-write → should be denied by polkit
+  - Verify desktop notification appears with "Encrypt..." action
+  - Check journald entries contain correct structured fields
+  
+- **LUKS2 encrypted workflow**:
+  - Insert LUKS2 USB → daemon classifies as encrypted/locked
+  - Verify notification with "Unlock..." action
+  - Unlock via wizard/helper → should mount read-write
+  - Write operations should succeed
+  - Verify audit log entries for unlock success
+  - Unmount and re-insert → should re-lock
+
+- **Encryption wizard workflow**:
+  - Run wizard on plaintext device
+  - Test data preservation option (backup → encrypt → restore)
+  - Test encryption without preservation (fresh format)
+  - Verify passphrase validation (minimum length, confirmation match)
+  - Monitor progress events via DBus
+  - Verify LUKS2 container created with correct parameters (argon2id, AES-XTS-512)
+  - Verify filesystem formatted (exfat/ext4) and mounted read-write
+  - Check journald structured logging throughout process
+
+- **LUKS1 handling**:
+  - Insert LUKS1 device
+  - Verify read-only mount (or blocked, depending on config)
+  - Check log entries mark as LUKS1
+
+- **Group exemption testing**:
+  - Configure `exempted_groups = ["test-exempt"]`
+  - Add user to group, verify enforcement bypassed
+  - Check audit logs contain exemption reason and group name
+  - Remove user from group, verify enforcement re-enabled
+
+- **Headless operation**:
+  - Test on system without GUI/display server
+  - Verify daemon runs and enforces policies
+  - Test DBus API operations from command-line (ListDevices, GetDeviceStatus)
+  - Test unlock/encrypt via Python scripts using secret socket
+  - Verify all operations work without GTK/UI components
+
+### Regression Testing
+- Non-USB block devices (internal disks, NVMe) → should be completely ignored
+- Multiple partitions on same USB device → each evaluated independently
+- `/dev/mapper/*` devices → should never be forced read-only
+- Encrypted mapper removal during operation → cleanup should occur gracefully
+- Config reload (SIGHUP) → should apply new settings without restart
+- Service restart → should not affect already-mounted devices
+
+### User Experience Testing
+- Notifications appear consistently on all desktop environments (GNOME, KDE, XFCE, etc.)
+- Wizard UI is usable and responsive during long operations
+- Error messages are clear and include actionable information
+- Help/Learn more content is accessible
+- Progress indicators accurately reflect operation status
+- Window/dialog focus behavior is correct
+
+## 15) Related Documentation
+
+- **[../README.md](../README.md)**: Main project README with installation instructions and quick start
+- **[HEADLESS-USAGE.md](HEADLESS-USAGE.md)**: Complete guide for command-line usage on headless/server systems
+- **[GROUP-EXEMPTIONS.md](GROUP-EXEMPTIONS.md)**: Detailed guide for configuring group-based exemptions
+- **[../BUILD-RPM.md](../BUILD-RPM.md)**: Instructions for building RPM packages (Fedora, RHEL, openSUSE)
+- **[../BUILD-DEB.md](../BUILD-DEB.md)**: Instructions for building DEB packages (Debian, Ubuntu)
+
+## 16) Version History and Compatibility
+
+**Current Version**: 1.0.0
+
+### Feature Status
+- ✅ Core enforcement (plaintext read-only, LUKS2 read-write)
+- ✅ Desktop notifications and GTK4 wizard
+- ✅ DBus API with secret socket for passphrases
+- ✅ Group-based exemptions
+- ✅ Data preservation during encryption
+- ✅ Headless/server support
+- ✅ RPM and DEB packaging (standard + bundled variants)
+- ✅ Support for exfat, ext4, vfat filesystems
+- ✅ Comprehensive journald audit logging
+- ✅ Multi-partition device support
+
+### Future Considerations
+- Hardware token support (YubiKey, etc.) for LUKS unlocking
+- Integration with enterprise key management systems
+- TPM-based automatic unlock for specific trusted devices
+- Web-based management interface for headless systems
+- Policy enforcement via Active Directory/LDAP groups
+- Support for additional encryption formats (VeraCrypt compatibility)

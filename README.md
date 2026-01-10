@@ -225,7 +225,7 @@ If you frequently need Windows access, consider these alternatives to LUKS2:
 - **macOS support**: LUKS2 can be accessed on macOS via Homebrew's `cryptsetup` package
 
 ## More Detail
-- **[docs/USB-ENFORCER.md](docs/USB-ENFORCER.md)**: Legacy design document with goals, UX, and policy rationale
+- **[docs/USB-ENFORCER.md](docs/USB-ENFORCER.md)**: Technical architecture, design goals, and enforcement policy details
 - **[docs/HEADLESS-USAGE.md](docs/HEADLESS-USAGE.md)**: Complete guide for using USB Enforcer on headless/server systems without GUI
 - **[docs/GROUP-EXEMPTIONS.md](docs/GROUP-EXEMPTIONS.md)**: Group-based exemption configuration
 
