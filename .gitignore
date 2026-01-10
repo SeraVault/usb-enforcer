@@ -38,8 +38,8 @@ env/
 
 # Build artifacts
 *.tar.gz
-*.deb
-*.rpm
+#*.deb
+#*.rpm
 python-deps.tar.gz
 
 # Logs
