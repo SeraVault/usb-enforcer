@@ -5,7 +5,7 @@
 set -e
 
 GROUP_NAME="usb-exempt"
-CONFIG_FILE="/etc/usb-encryption-enforcer/config.toml"
+CONFIG_FILE="/etc/usb-enforcer/config.toml"
 
 echo "Setting up USB enforcement exemption group..."
 
@@ -58,14 +58,14 @@ fi
 
 # Restart daemon if running
 echo ""
-if systemctl is-active --quiet usb-encryption-enforcerd; then
+if systemctl is-active --quiet usb-enforcerd; then
     read -p "Restart USB enforcement daemon to apply changes? [y/N]: " RESTART
     if [ "$RESTART" = "y" ] || [ "$RESTART" = "Y" ]; then
-        systemctl restart usb-encryption-enforcerd
+        systemctl restart usb-enforcerd
         echo "Daemon restarted"
     fi
 else
-    echo "Daemon not running. Start it with: sudo systemctl start usb-encryption-enforcerd"
+    echo "Daemon not running. Start it with: sudo systemctl start usb-enforcerd"
 fi
 
 echo ""

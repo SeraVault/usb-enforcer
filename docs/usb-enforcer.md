@@ -37,7 +37,7 @@ Endpoint DLP control for Linux desktops: USB mass-storage devices mount read-onl
 - CLI/desktop coverage: applies to auto-mount and CLI `mount`/`udisksctl` attempts.
 - Logging: structured journald entries for insert, classification, mount decision, blocked actions, wizard start/complete/fail, unlock success/fail (no secrets).
 
-## 5) Configuration (/etc/usb-encryption-enforcer/config.toml)
+## 5) Configuration (/etc/usb-enforcer/config.toml)
 - `enforce_on_usb_only` (bool, default true)
 - `allow_luks1_readonly` (bool, default true; if false, block mounts)
 - `default_plain_mount_opts` (e.g., `nodev,nosuid,noexec,ro`)
@@ -69,7 +69,7 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 1. Create the exemption group: `sudo groupadd usb-exempt`
 2. Add users to the group: `sudo usermod -aG usb-exempt username`
 3. Update config.toml with the group name(s)
-4. Restart the daemon: `sudo systemctl restart usb-encryption-enforcerd`
+4. Restart the daemon: `sudo systemctl restart usb-enforcerd`
 5. User must log out and back in for group membership to take effect
 
 **Security considerations:**
@@ -80,8 +80,8 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 
 ## 6) Enforcement Architecture
 - **EA-1: udisks2 automount control + polkit (primary)**
-  - Udisks2 udev rule `80-udisks2-usb-encryption-enforcer.rules`: disables auto-mount for plaintext USB (UDISKS_AUTO=0).
-  - Polkit JS rule `49-usb-encryption-enforcer.rules`:
+  - Udisks2 udev rule `80-udisks2-usb-enforcer.rules`: disables auto-mount for plaintext USB (UDISKS_AUTO=0).
+  - Polkit JS rule `49-usb-enforcer.rules`:
     - Scope to devices with `ID_BUS=usb`.
     - Allow mount for plaintext only if `ro` present in options.
     - Deny mount/remount `rw` for plaintext.
@@ -91,11 +91,11 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
   - Udev rule marks plaintext USB block devices read-only via `/sys/block/<dev>/ro` using helper.
   - Exclude decrypted `/dev/mapper/*` mappers from RO.
 - **EA-3: systemd orchestration**
-  - Root service `usb-encryption-enforcerd` watches udev, applies block-level RO, logs decisions, exposes DBus.
+  - Root service `usb-enforcerd` watches udev, applies block-level RO, logs decisions, exposes DBus.
   - User session service/extension listens to daemon signals, shows notifications, launches wizard/unlock.
 
 ## 7) Components
-- **C-1 Root daemon: usb-encryption-enforcerd**
+- **C-1 Root daemon: usb-enforcerd**
   - Language: Python (pyudev + pydbus) or Go.
   - Functions:
     - Listen for add/change/remove udev events; classify devices (USB? plain? LUKS1? LUKS2? mapper?).
@@ -108,12 +108,12 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
       - `request_unlock(devnode)`
       - `subscribe_events()` signal stream (insert, classify, enforcement, wizard state).
 - **C-2 Polkit rules**
-  - File: `/etc/polkit-1/rules.d/49-usb-encryption-enforcer.rules`.
+  - File: `/etc/polkit-1/rules.d/49-usb-enforcer.rules`.
   - Enforce mount policy described in EA-1; log denials via `polkit.log`.
 - **C-3 Desktop UI (systemd --user + libnotify/GTK4)**
   - User service listens on daemon DBus signals.
   - Shows notifications via `org.freedesktop.Notifications` with action buttons wired to daemon calls.
-  - GTK4/libadwaita app `usb-encryption-enforcer-ui`:
+  - GTK4/libadwaita app `usb-enforcer-ui`:
     - Device picker (USB only).
     - Encryption wizard (confirmation, passphrase entry + strength meter/show toggle, progress).
     - Unlock prompt (or defer to udisks unlock dialog).
@@ -171,13 +171,13 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 - Config reload: daemon reloads on SIGHUP or via DBus method; applies new policy to subsequent events.
 
 ## 13) Deployment and Packaging
-- Install daemon binary/script to `/usr/libexec/usb-encryption-enforcerd` with systemd service unit.
-- Install polkit rule to `/etc/polkit-1/rules.d/49-usb-encryption-enforcer.rules`.
-- Install udev rule to `/etc/udev/rules.d/49-usb-encryption-enforcer.rules`.
-- Install DBus policy `/etc/dbus-1/system.d/org.seravault.UsbEncryptionEnforcer.conf` so the daemon can own the system bus name.
-- Install user service (`~/.config/systemd/user/usb-encryption-enforcer-ui.service`) and GTK app/desktop entry for wizard.
-- If enabling the user notification bridge via `/etc/systemd/user/default.target.wants`, user sessions pick it up on next login; to start immediately for the current user run: `systemctl --user daemon-reload && systemctl --user enable --now usb-encryption-enforcer-ui`.
-- Wizard: `usb-encryption-enforcer-wizard` (GTK4/libadwaita) connects to the daemon over DBus for encrypt/unlock flows. Requires PyGObject and system GTK/libadwaita packages.
+- Install daemon binary/script to `/usr/libexec/usb-enforcerd` with systemd service unit.
+- Install polkit rule to `/etc/polkit-1/rules.d/49-usb-enforcer.rules`.
+- Install udev rule to `/etc/udev/rules.d/49-usb-enforcer.rules`.
+- Install DBus policy `/etc/dbus-1/system.d/org.seravault.UsbEnforcer.conf` so the daemon can own the system bus name.
+- Install user service (`~/.config/systemd/user/usb-enforcer-ui.service`) and GTK app/desktop entry for wizard.
+- If enabling the user notification bridge via `/etc/systemd/user/default.target.wants`, user sessions pick it up on next login; to start immediately for the current user run: `systemctl --user daemon-reload && systemctl --user enable --now usb-enforcer-ui`.
+- Wizard: `usb-enforcer-wizard` (GTK4/libadwaita) connects to the daemon over DBus for encrypt/unlock flows. Requires PyGObject and system GTK/libadwaita packages.
 - Provide man page or `--help` for CLI/Wizard; ship local help page for “Learn more”.
 
 ### System package requirements for the GTK wizard (examples)

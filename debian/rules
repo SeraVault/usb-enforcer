@@ -11,38 +11,38 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	# Install Python package
-	install -d $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/usb-encryption-enforcer
-	cp -r src/usb_enforcer $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/usb-encryption-enforcer/
+	install -d $(CURDIR)/debian/usb-enforcer/usr/lib/usb-enforcer
+	cp -r src/usb_enforcer $(CURDIR)/debian/usb-enforcer/usr/lib/usb-enforcer/
 	
 	# Install executable scripts
-	install -d $(CURDIR)/debian/usb-encryption-enforcer/usr/libexec
-	install -m 0755 scripts/usb-encryption-enforcerd $(CURDIR)/debian/usb-encryption-enforcer/usr/libexec/
-	install -m 0755 scripts/usb-encryption-enforcer-helper $(CURDIR)/debian/usb-encryption-enforcer/usr/libexec/
-	install -m 0755 scripts/usb-encryption-enforcer-ui $(CURDIR)/debian/usb-encryption-enforcer/usr/libexec/
-	install -m 0755 scripts/usb-encryption-enforcer-wizard $(CURDIR)/debian/usb-encryption-enforcer/usr/libexec/
+	install -d $(CURDIR)/debian/usb-enforcer/usr/libexec
+	install -m 0755 scripts/usb-enforcerd $(CURDIR)/debian/usb-enforcer/usr/libexec/
+	install -m 0755 scripts/usb-enforcer-helper $(CURDIR)/debian/usb-enforcer/usr/libexec/
+	install -m 0755 scripts/usb-enforcer-ui $(CURDIR)/debian/usb-enforcer/usr/libexec/
+	install -m 0755 scripts/usb-enforcer-wizard $(CURDIR)/debian/usb-enforcer/usr/libexec/
 	
 	# Install configuration
-	install -d $(CURDIR)/debian/usb-encryption-enforcer/etc/usb-encryption-enforcer
-	install -m 0644 deploy/config.toml.sample $(CURDIR)/debian/usb-encryption-enforcer/etc/usb-encryption-enforcer/config.toml
+	install -d $(CURDIR)/debian/usb-enforcer/etc/usb-enforcer
+	install -m 0644 deploy/config.toml.sample $(CURDIR)/debian/usb-enforcer/etc/usb-enforcer/config.toml
 	
 	# Install udev rules
-	install -d $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/udev/rules.d
-	install -m 0644 deploy/udev/49-usb-encryption-enforcer.rules $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/udev/rules.d/
-	install -m 0644 deploy/udev/80-udisks2-usb-encryption-enforcer.rules $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/udev/rules.d/
+	install -d $(CURDIR)/debian/usb-enforcer/usr/lib/udev/rules.d
+	install -m 0644 deploy/udev/49-usb-enforcer.rules $(CURDIR)/debian/usb-enforcer/usr/lib/udev/rules.d/
+	install -m 0644 deploy/udev/80-udisks2-usb-enforcer.rules $(CURDIR)/debian/usb-enforcer/usr/lib/udev/rules.d/
 	
 	# Install polkit rules
-	install -d $(CURDIR)/debian/usb-encryption-enforcer/etc/polkit-1/rules.d
-	install -m 0644 deploy/polkit/49-usb-encryption-enforcer.rules $(CURDIR)/debian/usb-encryption-enforcer/etc/polkit-1/rules.d/
+	install -d $(CURDIR)/debian/usb-enforcer/etc/polkit-1/rules.d
+	install -m 0644 deploy/polkit/49-usb-enforcer.rules $(CURDIR)/debian/usb-enforcer/etc/polkit-1/rules.d/
 	
 	# Install DBus configuration
-	install -d $(CURDIR)/debian/usb-encryption-enforcer/etc/dbus-1/system.d
-	install -m 0644 deploy/dbus/org.seravault.UsbEncryptionEnforcer.conf $(CURDIR)/debian/usb-encryption-enforcer/etc/dbus-1/system.d/
+	install -d $(CURDIR)/debian/usb-enforcer/etc/dbus-1/system.d
+	install -m 0644 deploy/dbus/org.seravault.UsbEnforcer.conf $(CURDIR)/debian/usb-enforcer/etc/dbus-1/system.d/
 	
 	# Install systemd units
-	install -d $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/systemd/system
-	install -m 0644 deploy/systemd/usb-encryption-enforcerd.service $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/systemd/system/
-	install -d $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/systemd/user
-	install -m 0644 deploy/systemd/usb-encryption-enforcer-ui.service $(CURDIR)/debian/usb-encryption-enforcer/usr/lib/systemd/user/
+	install -d $(CURDIR)/debian/usb-enforcer/usr/lib/systemd/system
+	install -m 0644 deploy/systemd/usb-enforcerd.service $(CURDIR)/debian/usb-enforcer/usr/lib/systemd/system/
+	install -d $(CURDIR)/debian/usb-enforcer/usr/lib/systemd/user
+	install -m 0644 deploy/systemd/usb-enforcer-ui.service $(CURDIR)/debian/usb-enforcer/usr/lib/systemd/user/
 
 override_dh_auto_test:
 	# Skip tests

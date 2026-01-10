@@ -26,8 +26,8 @@ except Exception:
 
 from .. import secret_socket
 
-BUS_NAME = "org.seravault.UsbEncryptionEnforcer"
-BUS_PATH = "/org/seravault/UsbEncryptionEnforcer"
+BUS_NAME = "org.seravault.UsbEnforcer"
+BUS_PATH = "/org/seravault/UsbEnforcer"
 
 
 def get_mount_point(device_path: str) -> Optional[str]:

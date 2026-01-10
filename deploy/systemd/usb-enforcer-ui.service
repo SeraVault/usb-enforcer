@@ -5,7 +5,7 @@ Wants=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/lib/usb-encryption-enforcer/.venv/bin/python3 -u /usr/libexec/usb-encryption-enforcer-ui
+ExecStart=/usr/lib/usb-enforcer/.venv/bin/python3 -u /usr/libexec/usb-enforcer-ui
 Restart=on-failure
 RestartSec=2
 StandardOutput=journal

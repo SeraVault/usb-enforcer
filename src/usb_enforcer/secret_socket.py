@@ -6,7 +6,7 @@ import socket
 from typing import Optional
 
 
-SOCKET_PATH = os.environ.get("USB_EE_SOCKET", "/run/usb-encryption-enforcer.sock")
+SOCKET_PATH = os.environ.get("USB_EE_SOCKET", "/run/usb-enforcer.sock")
 
 
 class SecretSocketError(Exception):

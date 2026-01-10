@@ -36,7 +36,7 @@ class Daemon:
         self._dbus_loop = None
         self._bypass_enforcement: Set[str] = set()
         self._udev_context = pyudev.Context()
-        self._secret_socket_path = "/run/usb-encryption-enforcer.sock"
+        self._secret_socket_path = "/run/usb-enforcer.sock"
         self._secret_socket: Optional[socket.socket] = None
         self._secret_store: Dict[str, Tuple[str, str]] = {}  # token -> (op, passphrase)
         self._secret_lock = threading.Lock()
@@ -381,7 +381,7 @@ class Daemon:
         signal.signal(signal.SIGTERM, stop)
 
         # Start DBus service
-        dbus_service = dbus_api.UsbEncryptionEnforcerDBus(
+        dbus_service = dbus_api.UsbEnforcerDBus(
             self.logger,
             self.list_devices,
             self.get_device_status,

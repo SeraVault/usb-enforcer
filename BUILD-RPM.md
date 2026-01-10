@@ -63,7 +63,7 @@ Both RPMs will be created in `~/rpmbuild/RPMS/noarch/`.
    ```bash
    make dist
    ```
-   This creates `usb-encryption-enforcer-1.0.0.tar.gz`.
+   This creates `usb-enforcer-1.0.0.tar.gz`.
 
 2. **Build source RPM (optional):**
    ```bash
@@ -97,19 +97,19 @@ Both RPMs will be created in `~/rpmbuild/RPMS/noarch/`.
 Once built, install the package:
 
 ```bash
-sudo dnf install ~/rpmbuild/RPMS/noarch/usb-encryption-enforcer-1.0.0-1.*.noarch.rpm
+sudo dnf install ~/rpmbuild/RPMS/noarch/usb-enforcer-1.0.0-1.*.noarch.rpm
 ```
 
 Or using rpm directly:
 
 ```bash
-sudo rpm -ivh ~/rpmbuild/RPMS/noarch/usb-encryption-enforcer-1.0.0-1.*.noarch.rpm
+sudo rpm -ivh ~/rpmbuild/RPMS/noarch/usb-enforcer-1.0.0-1.*.noarch.rpm
 ```
 
 ## Post-Installation
 
 The RPM installation automatically:
-- Installs Python package to `/usr/lib64/usb-encryption-enforcer/`
+- Installs Python package to `/usr/lib64/usb-enforcer/`
 - Creates a Python virtual environment with dependencies
 - Installs systemd services and enables the daemon
 - Installs udev, polkit, and dbus rules
@@ -119,10 +119,10 @@ Start the services:
 
 ```bash
 # System daemon (should already be running)
-sudo systemctl status usb-encryption-enforcerd
+sudo systemctl status usb-enforcerd
 
 # User notification service
-systemctl --user status usb-encryption-enforcer-ui
+systemctl --user status usb-enforcer-ui
 ```
 
 ## Uninstalling
@@ -130,9 +130,9 @@ systemctl --user status usb-encryption-enforcer-ui
 Remove the package:
 
 ```bash
-sudo dnf remove usb-encryption-enforcer
+sudo dnf remove usb-enforcer
 # or
-sudo rpm -e usb-encryption-enforcer
+sudo rpm -e usb-enforcer
 ```
 
 The RPM removal automatically:
@@ -174,7 +174,7 @@ Always test on target distributions before deploying.
 
 ### Change Version
 
-Edit the version in `usb-encryption-enforcer.spec` and `usb-encryption-enforcer-bundled.spec`:
+Edit the version in `usb-enforcer.spec` and `usb-enforcer-bundled.spec`:
 
 ```spec
 Version:        1.0.0
@@ -186,8 +186,8 @@ Then update the `VERSION` variable in `Makefile` to match.
 ### Build Dependencies
 
 The spec files automatically pull runtime dependencies. To add build-time dependencies, edit the `BuildRequires:` section in the spec files:
-- Standard RPM: `rpm/usb-encryption-enforcer.spec`
-- Bundled RPM: `rpm-bundled/usb-encryption-enforcer-bundled.spec`
+- Standard RPM: `rpm/usb-enforcer.spec`
+- Bundled RPM: `rpm-bundled/usb-enforcer-bundled.spec`
 
 ### Installation Paths
 
@@ -207,9 +207,9 @@ RPM packaging files are organized in subdirectories:
 ```
 usb-enforce-encryption/
 ├── rpm/
-│   └── usb-encryption-enforcer.spec         # Standard RPM spec
+│   └── usb-enforcer.spec         # Standard RPM spec
 ├── rpm-bundled/
-│   └── usb-encryption-enforcer-bundled.spec # Bundled RPM spec
+│   └── usb-enforcer-bundled.spec # Bundled RPM spec
 ├── debian/                                   # Debian packaging (standard)
 ├── debian-bundled/                           # Debian packaging (bundled)
 ├── Makefile                                  # Build automation
@@ -228,7 +228,7 @@ If the build fails, check:
 
 View detailed build logs:
 ```bash
-rpmbuild -bb ~/rpmbuild/SPECS/usb-encryption-enforcer.spec
+rpmbuild -bb ~/rpmbuild/SPECS/usb-enforcer.spec
 ```
 
 ### Runtime Issues
@@ -237,11 +237,11 @@ After installation, if services don't start:
 
 ```bash
 # Check service status
-sudo systemctl status usb-encryption-enforcerd
-journalctl -u usb-encryption-enforcerd -f
+sudo systemctl status usb-enforcerd
+journalctl -u usb-enforcerd -f
 
 # Verify Python dependencies in venv
-/usr/lib64/usb-encryption-enforcer/.venv/bin/pip list
+/usr/lib64/usb-enforcer/.venv/bin/pip list
 
 # Test udev rules
 udevadm control --reload
@@ -267,15 +267,15 @@ To share your RPM:
 
 1. **Binary RPM** (ready to install):
    ```bash
-   cp ~/rpmbuild/RPMS/noarch/usb-encryption-enforcer-*.noarch.rpm ./
+   cp ~/rpmbuild/RPMS/noarch/usb-enforcer-*.noarch.rpm ./
    ```
 
 2. **Source RPM** (for rebuilding):
    ```bash
-   cp ~/rpmbuild/SRPMS/usb-encryption-enforcer-*.src.rpm ./
+   cp ~/rpmbuild/SRPMS/usb-enforcer-*.src.rpm ./
    ```
 
 Users can install the binary RPM directly or rebuild from source RPM:
 ```bash
-rpmbuild --rebuild usb-encryption-enforcer-*.src.rpm
+rpmbuild --rebuild usb-enforcer-*.src.rpm
 ```

@@ -16,8 +16,8 @@ except Exception:
     raise SystemExit(0)
 
 
-BUS_NAME = "org.seravault.UsbEncryptionEnforcer"
-BUS_PATH = "/org/seravault/UsbEncryptionEnforcer"
+BUS_NAME = "org.seravault.UsbEnforcer"
+BUS_PATH = "/org/seravault/UsbEnforcer"
 NOTIFY_BUS = "org.freedesktop.Notifications"
 NOTIFY_PATH = "/org/freedesktop/Notifications"
 
@@ -116,7 +116,7 @@ class NotificationManager:
             "resident": GLib.Variant("b", True),  # keep in notification tray
         }
         print(f"[notify] Calling Notify with summary='{summary}', body='{body}', actions={action_list}, hints={hints}")
-        notif_id = self.iface.Notify("usb-encryption-enforcer", 0, "", summary, body, action_list, hints, 0)
+        notif_id = self.iface.Notify("usb-enforcer", 0, "", summary, body, action_list, hints, 0)
         print(f"[notify] Notification ID returned: {notif_id}")
         if action_cb:
             self.callbacks[notif_id] = action_cb
@@ -127,14 +127,14 @@ def launch_wizard(devnode: str = None):
     import os
     print(f"[launch_wizard] CALLED for device: {devnode}! Starting wizard launch...")
     env = os.environ.copy()
-    env["PYTHONPATH"] = "/usr/lib/usb-encryption-enforcer"
-    env["PATH"] = "/usr/lib/usb-encryption-enforcer/.venv/bin:" + env.get("PATH", "")
+    env["PYTHONPATH"] = "/usr/lib/usb-enforcer"
+    env["PATH"] = "/usr/lib/usb-enforcer/.venv/bin:" + env.get("PATH", "")
     # Ensure display environment is set
     if "DISPLAY" not in env and "WAYLAND_DISPLAY" not in env:
         print(f"[launch_wizard] Warning: No DISPLAY or WAYLAND_DISPLAY set")
     # Use venv python explicitly instead of relying on shebang
-    python_bin = "/usr/lib/usb-encryption-enforcer/.venv/bin/python3"
-    wizard_script = "/usr/libexec/usb-encryption-enforcer-wizard"
+    python_bin = "/usr/lib/usb-enforcer/.venv/bin/python3"
+    wizard_script = "/usr/libexec/usb-enforcer-wizard"
     cmd = [python_bin, wizard_script]
     if devnode:
         cmd.extend(["--device", devnode])
@@ -156,10 +156,10 @@ def launch_unlock_dialog(devnode: str):
     import os
     print(f"[launch_unlock_dialog] CALLED for {devnode}! Starting unlock dialog...")
     env = os.environ.copy()
-    env["PYTHONPATH"] = "/usr/lib/usb-encryption-enforcer"
-    env["PATH"] = "/usr/lib/usb-encryption-enforcer/.venv/bin:" + env.get("PATH", "")
-    python_bin = "/usr/lib/usb-encryption-enforcer/.venv/bin/python3"
-    helper_script = "/usr/libexec/usb-encryption-enforcer-helper"
+    env["PYTHONPATH"] = "/usr/lib/usb-enforcer"
+    env["PATH"] = "/usr/lib/usb-enforcer/.venv/bin:" + env.get("PATH", "")
+    python_bin = "/usr/lib/usb-enforcer/.venv/bin/python3"
+    helper_script = "/usr/libexec/usb-enforcer-helper"
     print(f"[launch_unlock_dialog] Command: {python_bin} {helper_script} unlock {devnode}")
     try:
         proc = subprocess.Popen([python_bin, helper_script, "unlock", devnode], env=env, start_new_session=True)
@@ -223,7 +223,7 @@ def main():
 
     # Subscribe to Event signal using pydbus subscription pattern
     proxy.Event.connect(on_event)
-    print("usb-encryption-enforcer-ui listening for events...")
+    print("usb-enforcer-ui listening for events...")
     loop = GLib.MainLoop()
     loop.run()
 

@@ -59,7 +59,7 @@ def show_unlock_dialog(devnode):
             try:
                 import pydbus
                 bus = pydbus.SystemBus()
-                proxy = bus.get("org.seravault.UsbEncryptionEnforcer", "/org/seravault/UsbEncryptionEnforcer")
+                proxy = bus.get("org.seravault.UsbEnforcer", "/org/seravault/UsbEnforcer")
                 token = secret_socket.send_secret("unlock", self.devnode, passphrase)
                 result = proxy.RequestUnlock(self.devnode, "", token)
                 self.status_label.set_text(f"Unlocked: {result}")

@@ -12,7 +12,7 @@ When a USB device is detected, the enforcement daemon checks if any currently lo
 ## Configuration
 
 ### 1. Edit the config file
-Add or modify the `exempted_groups` setting in `/etc/usb-encryption-enforcer/config.toml`:
+Add or modify the `exempted_groups` setting in `/etc/usb-enforcer/config.toml`:
 
 ```toml
 # Group-based exemptions: Users in these groups will bypass USB encryption enforcement
@@ -31,7 +31,7 @@ sudo usermod -aG usb-exempt username
 
 ### 4. Restart the daemon
 ```bash
-sudo systemctl restart usb-encryption-enforcerd
+sudo systemctl restart usb-enforcerd
 ```
 
 ### 5. User login
@@ -89,10 +89,10 @@ exemption_reason=user 'alice' in exempted group 'usb-exempt'
 View exemption logs:
 ```bash
 # All USB enforcement events
-sudo journalctl -t usb-encryption-enforcerd
+sudo journalctl -t usb-enforcerd
 
 # Filter for exemptions
-sudo journalctl -t usb-encryption-enforcerd | grep "exempt"
+sudo journalctl -t usb-enforcerd | grep "exempt"
 ```
 
 ## Group Management Commands
@@ -174,7 +174,7 @@ who
 loginctl list-sessions
 
 # Check daemon logs
-sudo journalctl -u usb-encryption-enforcerd -n 50
+sudo journalctl -u usb-enforcerd -n 50
 ```
 
 ### Group doesn't exist
@@ -190,10 +190,10 @@ sudo groupadd usb-exempt
 **Solution**: Restart the daemon
 
 ```bash
-sudo systemctl restart usb-encryption-enforcerd
+sudo systemctl restart usb-enforcerd
 
 # Or reload config without restart (if supported)
-sudo systemctl reload usb-encryption-enforcerd
+sudo systemctl reload usb-enforcerd
 ```
 
 ## Testing
@@ -220,7 +220,7 @@ sudo systemctl reload usb-encryption-enforcerd
 
 6. Check logs for exemption:
    ```bash
-   sudo journalctl -u usb-encryption-enforcerd | grep exempt
+   sudo journalctl -u usb-enforcerd | grep exempt
    ```
 
 ### Verify enforcement still works for non-exempted users
@@ -249,10 +249,10 @@ sudo usermod -aG it-staff alice
 sudo usermod -aG it-staff bob
 
 # Configure exemption
-echo 'exempted_groups = ["it-staff"]' | sudo tee -a /etc/usb-encryption-enforcer/config.toml
+echo 'exempted_groups = ["it-staff"]' | sudo tee -a /etc/usb-enforcer/config.toml
 
 # Restart daemon
-sudo systemctl restart usb-encryption-enforcerd
+sudo systemctl restart usb-enforcerd
 ```
 
 ### Scenario 2: Temporary Developer Access
@@ -271,6 +271,6 @@ exempted_groups = ["sysadmin", "developers", "qa-team", "security-auditors"]
 ```
 
 ## Related Documentation
-- Main documentation: [docs/usb-encryption-enforcer.md](../docs/usb-encryption-enforcer.md)
+- Main documentation: [docs/usb-enforcer.md](../docs/usb-enforcer.md)
 - Configuration reference: [deploy/config.toml.sample](../deploy/config.toml.sample)
 - Setup script: [scripts/setup-exemption-group.sh](../scripts/setup-exemption-group.sh)

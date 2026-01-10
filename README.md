@@ -5,18 +5,18 @@ USB data loss prevention for Linux desktops: plaintext USB mass-storage devices 
 **Available as RPM and DEB packages** for easy installation on Fedora, RHEL, Debian, Ubuntu, and derivatives. Both standard (online) and bundled (offline/airgapped) package variants are provided.
 
 ## How It Works
-- **Udev backstop:** `deploy/udev/49-usb-encryption-enforcer.rules` marks USB partitions with filesystems read-only (excludes LUKS and dm-crypt mappers). Automount is disabled for plaintext via `deploy/udev/80-udisks2-usb-encryption-enforcer.rules`, but encrypted/mapped devices keep automount enabled.
-- **Polkit policy:** `deploy/polkit/49-usb-encryption-enforcer.rules` denies `rw` mounts/remounts for plaintext USB and LUKS1 devices (ro is allowed). A permissive rule also allows udisks encryption/mount actions so the daemon/UI can operate.
-- **Daemon:** `scripts/usb-encryption-enforcerd` (Python) listens to udev, classifies devices (`src/usb_enforcer/classify.py`), applies block-level `ro` for plaintext with filesystems, and logs structured events to journald. DBus API (`org.seravault.UsbEncryptionEnforcer`) exposes `ListDevices`, `GetDeviceStatus`, `RequestUnlock`, and `RequestEncrypt`, plus an `Event` signal stream.
-- **Secrets path:** passphrases move over a local UNIX socket (`/run/usb-encryption-enforcer.sock`); clients receive a one-time token and then call DBus with that token so secrets never traverse the system bus.
-- **UI bridge:** `scripts/usb-encryption-enforcer-ui` subscribes to daemon events and shows desktop notifications. Blocked writes surface an “Encrypt drive…” action that launches the GTK wizard; encrypted inserts can trigger an unlock prompt.
-- **Wizard + helper:** `scripts/usb-encryption-enforcer-wizard` (GTK4/libadwaita) lets users pick a USB device, enforce a minimum 12-char passphrase, and request encryption over DBus. The wizard includes an option to preserve existing data by copying it to a temporary location before encryption, then restoring it to the encrypted drive. The wizard currently asks the daemon to format as exfat; adjust if you want ext4. `scripts/usb-encryption-enforcer-helper` provides a simple unlock dialog.
+- **Udev backstop:** `deploy/udev/49-usb-enforcer.rules` marks USB partitions with filesystems read-only (excludes LUKS and dm-crypt mappers). Automount is disabled for plaintext via `deploy/udev/80-udisks2-usb-enforcer.rules`, but encrypted/mapped devices keep automount enabled.
+- **Polkit policy:** `deploy/polkit/49-usb-enforcer.rules` denies `rw` mounts/remounts for plaintext USB and LUKS1 devices (ro is allowed). A permissive rule also allows udisks encryption/mount actions so the daemon/UI can operate.
+- **Daemon:** `scripts/usb-enforcerd` (Python) listens to udev, classifies devices (`src/usb_enforcer/classify.py`), applies block-level `ro` for plaintext with filesystems, and logs structured events to journald. DBus API (`org.seravault.UsbEnforcer`) exposes `ListDevices`, `GetDeviceStatus`, `RequestUnlock`, and `RequestEncrypt`, plus an `Event` signal stream.
+- **Secrets path:** passphrases move over a local UNIX socket (`/run/usb-enforcer.sock`); clients receive a one-time token and then call DBus with that token so secrets never traverse the system bus.
+- **UI bridge:** `scripts/usb-enforcer-ui` subscribes to daemon events and shows desktop notifications. Blocked writes surface an “Encrypt drive…” action that launches the GTK wizard; encrypted inserts can trigger an unlock prompt.
+- **Wizard + helper:** `scripts/usb-enforcer-wizard` (GTK4/libadwaita) lets users pick a USB device, enforce a minimum 12-char passphrase, and request encryption over DBus. The wizard includes an option to preserve existing data by copying it to a temporary location before encryption, then restoring it to the encrypted drive. The wizard currently asks the daemon to format as exfat; adjust if you want ext4. `scripts/usb-enforcer-helper` provides a simple unlock dialog.
 
 ## Configuration
-- Primary config lives at `/etc/usb-encryption-enforcer/config.toml` (sample in `deploy/config.toml.sample`).
+- Primary config lives at `/etc/usb-enforcer/config.toml` (sample in `deploy/config.toml.sample`).
 - Defaults (`src/usb_enforcer/config.py`): `enforce_on_usb_only=true`, `default_plain_mount_opts=["nodev","nosuid","noexec","ro"]`, `default_encrypted_mount_opts=["nodev","nosuid","rw"]`, `allow_luks1_readonly=true`, `min_passphrase_length=12`, `filesystem_type="exfat"` (sample config uses ext4), `kdf.type="argon2id"`, `cipher.type="aes-xts-plain64"` with a 512-bit key.
 - Daemon skips block-level RO while an encryption operation is in progress to allow formatting; otherwise plaintext partitions/disks with filesystems are forced `ro`.
-- **Group-based exemptions:** Set `exempted_groups = ["groupname"]` in config.toml to bypass enforcement for users in specific Linux groups. This allows administrators to exempt trusted personnel (e.g., `usb-exempt`, `developers`, `sysadmin`) from DLP restrictions while maintaining enforcement for other users. See [docs/usb-encryption-enforcer.md](docs/usb-encryption-enforcer.md#group-based-exemptions) for setup instructions.
+- **Group-based exemptions:** Set `exempted_groups = ["groupname"]` in config.toml to bypass enforcement for users in specific Linux groups. This allows administrators to exempt trusted personnel (e.g., `usb-exempt`, `developers`, `sysadmin`) from DLP restrictions while maintaining enforcement for other users. See [docs/usb-enforcer.md](docs/usb-enforcer.md#group-based-exemptions) for setup instructions.
 
 ## Installing and Running
 
@@ -28,22 +28,22 @@ Install pre-built packages for your distribution:
 **RPM-based (Fedora/RHEL/CentOS/openSUSE):**
 ```bash
 # Standard package (downloads Python deps during installation)
-sudo dnf install usb-encryption-enforcer-1.0.0-1.*.noarch.rpm
+sudo dnf install usb-enforcer-1.0.0-1.*.noarch.rpm
 
 # OR bundled package (offline/airgapped, no internet required)
-sudo dnf install usb-encryption-enforcer-bundled-1.0.0-1.*.noarch.rpm
+sudo dnf install usb-enforcer-bundled-1.0.0-1.*.noarch.rpm
 ```
 
 **Debian-based (Debian/Ubuntu/Mint):**
 ```bash
 # Standard package (downloads Python deps during installation)
-sudo apt install ./usb-encryption-enforcer_1.0.0-1_all.deb
+sudo apt install ./usb-enforcer_1.0.0-1_all.deb
 
 # OR bundled package (offline/airgapped, no internet required)
-sudo apt install ./usb-encryption-enforcer-bundled_1.0.0-1_all.deb
+sudo apt install ./usb-enforcer-bundled_1.0.0-1_all.deb
 ```
 
-Both package types install to `/usr/lib/usb-encryption-enforcer/` with a Python virtual environment, enable systemd services automatically, and configure udev/polkit/DBus rules.
+Both package types install to `/usr/lib/usb-enforcer/` with a Python virtual environment, enable systemd services automatically, and configure udev/polkit/DBus rules.
 
 #### Option 2: Script Installation
 Manual installation using install scripts:
@@ -58,24 +58,24 @@ sudo ./scripts/install-rhel.sh
 sudo ./scripts/install-debian.sh
 ```
 
-Scripts copy Python code to `/usr/lib/usb-encryption-enforcer/`, install system integration files, create a virtual environment, and enable services.
+Scripts copy Python code to `/usr/lib/usb-enforcer/`, install system integration files, create a virtual environment, and enable services.
 
 ### Uninstalling
 
 **Package uninstall:**
 ```bash
 # RPM-based
-sudo dnf remove usb-encryption-enforcer
+sudo dnf remove usb-enforcer
 # OR
-sudo dnf remove usb-encryption-enforcer-bundled
+sudo dnf remove usb-enforcer-bundled
 
 # Debian-based
-sudo apt remove usb-encryption-enforcer
+sudo apt remove usb-enforcer
 # OR
-sudo apt remove usb-encryption-enforcer-bundled
+sudo apt remove usb-enforcer-bundled
 
 # Purge (removes config too)
-sudo apt purge usb-encryption-enforcer
+sudo apt purge usb-enforcer
 ```
 
 **Script uninstall:**
@@ -100,8 +100,8 @@ make clean        # Clean build artifacts
 Built packages appear in `dist/` directory.
 
 ### Running
-- **System daemon:** `usb-encryption-enforcerd.service` monitors USB devices
-- **User notification bridge:** `usb-encryption-enforcer-ui.service` shows desktop notifications
+- **System daemon:** `usb-enforcerd.service` monitors USB devices
+- **User notification bridge:** `usb-enforcer-ui.service` shows desktop notifications
 - Both services are enabled automatically by installers/packages
 - For ad-hoc testing: run scripts directly with `PYTHONPATH=src`
 
@@ -167,7 +167,7 @@ If you frequently need Windows access, consider these alternatives to LUKS2:
 - **macOS support**: LUKS2 can be accessed on macOS via Homebrew's `cryptsetup` package
 
 ## More Detail
-The legacy design document lives at `docs/usb-encryption-enforcer.md` and outlines goals, UX, and policy rationale. Update both this README and the doc if behavior changes (e.g., default filesystem, notification flow, or polkit rules).
+The legacy design document lives at `docs/usb-enforcer.md` and outlines goals, UX, and policy rationale. Update both this README and the doc if behavior changes (e.g., default filesystem, notification flow, or polkit rules).
 
 ## Project Structure
 ```
@@ -180,10 +180,10 @@ usb-enforce-encryption/
 │   ├── dbus_api.py            # DBus API implementation
 │   └── ui/wizard.py           # GTK wizard interface
 ├── scripts/                   # Executable scripts
-│   ├── usb-encryption-enforcerd        # System daemon
-│   ├── usb-encryption-enforcer-ui      # User notification bridge
-│   ├── usb-encryption-enforcer-wizard  # GTK encryption wizard
-│   ├── usb-encryption-enforcer-helper  # Unlock dialog
+│   ├── usb-enforcerd        # System daemon
+│   ├── usb-enforcer-ui      # User notification bridge
+│   ├── usb-enforcer-wizard  # GTK encryption wizard
+│   ├── usb-enforcer-helper  # Unlock dialog
 │   ├── install-rhel.sh        # RHEL/Fedora installer
 │   ├── install-debian.sh      # Debian/Ubuntu installer
 │   ├── uninstall-rhel.sh      # RHEL/Fedora uninstaller
@@ -195,9 +195,9 @@ usb-enforce-encryption/
 │   ├── systemd/               # Systemd service units
 │   └── udev/                  # Udev rules
 ├── rpm/                       # RPM packaging (standard)
-│   └── usb-encryption-enforcer.spec
+│   └── usb-enforcer.spec
 ├── rpm-bundled/               # RPM packaging (bundled)
-│   └── usb-encryption-enforcer-bundled.spec
+│   └── usb-enforcer-bundled.spec
 ├── debian/                    # Debian packaging (standard)
 ├── debian-bundled/            # Debian packaging (bundled)
 ├── Makefile                   # Build automation

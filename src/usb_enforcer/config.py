@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 
-DEFAULT_CONFIG_PATH = Path("/etc/usb-encryption-enforcer/config.toml")
+DEFAULT_CONFIG_PATH = Path("/etc/usb-enforcer/config.toml")
 
 
 @dataclass

@@ -4,15 +4,15 @@ set -e
 case "$1" in
     remove|deconfigure)
         # Stop and disable services
-        systemctl stop usb-encryption-enforcerd.service || true
-        systemctl disable usb-encryption-enforcerd.service || true
+        systemctl stop usb-enforcerd.service || true
+        systemctl disable usb-enforcerd.service || true
         
         # Stop user services
         for user_home in /home/*; do
             username=$(basename "$user_home")
             if id "$username" &>/dev/null; then
                 sudo -u "$username" XDG_RUNTIME_DIR=/run/user/$(id -u "$username") \
-                    systemctl --user stop usb-encryption-enforcer-ui.service 2>/dev/null || true
+                    systemctl --user stop usb-enforcer-ui.service 2>/dev/null || true
             fi
         done
         ;;

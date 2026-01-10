@@ -55,7 +55,7 @@ polkit.addRule(function(action, subject) {
 
     // Plaintext USB: deny rw mounts/remounts
     if (!isMapper && !isLuks && hasRw) {
-        polkit.log("usb-encryption-enforcer: deny rw mount for plaintext " + devnode);
+        polkit.log("usb-enforcer: deny rw mount for plaintext " + devnode);
         return polkit.Result.NO;
     }
     if (!isMapper && !isLuks && hasRo) {
@@ -64,7 +64,7 @@ polkit.addRule(function(action, subject) {
 
     // LUKS1 (non-2) -> deny rw
     if (isLuks && !isLuks2 && hasRw) {
-        polkit.log("usb-encryption-enforcer: deny rw mount for non-LUKS2 " + devnode);
+        polkit.log("usb-enforcer: deny rw mount for non-LUKS2 " + devnode);
         return polkit.Result.NO;
     }
 

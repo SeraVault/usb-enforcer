@@ -13,14 +13,14 @@ except Exception:  # pragma: no cover
     dbus_signal = None
 
 
-DBUS_NAME = "org.seravault.UsbEncryptionEnforcer"
-DBUS_PATH = "/org/seravault/UsbEncryptionEnforcer"
+DBUS_NAME = "org.seravault.UsbEnforcer"
+DBUS_PATH = "/org/seravault/UsbEnforcer"
 
 
-class UsbEncryptionEnforcerDBus:
+class UsbEnforcerDBus:
     """
     <node>
-      <interface name='org.seravault.UsbEncryptionEnforcer'>
+      <interface name='org.seravault.UsbEnforcer'>
         <method name='ListDevices'>
           <arg type='aa{ss}' name='devices' direction='out'/>
         </method>

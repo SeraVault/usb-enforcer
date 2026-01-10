@@ -6,13 +6,13 @@ This guide explains how to build Debian (.deb) packages for the USB Encryption E
 
 Two Debian package variants are available:
 
-### 1. Standard Package (`usb-encryption-enforcer`)
+### 1. Standard Package (`usb-enforcer`)
 - **Size**: ~40KB
 - **Python Dependencies**: Downloaded from PyPI during installation
 - **Use Case**: Standard installations with internet connectivity
 - **Installation**: Requires network access to download pyudev, pydbus, typing-extensions
 
-### 2. Bundled Package (`usb-encryption-enforcer-bundled`)
+### 2. Bundled Package (`usb-enforcer-bundled`)
 - **Size**: ~200KB
 - **Python Dependencies**: Bundled as wheel files in the package
 - **Use Case**: Offline/airgapped environments, no internet access required
@@ -69,13 +69,13 @@ ls -lh dist/
 
 ### Install Standard Package
 ```bash
-sudo dpkg -i dist/usb-encryption-enforcer_1.0.0-1_all.deb
+sudo dpkg -i dist/usb-enforcer_1.0.0-1_all.deb
 sudo apt-get install -f  # Install any missing dependencies
 ```
 
 ### Install Bundled Package
 ```bash
-sudo dpkg -i dist/usb-encryption-enforcer-bundled_1.0.0-1_all.deb
+sudo dpkg -i dist/usb-enforcer-bundled_1.0.0-1_all.deb
 sudo apt-get install -f  # Install any missing system dependencies
 ```
 
@@ -84,39 +84,39 @@ sudo apt-get install -f  # Install any missing system dependencies
 Both packages install the following:
 
 ### Files
-- `/usr/lib/usb-encryption-enforcer/usb_enforcer/` - Python package
-- `/usr/lib/usb-encryption-enforcer/.venv/` - Virtual environment (created at install time)
-- `/usr/lib/usb-encryption-enforcer/wheels/` - Python wheels (bundled variant only)
-- `/usr/libexec/usb-encryption-enforcerd` - System daemon
-- `/usr/libexec/usb-encryption-enforcer-helper` - Helper script
-- `/usr/libexec/usb-encryption-enforcer-ui` - User interface
-- `/usr/libexec/usb-encryption-enforcer-wizard` - Setup wizard
-- `/etc/usb-encryption-enforcer/config.toml` - Configuration file
-- `/usr/lib/systemd/system/usb-encryption-enforcerd.service` - System service
-- `/usr/lib/systemd/user/usb-encryption-enforcer-ui.service` - User service
-- `/usr/lib/udev/rules.d/49-usb-encryption-enforcer.rules` - Udev rules
-- `/usr/lib/udev/rules.d/80-udisks2-usb-encryption-enforcer.rules` - Udisks2 rules
-- `/etc/polkit-1/rules.d/49-usb-encryption-enforcer.rules` - Polkit rules
-- `/etc/dbus-1/system.d/org.seravault.UsbEncryptionEnforcer.conf` - DBus config
+- `/usr/lib/usb-enforcer/usb_enforcer/` - Python package
+- `/usr/lib/usb-enforcer/.venv/` - Virtual environment (created at install time)
+- `/usr/lib/usb-enforcer/wheels/` - Python wheels (bundled variant only)
+- `/usr/libexec/usb-enforcerd` - System daemon
+- `/usr/libexec/usb-enforcer-helper` - Helper script
+- `/usr/libexec/usb-enforcer-ui` - User interface
+- `/usr/libexec/usb-enforcer-wizard` - Setup wizard
+- `/etc/usb-enforcer/config.toml` - Configuration file
+- `/usr/lib/systemd/system/usb-enforcerd.service` - System service
+- `/usr/lib/systemd/user/usb-enforcer-ui.service` - User service
+- `/usr/lib/udev/rules.d/49-usb-enforcer.rules` - Udev rules
+- `/usr/lib/udev/rules.d/80-udisks2-usb-enforcer.rules` - Udisks2 rules
+- `/etc/polkit-1/rules.d/49-usb-enforcer.rules` - Polkit rules
+- `/etc/dbus-1/system.d/org.seravault.UsbEnforcer.conf` - DBus config
 
 ### Services
-- System service: `usb-encryption-enforcerd.service` (enabled and started)
-- User service: `usb-encryption-enforcer-ui.service` (enabled for all users)
+- System service: `usb-enforcerd.service` (enabled and started)
+- User service: `usb-enforcer-ui.service` (enabled for all users)
 
 ## Uninstallation
 
 ### Remove Package (keep configuration)
 ```bash
-sudo apt remove usb-encryption-enforcer
+sudo apt remove usb-enforcer
 # or
-sudo apt remove usb-encryption-enforcer-bundled
+sudo apt remove usb-enforcer-bundled
 ```
 
 ### Purge Package (remove everything including configuration)
 ```bash
-sudo apt purge usb-encryption-enforcer
+sudo apt purge usb-enforcer
 # or
-sudo apt purge usb-encryption-enforcer-bundled
+sudo apt purge usb-enforcer-bundled
 ```
 
 This will:
@@ -130,20 +130,20 @@ This will:
 
 ### Check Package Contents
 ```bash
-dpkg -L usb-encryption-enforcer
+dpkg -L usb-enforcer
 # or
-dpkg -L usb-encryption-enforcer-bundled
+dpkg -L usb-enforcer-bundled
 ```
 
 ### Check Service Status
 ```bash
-systemctl status usb-encryption-enforcerd
-systemctl --user status usb-encryption-enforcer-ui
+systemctl status usb-enforcerd
+systemctl --user status usb-enforcer-ui
 ```
 
 ### Verify Python Dependencies
 ```bash
-/usr/lib/usb-encryption-enforcer/.venv/bin/pip list
+/usr/lib/usb-enforcer/.venv/bin/pip list
 ```
 
 ## Cross-Distribution Compatibility
@@ -195,7 +195,7 @@ sudo apt-get install -f
 **Service fails to start**:
 Check logs:
 ```bash
-journalctl -u usb-encryption-enforcerd -n 50
+journalctl -u usb-enforcerd -n 50
 ```
 
 **Python dependencies not found** (standard package):
@@ -206,14 +206,14 @@ Ensure internet connectivity during installation, or use the bundled package.
 If you want to switch between standard and bundled:
 ```bash
 # Remove one before installing the other
-sudo apt remove usb-encryption-enforcer
-sudo dpkg -i dist/usb-encryption-enforcer-bundled_1.0.0-1_all.deb
+sudo apt remove usb-enforcer
+sudo dpkg -i dist/usb-enforcer-bundled_1.0.0-1_all.deb
 ```
 
 ## Package Metadata
 
 ### Control File Fields
-- **Package**: usb-encryption-enforcer or usb-encryption-enforcer-bundled
+- **Package**: usb-enforcer or usb-enforcer-bundled
 - **Version**: 1.0.0-1
 - **Architecture**: all (platform-independent)
 - **Section**: admin
@@ -248,7 +248,7 @@ Use Docker or VM for clean installation testing:
 ```bash
 docker run -it --rm -v $(pwd):/workspace debian:12
 cd /workspace
-apt update && apt install ./dist/usb-encryption-enforcer_1.0.0-1_all.deb
+apt update && apt install ./dist/usb-enforcer_1.0.0-1_all.deb
 ```
 
 ## Additional Resources

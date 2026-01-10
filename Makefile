@@ -63,16 +63,16 @@ srpm: prepare-rpm
 	@rpmbuild -bs ~/rpmbuild/SPECS/$(NAME).spec
 	@echo ""
 	@echo "Source RPM created in ~/rpmbuild/SRPMS/"
-	@ls -lh ~/rpmbuild/SRPMS/$(NAME)-$(VERSION)-$(RELEASE)*.src.rpm
+	@ls -lh ~/rpmbuild/SRPMS/$(NAME)-$(VERSION)-*.src.rpm
 
 rpm: prepare-rpm
 	@echo "Building binary RPM (standard version)..."
 	@rpmbuild -bb ~/rpmbuild/SPECS/$(NAME).spec
 	@mkdir -p dist
-	@cp ~/rpmbuild/RPMS/noarch/$(NAME)-$(VERSION)-$(RELEASE).noarch.rpm dist/
+	@cp ~/rpmbuild/RPMS/noarch/$(NAME)-$(VERSION)-*.noarch.rpm dist/
 	@echo ""
 	@echo "Binary RPM created in dist/"
-	@ls -lh dist/$(NAME)-$(VERSION)-$(RELEASE).noarch.rpm
+	@ls -lh dist/$(NAME)-$(VERSION)-*.noarch.rpm
 
 rpm-bundled: dist bundle-deps
 	@echo "Preparing bundled RPM build environment..."
@@ -86,10 +86,10 @@ rpm-bundled: dist bundle-deps
 	@echo "Building bundled binary RPM..."
 	@rpmbuild -bb ~/rpmbuild/SPECS/$(NAME_BUNDLED).spec
 	@mkdir -p dist
-	@cp ~/rpmbuild/RPMS/noarch/$(NAME_BUNDLED)-$(VERSION)-$(RELEASE).noarch.rpm dist/
+	@cp ~/rpmbuild/RPMS/noarch/$(NAME_BUNDLED)-$(VERSION)-*.noarch.rpm dist/
 	@echo ""
 	@echo "Bundled binary RPM created in dist/"
-	@ls -lh dist/$(NAME_BUNDLED)-$(VERSION)-$(RELEASE).noarch.rpm
+	@ls -lh dist/$(NAME_BUNDLED)-$(VERSION)-*.noarch.rpm
 
 clean:
 	@echo "Cleaning build artifacts..."

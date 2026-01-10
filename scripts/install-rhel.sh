@@ -6,9 +6,9 @@ SCRIPT_DIR="$(cd -- "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(realpath "$SCRIPT_DIR/..")"
 
 PREFIX="${PREFIX:-/usr}"
-LIBDIR="${LIBDIR:-${PREFIX}/lib/usb-encryption-enforcer}"
+LIBDIR="${LIBDIR:-${PREFIX}/lib/usb-enforcer}"
 LIBEXEC="${LIBEXEC:-${PREFIX}/libexec}"
-CONFIG_DIR="${CONFIG_DIR:-/etc/usb-encryption-enforcer}"
+CONFIG_DIR="${CONFIG_DIR:-/etc/usb-enforcer}"
 SYSTEMD_SYSTEM_DIR="${SYSTEMD_SYSTEM_DIR:-/etc/systemd/system}"
 SYSTEMD_USER_DIR="${SYSTEMD_USER_DIR:-/etc/systemd/user}"
 POLKIT_DIR="${POLKIT_DIR:-/etc/polkit-1/rules.d}"
@@ -39,8 +39,8 @@ require_root() {
 
 create_dirs() {
   install -d "$LIBDIR" "$LIBEXEC" "$CONFIG_DIR" "$SYSTEMD_SYSTEM_DIR" "$SYSTEMD_USER_DIR" "$POLKIT_DIR" "$UDEV_DIR" "$DBUS_DIR"
-  install -d "${SYSTEMD_SYSTEM_DIR}/usb-encryption-enforcerd.service.d"
-  install -d "${SYSTEMD_USER_DIR}/usb-encryption-enforcer-ui.service.d"
+  install -d "${SYSTEMD_SYSTEM_DIR}/usb-enforcerd.service.d"
+  install -d "${SYSTEMD_USER_DIR}/usb-enforcer-ui.service.d"
 }
 
 install_python_bits() {
@@ -50,36 +50,36 @@ install_python_bits() {
 }
 
 install_scripts() {
-  install -m 0755 "${REPO_ROOT}/scripts/usb-encryption-enforcerd" "${LIBEXEC}/"
-  install -m 0755 "${REPO_ROOT}/scripts/usb-encryption-enforcer-helper" "${LIBEXEC}/"
-  install -m 0755 "${REPO_ROOT}/scripts/usb-encryption-enforcer-ui" "${LIBEXEC}/"
-  install -m 0755 "${REPO_ROOT}/scripts/usb-encryption-enforcer-wizard" "${LIBEXEC}/"
+  install -m 0755 "${REPO_ROOT}/scripts/usb-enforcerd" "${LIBEXEC}/"
+  install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-helper" "${LIBEXEC}/"
+  install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-ui" "${LIBEXEC}/"
+  install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-wizard" "${LIBEXEC}/"
 }
 
 install_config_rules() {
   if [[ ! -f "${CONFIG_DIR}/config.toml" ]]; then
     install -m 0644 "${REPO_ROOT}/deploy/config.toml.sample" "${CONFIG_DIR}/config.toml"
   fi
-  install -m 0644 "${REPO_ROOT}/deploy/udev/49-usb-encryption-enforcer.rules" "${UDEV_DIR}/"
-  install -m 0644 "${REPO_ROOT}/deploy/udev/80-udisks2-usb-encryption-enforcer.rules" "${UDEV_DIR}/"
-  install -m 0644 "${REPO_ROOT}/deploy/polkit/49-usb-encryption-enforcer.rules" "${POLKIT_DIR}/"
-  install -m 0644 "${REPO_ROOT}/deploy/dbus/org.seravault.UsbEncryptionEnforcer.conf" "${DBUS_DIR}/"
+  install -m 0644 "${REPO_ROOT}/deploy/udev/49-usb-enforcer.rules" "${UDEV_DIR}/"
+  install -m 0644 "${REPO_ROOT}/deploy/udev/80-udisks2-usb-enforcer.rules" "${UDEV_DIR}/"
+  install -m 0644 "${REPO_ROOT}/deploy/polkit/49-usb-enforcer.rules" "${POLKIT_DIR}/"
+  install -m 0644 "${REPO_ROOT}/deploy/dbus/org.seravault.UsbEnforcer.conf" "${DBUS_DIR}/"
 }
 
 install_systemd_units() {
-  install -m 0644 "${REPO_ROOT}/deploy/systemd/usb-encryption-enforcerd.service" "${SYSTEMD_SYSTEM_DIR}/"
-  install -m 0644 "${REPO_ROOT}/deploy/systemd/usb-encryption-enforcer-ui.service" "${SYSTEMD_USER_DIR}/"
+  install -m 0644 "${REPO_ROOT}/deploy/systemd/usb-enforcerd.service" "${SYSTEMD_SYSTEM_DIR}/"
+  install -m 0644 "${REPO_ROOT}/deploy/systemd/usb-enforcer-ui.service" "${SYSTEMD_USER_DIR}/"
 
-  cat > "${SYSTEMD_SYSTEM_DIR}/usb-encryption-enforcerd.service.d/env.conf" <<'EOF'
+  cat > "${SYSTEMD_SYSTEM_DIR}/usb-enforcerd.service.d/env.conf" <<'EOF'
 [Service]
-Environment=PYTHONPATH=/usr/lib/usb-encryption-enforcer
-Environment=PATH=/usr/lib/usb-encryption-enforcer/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Environment=PYTHONPATH=/usr/lib/usb-enforcer
+Environment=PATH=/usr/lib/usb-enforcer/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EOF
 
-  cat > "${SYSTEMD_USER_DIR}/usb-encryption-enforcer-ui.service.d/env.conf" <<'EOF'
+  cat > "${SYSTEMD_USER_DIR}/usb-enforcer-ui.service.d/env.conf" <<'EOF'
 [Service]
-Environment=PYTHONPATH=/usr/lib/usb-encryption-enforcer
-Environment=PATH=/usr/lib/usb-encryption-enforcer/.venv/bin:/usr/local/bin:/usr/bin
+Environment=PYTHONPATH=/usr/lib/usb-enforcer
+Environment=PATH=/usr/lib/usb-enforcer/.venv/bin:/usr/local/bin:/usr/bin
 EOF
 }
 
@@ -96,11 +96,11 @@ reload_services() {
   log "Reloading systemd and udev"
   systemctl daemon-reload
   udevadm control --reload
-  log "Enable and start daemon: systemctl enable --now usb-encryption-enforcerd"
-  systemctl enable --now usb-encryption-enforcerd
+  log "Enable and start daemon: systemctl enable --now usb-enforcerd"
+  systemctl enable --now usb-enforcerd
   log "Enabling user notification bridge for all users via default.target.wants"
   install -d "${SYSTEMD_USER_DIR}/default.target.wants"
-  ln -sf "${SYSTEMD_USER_DIR}/usb-encryption-enforcer-ui.service" "${SYSTEMD_USER_DIR}/default.target.wants/usb-encryption-enforcer-ui.service"
+  ln -sf "${SYSTEMD_USER_DIR}/usb-enforcer-ui.service" "${SYSTEMD_USER_DIR}/default.target.wants/usb-enforcer-ui.service"
   
   # Start user service for the user who ran sudo
   if [[ -n "$SUDO_USER" ]] && [[ "$SUDO_USER" != "root" ]]; then
@@ -108,9 +108,9 @@ reload_services() {
     sudo -u "$SUDO_USER" XDG_RUNTIME_DIR="/run/user/$(id -u "$SUDO_USER")" \
       systemctl --user daemon-reload
     sudo -u "$SUDO_USER" XDG_RUNTIME_DIR="/run/user/$(id -u "$SUDO_USER")" \
-      systemctl --user enable --now usb-encryption-enforcer-ui
+      systemctl --user enable --now usb-enforcer-ui
   else
-    log "Per-user start occurs on next login; to start immediately, run: systemctl --user daemon-reload && systemctl --user enable --now usb-encryption-enforcer-ui"
+    log "Per-user start occurs on next login; to start immediately, run: systemctl --user daemon-reload && systemctl --user enable --now usb-enforcer-ui"
   fi
 }
 

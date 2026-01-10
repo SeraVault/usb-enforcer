@@ -32,7 +32,7 @@ Description: USB encryption enforcement daemon
  A system daemon that enforces encryption requirements on USB storage devices.
  .
  This package downloads Python dependencies from PyPI during installation.
- For offline/airgapped installations, use usb-encryption-enforcer-bundled instead.
+ For offline/airgapped installations, use usb-enforcer-bundled instead.
  .
  Features:
   - Automatic detection of USB storage devices
