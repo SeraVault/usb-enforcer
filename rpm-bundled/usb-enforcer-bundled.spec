@@ -170,7 +170,7 @@ fi
 
 %files
 %doc README.md
-%doc docs/usb-enforcer.md
+%doc docs/USB-ENFORCER.md
 %config(noreplace) %{_sysconfdir}/usb-enforcer/config.toml
 %{_libdir}/usb-enforcer/usb_enforcer/
 %{_libdir}/usb-enforcer/wheels/

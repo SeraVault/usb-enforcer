@@ -271,6 +271,6 @@ exempted_groups = ["sysadmin", "developers", "qa-team", "security-auditors"]
 ```
 
 ## Related Documentation
-- Main documentation: [docs/usb-enforcer.md](../docs/usb-enforcer.md)
+- Main documentation: [docs/USB-ENFORCER.md](../docs/USB-ENFORCER.md)
 - Configuration reference: [deploy/config.toml.sample](../deploy/config.toml.sample)
 - Setup script: [scripts/setup-exemption-group.sh](../scripts/setup-exemption-group.sh)

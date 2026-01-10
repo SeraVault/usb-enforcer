@@ -11,7 +11,7 @@ USB data loss prevention for Linux desktops: plaintext USB mass-storage devices 
 - **[Windows Access](#accessing-encrypted-drives-on-windows)** - Using encrypted drives on Windows
 - **[Group Exemptions](docs/GROUP-EXEMPTIONS.md)** - Exempt specific users/groups from enforcement
 - **[Building Packages](#building-packages)** - Build RPM/DEB packages
-- **[Technical Details](docs/usb-enforcer.md)** - Architecture and design
+- **[Technical Details](docs/USB-ENFORCER.md)** - Architecture and design
 
 ## Supported Distributions
 
@@ -74,7 +74,7 @@ This tool has been tested and is supported on:
 - Primary config lives at `/etc/usb-enforcer/config.toml` (sample in `deploy/config.toml.sample`).
 - Defaults (`src/usb_enforcer/config.py`): `enforce_on_usb_only=true`, `default_plain_mount_opts=["nodev","nosuid","noexec","ro"]`, `default_encrypted_mount_opts=["nodev","nosuid","rw"]`, `allow_luks1_readonly=true`, `min_passphrase_length=12`, `filesystem_type="exfat"` (sample config uses ext4), `kdf.type="argon2id"`, `cipher.type="aes-xts-plain64"` with a 512-bit key.
 - Daemon skips block-level RO while an encryption operation is in progress to allow formatting; otherwise plaintext partitions/disks with filesystems are forced `ro`.
-- **Group-based exemptions:** Set `exempted_groups = ["groupname"]` in config.toml to bypass enforcement for users in specific Linux groups. This allows administrators to exempt trusted personnel (e.g., `usb-exempt`, `developers`, `sysadmin`) from DLP restrictions while maintaining enforcement for other users. See [docs/usb-enforcer.md](docs/usb-enforcer.md#group-based-exemptions) for setup instructions.
+- **Group-based exemptions:** Set `exempted_groups = ["groupname"]` in config.toml to bypass enforcement for users in specific Linux groups. This allows administrators to exempt trusted personnel (e.g., `usb-exempt`, `developers`, `sysadmin`) from DLP restrictions while maintaining enforcement for other users. See [docs/USB-ENFORCER.md](docs/USB-ENFORCER.md#group-based-exemptions) for setup instructions.
 
 ## Installing and Running
 
@@ -225,7 +225,7 @@ If you frequently need Windows access, consider these alternatives to LUKS2:
 - **macOS support**: LUKS2 can be accessed on macOS via Homebrew's `cryptsetup` package
 
 ## More Detail
-- **[docs/usb-enforcer.md](docs/usb-enforcer.md)**: Legacy design document with goals, UX, and policy rationale
+- **[docs/USB-ENFORCER.md](docs/USB-ENFORCER.md)**: Legacy design document with goals, UX, and policy rationale
 - **[docs/HEADLESS-USAGE.md](docs/HEADLESS-USAGE.md)**: Complete guide for using USB Enforcer on headless/server systems without GUI
 - **[docs/GROUP-EXEMPTIONS.md](docs/GROUP-EXEMPTIONS.md)**: Group-based exemption configuration
 

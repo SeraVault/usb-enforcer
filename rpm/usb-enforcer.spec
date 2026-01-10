@@ -152,7 +152,7 @@ fi
 
 %files
 %doc README.md
-%doc docs/usb-enforcer.md
+%doc docs/USB-ENFORCER.md
 %config(noreplace) %{_sysconfdir}/%{name}/config.toml
 %{_libdir}/%{name}/usb_enforcer/
 %{_libexecdir}/usb-enforcerd

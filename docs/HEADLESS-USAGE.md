@@ -484,4 +484,4 @@ ACTION=="add", SUBSYSTEM=="block", ENV{ID_SERIAL}=="<specific-serial>", \
 
 - [Main README](../README.md) - Installation and overview
 - [GROUP-EXEMPTIONS.md](GROUP-EXEMPTIONS.md) - Exempting specific users/groups
-- [usb-enforcer.md](usb-enforcer.md) - Technical architecture details
+- [USB-ENFORCER.md](USB-ENFORCER.md) - Technical architecture details
