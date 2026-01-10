@@ -2,6 +2,8 @@
 
 USB data loss prevention for Linux desktops: plaintext USB mass-storage devices are forced read-only, while LUKS2-encrypted devices can be unlocked and mounted writable. A Python daemon watches udev, enforces block-level `ro`, publishes DBus events, and drives a minimal notification bridge plus a GTK wizard for encryption/unlock flows.
 
+**Available as RPM and DEB packages** for easy installation on Fedora, RHEL, Debian, Ubuntu, and derivatives. Both standard (online) and bundled (offline/airgapped) package variants are provided.
+
 ## How It Works
 - **Udev backstop:** `deploy/udev/49-usb-encryption-enforcer.rules` marks USB partitions with filesystems read-only (excludes LUKS and dm-crypt mappers). Automount is disabled for plaintext via `deploy/udev/80-udisks2-usb-encryption-enforcer.rules`, but encrypted/mapped devices keep automount enabled.
 - **Polkit policy:** `deploy/polkit/49-usb-encryption-enforcer.rules` denies `rw` mounts/remounts for plaintext USB and LUKS1 devices (ro is allowed). A permissive rule also allows udisks encryption/mount actions so the daemon/UI can operate.
@@ -16,11 +18,96 @@ USB data loss prevention for Linux desktops: plaintext USB mass-storage devices 
 - Daemon skips block-level RO while an encryption operation is in progress to allow formatting; otherwise plaintext partitions/disks with filesystems are forced `ro`.
 
 ## Installing and Running
-- RHEL/Fedora/SUSE: run `scripts/install-rhel.sh` as root to copy Python bits to `/usr/lib/usb-encryption-enforcer`, install udev/polkit/dbus/systemd files, create a venv, and enable the services.
-- Debian/Ubuntu/Mint: run `scripts/install-debian.sh` as root; it checks GTK/pygobject/udisks/notify deps before installing the same artifacts and enabling services.
-- Uninstallers are available for both families (`scripts/uninstall-rhel.sh`, `scripts/uninstall-debian.sh`) and remove services, policies, and the installed venv (config removal is optional).
-- Services: `usb-encryption-enforcerd.service` (system) runs the daemon; `usb-encryption-enforcer-ui.service` (user) runs the notification bridge. The installers enable both; for ad-hoc testing you can run the scripts directly from the repo with `PYTHONPATH=src`.
-- Requirements: Python 3 with `pyudev`, `pydbus`, `PyGObject` (see `requirements.txt`), plus system tools `cryptsetup`, `udisks2`, `blockdev`, `parted`, `wipefs`, `dd`, and a desktop notification service.
+
+### Installation Options
+
+#### Option 1: Package Installation (Recommended)
+Install pre-built packages for your distribution:
+
+**RPM-based (Fedora/RHEL/CentOS/openSUSE):**
+```bash
+# Standard package (downloads Python deps during installation)
+sudo dnf install usb-encryption-enforcer-1.0.0-1.*.noarch.rpm
+
+# OR bundled package (offline/airgapped, no internet required)
+sudo dnf install usb-encryption-enforcer-bundled-1.0.0-1.*.noarch.rpm
+```
+
+**Debian-based (Debian/Ubuntu/Mint):**
+```bash
+# Standard package (downloads Python deps during installation)
+sudo apt install ./usb-encryption-enforcer_1.0.0-1_all.deb
+
+# OR bundled package (offline/airgapped, no internet required)
+sudo apt install ./usb-encryption-enforcer-bundled_1.0.0-1_all.deb
+```
+
+Both package types install to `/usr/lib/usb-encryption-enforcer/` with a Python virtual environment, enable systemd services automatically, and configure udev/polkit/DBus rules.
+
+#### Option 2: Script Installation
+Manual installation using install scripts:
+
+**RHEL/Fedora/SUSE:**
+```bash
+sudo ./scripts/install-rhel.sh
+```
+
+**Debian/Ubuntu/Mint:**
+```bash
+sudo ./scripts/install-debian.sh
+```
+
+Scripts copy Python code to `/usr/lib/usb-encryption-enforcer/`, install system integration files, create a virtual environment, and enable services.
+
+### Uninstalling
+
+**Package uninstall:**
+```bash
+# RPM-based
+sudo dnf remove usb-encryption-enforcer
+# OR
+sudo dnf remove usb-encryption-enforcer-bundled
+
+# Debian-based
+sudo apt remove usb-encryption-enforcer
+# OR
+sudo apt remove usb-encryption-enforcer-bundled
+
+# Purge (removes config too)
+sudo apt purge usb-encryption-enforcer
+```
+
+**Script uninstall:**
+```bash
+sudo ./scripts/uninstall-rhel.sh    # RHEL/Fedora/SUSE
+sudo ./scripts/uninstall-debian.sh  # Debian/Ubuntu/Mint
+```
+
+### Building Packages
+
+See [BUILD-RPM.md](BUILD-RPM.md) and [BUILD-DEB.md](BUILD-DEB.md) for detailed build instructions.
+
+**Quick build:**
+```bash
+make rpm          # Build RPM (standard)
+make rpm-bundled  # Build RPM (bundled)
+make deb          # Build DEB (standard, requires Debian/Ubuntu)
+make deb-bundled  # Build DEB (bundled, requires Debian/Ubuntu)
+make clean        # Clean build artifacts
+```
+
+Built packages appear in `dist/` directory.
+
+### Running
+- **System daemon:** `usb-encryption-enforcerd.service` monitors USB devices
+- **User notification bridge:** `usb-encryption-enforcer-ui.service` shows desktop notifications
+- Both services are enabled automatically by installers/packages
+- For ad-hoc testing: run scripts directly with `PYTHONPATH=src`
+
+### Requirements
+- **Python 3.8+** with `pyudev`, `pydbus`, `PyGObject` (see `requirements.txt`)
+- **System tools:** `cryptsetup`, `udisks2`, `blockdev`, `parted`, `wipefs`, `dd`
+- **Desktop:** GTK4, libadwaita, notification service (for GUI components)
 
 ## Accessing Encrypted Drives on Windows
 
@@ -80,3 +167,40 @@ If you frequently need Windows access, consider these alternatives to LUKS2:
 
 ## More Detail
 The legacy design document lives at `docs/usb-encryption-enforcer.md` and outlines goals, UX, and policy rationale. Update both this README and the doc if behavior changes (e.g., default filesystem, notification flow, or polkit rules).
+
+## Project Structure
+```
+usb-enforce-encryption/
+├── src/usb_enforcer/          # Python package
+│   ├── classify.py            # Device classification logic
+│   ├── config.py              # Configuration management
+│   ├── crypto_engine.py       # LUKS encryption operations
+│   ├── daemon.py              # Main daemon
+│   ├── dbus_api.py            # DBus API implementation
+│   └── ui/wizard.py           # GTK wizard interface
+├── scripts/                   # Executable scripts
+│   ├── usb-encryption-enforcerd        # System daemon
+│   ├── usb-encryption-enforcer-ui      # User notification bridge
+│   ├── usb-encryption-enforcer-wizard  # GTK encryption wizard
+│   ├── usb-encryption-enforcer-helper  # Unlock dialog
+│   ├── install-rhel.sh        # RHEL/Fedora installer
+│   ├── install-debian.sh      # Debian/Ubuntu installer
+│   ├── uninstall-rhel.sh      # RHEL/Fedora uninstaller
+│   └── uninstall-debian.sh    # Debian/Ubuntu uninstaller
+├── deploy/                    # System integration files
+│   ├── config.toml.sample     # Configuration sample
+│   ├── dbus/                  # DBus configuration
+│   ├── polkit/                # PolicyKit rules
+│   ├── systemd/               # Systemd service units
+│   └── udev/                  # Udev rules
+├── rpm/                       # RPM packaging (standard)
+│   └── usb-encryption-enforcer.spec
+├── rpm-bundled/               # RPM packaging (bundled)
+│   └── usb-encryption-enforcer-bundled.spec
+├── debian/                    # Debian packaging (standard)
+├── debian-bundled/            # Debian packaging (bundled)
+├── Makefile                   # Build automation
+├── BUILD-RPM.md               # RPM build guide
+├── BUILD-DEB.md               # Debian build guide
+└── README.md                  # This file
+```
