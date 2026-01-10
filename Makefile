@@ -109,7 +109,8 @@ clean:
 	@rm -f ~/rpmbuild/RPMS/noarch/$(NAME)-$(VERSION)-$(RELEASE)*.noarch.rpm 2>/dev/null || true
 	@echo "Clean complete"
 
-deb: dist
+deb:
+	@if [ ! -f $(TARBALL) ]; then $(MAKE) dist; fi
 	@echo "Building Debian package (standard version)..."
 	@if ! command -v dpkg-buildpackage >/dev/null 2>&1; then \
 		echo "Error: dpkg-buildpackage not found. Install: sudo apt install debhelper dh-python devscripts"; \
@@ -127,7 +128,9 @@ deb: dist
 	@echo "Debian package created in dist/"
 	@ls -lh dist/$(NAME)_$(VERSION)-*.deb
 
-deb-bundled: dist bundle-deps
+deb-bundled:
+	@if [ ! -f $(TARBALL) ]; then $(MAKE) dist; fi
+	@if [ ! -f $(PYTHON_DEPS) ]; then $(MAKE) bundle-deps; fi
 	@echo "Building Debian package (bundled version)..."
 	@if ! command -v dpkg-buildpackage >/dev/null 2>&1; then \
 		echo "Error: dpkg-buildpackage not found. Install: sudo apt install debhelper dh-python devscripts"; \
@@ -135,6 +138,7 @@ deb-bundled: dist bundle-deps
 	fi
 	@mkdir -p $(NAME)-$(VERSION)
 	@tar xzf $(TARBALL)
+	@tar xzf $(PYTHON_DEPS)
 	@cp -r wheels $(NAME)-$(VERSION)/
 	@cp -r debian-bundled $(NAME)-$(VERSION)/debian
 	@cd $(NAME)-$(VERSION) && dpkg-buildpackage -us -uc -b
