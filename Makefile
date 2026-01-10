@@ -95,7 +95,9 @@ clean:
 	@echo "Cleaning build artifacts..."
 	@rm -f $(TARBALL)
 	@rm -f $(PYTHON_DEPS)
-	@rm -rf dist/
+	@rm -f dist/$(NAME)-*.rpm dist/$(NAME_BUNDLED)-*.rpm 2>/dev/null || true
+	@rm -f dist/$(NAME)_*.deb dist/$(NAME_BUNDLED)_*.deb 2>/dev/null || true
+	@rm -f dist/*.buildinfo dist/*.changes 2>/dev/null || true
 	@rm -rf $(NAME)-$(VERSION)
 	@rm -rf wheels/
 	@rm -rf debian/.debhelper debian/debhelper-build-stamp debian/files debian/tmp
@@ -122,12 +124,12 @@ deb:
 	@cp -r debian $(NAME)-$(VERSION)/
 	@cd $(NAME)-$(VERSION) && dpkg-buildpackage -us -uc -b
 	@mkdir -p dist
-	@mv $(NAME)_$(VERSION)-*.deb dist/ 2>/dev/null || true
+	@mv $(NAME)_*.deb dist/ 2>/dev/null || true
 	@rm -rf $(NAME)-$(VERSION)
-	@rm -f $(NAME)_$(VERSION)-*.buildinfo $(NAME)_$(VERSION)-*.changes 2>/dev/null || true
+	@rm -f $(NAME)_*.buildinfo $(NAME)_*.changes 2>/dev/null || true
 	@echo ""
 	@echo "Debian package created in dist/"
-	@ls -lh dist/$(NAME)_$(VERSION)-*.deb
+	@ls -lh dist/$(NAME)_*.deb
 
 deb-bundled:
 	@if [ ! -f $(TARBALL) ]; then $(MAKE) dist; fi
@@ -144,10 +146,10 @@ deb-bundled:
 	@cp -r debian-bundled $(NAME)-$(VERSION)/debian
 	@cd $(NAME)-$(VERSION) && dpkg-buildpackage -us -uc -b
 	@mkdir -p dist
-	@mv $(NAME_BUNDLED)_$(VERSION)-*.deb dist/ 2>/dev/null || true
+	@mv $(NAME_BUNDLED)_*.deb dist/ 2>/dev/null || true
 	@rm -rf $(NAME)-$(VERSION)
-	@rm -f $(NAME_BUNDLED)_$(VERSION)-*.buildinfo $(NAME_BUNDLED)_$(VERSION)-*.changes 2>/dev/null || true
+	@rm -f $(NAME_BUNDLED)_*.buildinfo $(NAME_BUNDLED)_*.changes 2>/dev/null || true
 	@echo ""
 	@echo "Bundled Debian package created in dist/"
-	@ls -lh dist/$(NAME_BUNDLED)_$(VERSION)-*.deb
+	@ls -lh dist/$(NAME_BUNDLED)_*.deb
 

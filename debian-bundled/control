@@ -1,7 +1,6 @@
 Source: usb-enforcer-bundled
 Section: admin
 Priority: optional
-Version: 1.0.0~rc1
 Maintainer: Donnie Guedry (dguedry@gmail.com)
 Build-Depends: debhelper-compat (= 13),
                dh-python,
@@ -18,7 +17,7 @@ Vcs-Git: https://github.com/seravault/usb-enforcer.git
 Vcs-Browser: https://github.com/seravault/usb-enforcer
 
 Package: usb-enforcer-bundled
-Architecture:PyGObject all
+Architecture: all
 Depends: ${misc:Depends},
          python3 (>= 3.8),
          python3-venv,

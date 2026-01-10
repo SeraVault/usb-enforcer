@@ -22,7 +22,7 @@ Two Debian package variants are available:
 
 ### On Debian/Ubuntu Systems
 ```bash
-sudo apt install debhelper dh-python devscripts build-essential
+sudo apt install debhelper dh-python devscripts build-essential python3-all
 ```
 
 ### On Fedora/RHEL (for cross-building)

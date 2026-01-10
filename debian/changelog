@@ -1,6 +1,6 @@
-usb-encryption-enforcer (1.0.0-1) unstable; urgency=medium
+usb-enforcer (1.0.0~rc1-1) unstable; urgency=medium
 
-  * Initial release
+  * Initial release candidate
   * USB encryption enforcement daemon
   * System-wide udev and systemd integration
   * User notification GUI
