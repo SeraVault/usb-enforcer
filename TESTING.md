@@ -128,12 +128,12 @@ sudo -E env "PATH=$PATH" pytest tests/integration/ -v -m integration
 
 ## Test Categories
 
-### Unit Tests
+### Unit Tests (51 tests)
 
 **Characteristics:**
 - No root privileges required
 - No external dependencies (mocked)
-- Fast execution
+- Fast execution (<1 second)
 - High code coverage
 
 **What's Tested:**
@@ -148,13 +148,13 @@ sudo -E env "PATH=$PATH" pytest tests/integration/ -v -m integration
 pytest tests/unit/ -v
 ```
 
-### Integration Tests
+### Integration Tests (60+ tests)
 
 **Characteristics:**
 - **Requires root privileges**
 - Uses loop devices to simulate USB storage
 - Tests real encryption, formatting, mounting
-- Slower execution
+- Slower execution (30-60 seconds)
 - Tests actual system behavior
 
 **What's Tested:**
@@ -164,10 +164,19 @@ pytest tests/unit/ -v
 - Mounting and writing to encrypted devices
 - Policy enforcement on real devices
 - Device partition operations
+- **Daemon initialization and lifecycle**
+- **Secret socket communication**
+- **D-Bus API method calls and signals**
+- **Real-world usage workflows**
+- **Multiple encryption/decryption cycles**
+- **Error handling and edge cases**
 
 **Example:**
 ```bash
 sudo pytest tests/integration/test_encryption.py -v
+sudo pytest tests/integration/test_crypto_engine.py -v
+sudo pytest tests/integration/test_daemon.py -v
+sudo pytest tests/integration/test_dbus_integration.py -v
 ```
 
 ## Integration Test Details

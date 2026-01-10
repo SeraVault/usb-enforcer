@@ -7,6 +7,7 @@ Run with: sudo pytest tests/integration/test_encryption.py
 from __future__ import annotations
 
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -68,16 +69,18 @@ class TestLUKSEncryption:
         """Test encrypting a device with LUKS2."""
         with loop_device(size_mb=100) as device:
             passphrase = "test-encryption-password-123"
+            mapper_name = "test-luks2"
             
             # Encrypt device
             try:
                 crypto_engine.encrypt_device(
                     device,
+                    mapper_name,
                     passphrase,
-                    luks_version="2",
-                    cipher_spec="aes-xts-plain64",
-                    key_size=512,
-                    kdf_spec="argon2id"
+                    fs_type="exfat",
+                    mount_opts=[],
+                    cipher_opts={"cipher": "aes-xts-plain64", "key_size": 512},
+                    kdf_opts={"type": "argon2id"}
                 )
             except crypto_engine.CryptoError as e:
                 pytest.fail(f"Encryption failed: {e}")
@@ -86,8 +89,11 @@ class TestLUKSEncryption:
             version = crypto_engine.luks_version(device)
             assert version == "2"
             
+            # Close from encryption
+            subprocess.run(["cryptsetup", "close", mapper_name], check=False, capture_output=True)
+            time.sleep(0.5)
+            
             # Verify we can open it
-            mapper_name = "test-luks2"
             try:
                 result = subprocess.run(
                     ["cryptsetup", "open", device, mapper_name],
@@ -106,16 +112,18 @@ class TestLUKSEncryption:
         """Test encrypting a device with LUKS1."""
         with loop_device(size_mb=100) as device:
             passphrase = "test-encryption-password-123"
+            mapper_name = "test-luks1"
             
             # Encrypt device
             try:
                 crypto_engine.encrypt_device(
                     device,
+                    mapper_name,
                     passphrase,
-                    luks_version="1",
-                    cipher_spec="aes-xts-plain64",
-                    key_size=512,
-                    kdf_spec="pbkdf2"
+                    fs_type="exfat",
+                    mount_opts=[],
+                    cipher_opts={"cipher": "aes-xts-plain64", "key_size": 512},
+                    kdf_opts={"type": "pbkdf2"}
                 )
             except crypto_engine.CryptoError as e:
                 pytest.fail(f"Encryption failed: {e}")
@@ -134,12 +142,17 @@ class TestLUKSEncryption:
                 # Encrypt device
                 crypto_engine.encrypt_device(
                     device,
+                    mapper_name,
                     passphrase,
-                    luks_version="2",
-                    cipher_spec="aes-xts-plain64",
-                    key_size=512,
-                    kdf_spec="argon2id"
+                    fs_type="ext4",
+                    mount_opts=[],
+                    cipher_opts={"cipher": "aes-xts-plain64", "key_size": 512},
+                    kdf_opts={"type": "argon2id"}
                 )
+                
+                # Close from encryption and reopen
+                subprocess.run(["cryptsetup", "close", mapper_name], check=False, capture_output=True)
+                time.sleep(0.5)
                 
                 # Open device
                 subprocess.run(

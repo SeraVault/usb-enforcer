@@ -167,14 +167,18 @@ class TestPolicyEnforcement:
         with loop_device(size_mb=100) as device:
             # Encrypt device
             passphrase = "test-password-enforcement-123"
+            mapper_name = "test-enforce"
             crypto_engine.encrypt_device(
                 device,
+                mapper_name,
                 passphrase,
-                luks_version="2",
-                cipher_spec="aes-xts-plain64",
-                key_size=512,
-                kdf_spec="argon2id"
+                fs_type="exfat",
+                mount_opts=[],
+                cipher_opts={"cipher": "aes-xts-plain64", "key_size": 512},
+                kdf_opts={"type": "argon2id"}
             )
+            # Close from encryption
+            subprocess.run(["cryptsetup", "close", mapper_name], check=False, capture_output=True)
             
             # Get device properties
             result = subprocess.run(
@@ -223,12 +227,17 @@ class TestDeviceOperations:
                 # Encrypt and format
                 crypto_engine.encrypt_device(
                     device,
+                    mapper_name,
                     passphrase,
-                    luks_version="2",
-                    cipher_spec="aes-xts-plain64",
-                    key_size=512,
-                    kdf_spec="argon2id"
+                    fs_type="ext4",
+                    mount_opts=[],
+                    cipher_opts={"cipher": "aes-xts-plain64", "key_size": 512},
+                    kdf_opts={"type": "argon2id"}
                 )
+                
+                # Close and reopen LUKS device
+                subprocess.run(["cryptsetup", "close", mapper_name], check=False, capture_output=True)
+                time.sleep(0.5)
                 
                 # Open LUKS device
                 subprocess.run(
