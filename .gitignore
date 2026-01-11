@@ -41,7 +41,6 @@ env/
 #*.deb
 #*.rpm
 python-deps.tar.gz
-dist/
 wheels/
 
 # Test artifacts
