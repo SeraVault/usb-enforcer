@@ -60,6 +60,9 @@ check_dependencies() {
   if ! dpkg -s gir1.2-gtk-4.0 >/dev/null 2>&1; then
     missing+=("gir1.2-gtk-4.0")
   fi
+  if ! dpkg -s gir1.2-adw-1 >/dev/null 2>&1; then
+    missing+=("gir1.2-adw-1")
+  fi
   
   # Build dependencies for PyGObject/pycairo
   if ! command -v pkg-config >/dev/null 2>&1; then

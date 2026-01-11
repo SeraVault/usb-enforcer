@@ -37,6 +37,31 @@ require_root() {
   fi
 }
 
+check_dependencies() {
+  log "Checking system dependencies..."
+  local missing=()
+  
+  # Check for required packages via rpm
+  if ! rpm -q gtk4 >/dev/null 2>&1; then
+    missing+=("gtk4")
+  fi
+  if ! rpm -q libadwaita >/dev/null 2>&1; then
+    missing+=("libadwaita")
+  fi
+  if ! rpm -q python3-gobject >/dev/null 2>&1; then
+    missing+=("python3-gobject")
+  fi
+  
+  if [ ${#missing[@]} -gt 0 ]; then
+    log "Missing required packages: ${missing[*]}"
+    log "Install them with: sudo dnf install ${missing[*]}"
+    log "Note: On RHEL you may need to enable EPEL repository first:"
+    log "  sudo dnf install epel-release"
+    exit 1
+  fi
+  log "All required dependencies found."
+}
+
 create_dirs() {
   install -d "$LIBDIR" "$LIBEXEC" "$CONFIG_DIR" "$SYSTEMD_SYSTEM_DIR" "$SYSTEMD_USER_DIR" "$POLKIT_DIR" "$UDEV_DIR" "$DBUS_DIR"
   install -d "${SYSTEMD_SYSTEM_DIR}/usb-enforcerd.service.d"
@@ -134,6 +159,7 @@ reload_services() {
 
 main() {
   require_root
+  check_dependencies
   require_cmd cryptsetup
   require_cmd udevadm
   require_cmd systemctl

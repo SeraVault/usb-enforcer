@@ -75,11 +75,16 @@ class UsbEnforcerDBus:
         if not pydbus:
             self.logger.warning("pydbus not available; DBus API disabled")
             return None
-        bus = pydbus.SystemBus()
-        bus.publish(DBUS_NAME, self)
-        self.logger.info("DBus service published at %s %s", DBUS_NAME, DBUS_PATH)
-        self.bus = bus
-        return self.bus
+        try:
+            bus = pydbus.SystemBus()
+            bus.publish(DBUS_NAME, self)
+            self.logger.info("DBus service published at %s %s", DBUS_NAME, DBUS_PATH)
+            self.bus = bus
+            return self.bus
+        except Exception as e:
+            self.logger.error("Failed to publish DBus service: %s", e)
+            self.logger.warning("DBus API disabled due to connection failure")
+            return None
 
     # DBus-exposed methods
     def ListDevices(self) -> List[Dict[str, str]]:  # noqa: N802

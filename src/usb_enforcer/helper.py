@@ -1,18 +1,13 @@
-#!/bin/bash
-# USB Enforcer helper wrapper
-set -e
+"""Helper script for USB encryption operations"""
+import sys
+import subprocess
+import gi
+gi.require_version('Gtk', '4.0')
+from gi.repository import Gtk, GLib
+from usb_enforcer import secret_socket
 
-LIBDIR="/usr/lib/usb-enforcer"
-VENV="${LIBDIR}/.venv"
 
-# Use venv if available, otherwise use system Python with PYTHONPATH
-if [ -d "${VENV}" ] && [ -f "${VENV}/bin/python3" ]; then
-    export PYTHONPATH="${LIBDIR}"
-    exec "${VENV}/bin/python3" -c "from usb_enforcer.helper import main; main()" "$@"
-else
-    export PYTHONPATH="${LIBDIR}"
-    exec python3 -c "from usb_enforcer.helper import main; main()" "$@"
-fi
+def show_unlock_dialog(devnode):
     """Show a dialog to unlock an encrypted device"""
     class UnlockDialog(Gtk.ApplicationWindow):
         def __init__(self, app):
@@ -81,6 +76,7 @@ fi
     app = UnlockApp()
     app.run(None)
 
+
 def set_readonly(devnode):
     """Set device to read-only"""
     import os
@@ -89,6 +85,7 @@ def set_readonly(devnode):
     if os.path.exists(sysfs_ro):
         with open(sysfs_ro, 'w') as f:
             f.write('1')
+
 
 def main():
     if len(sys.argv) < 3:
@@ -105,6 +102,7 @@ def main():
     else:
         print(f"unsupported action: {action}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

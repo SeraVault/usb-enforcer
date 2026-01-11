@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 User-session bridge: listens for DBus Event signals and shows desktop notifications.
 This is intentionally minimal; replace with full GTK UI for production.

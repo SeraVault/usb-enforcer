@@ -1,7 +1,7 @@
 [Unit]
 Description=USB Encryption Enforcer DLP daemon
-After=network.target
-Wants=systemd-udevd.service
+After=network.target dbus.service
+Wants=systemd-udevd.service dbus.service
 
 [Service]
 Type=simple
