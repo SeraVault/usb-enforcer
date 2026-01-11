@@ -164,7 +164,8 @@ The packages are built as `Architecture: all` (pure Python, no compiled code), m
 - PolicyKit
 - DBus
 - cryptsetup
-- GTK+ 3.0 with GObject Introspection
+- GTK4 with GObject Introspection (gir1.2-gtk-4.0)
+- libadwaita with GObject Introspection (gir1.2-adw-1)
 
 ### Bundled Package for Airgapped Systems
 The bundled variant is ideal for:

@@ -47,7 +47,8 @@ This tool has been tested and is supported on:
 - `policykit-1` / `polkit` - Permission management
 - `dbus` - Inter-process communication
 - `python3-gi` / `PyGObject` - GTK bindings
-- `gir1.2-gtk-3.0` - GTK3 introspection (for notifications)
+- `gir1.2-gtk-4.0` - GTK4 introspection
+- `gir1.2-adw-1` - libadwaita introspection (for wizard UI)
 - `gtk4` / `libadwaita` - For encryption wizard UI
 
 ### Filesystem Support
@@ -224,6 +225,15 @@ If you frequently need Windows access, consider these alternatives to LUKS2:
 - **macOS support**: LUKS2 can be accessed on macOS via Homebrew's `cryptsetup` package
 
 ## Troubleshooting
+
+### No notifications on Linux Mint
+If notifications don't appear when USB drives are inserted on Linux Mint, this is due to a boot-time race condition. The quickest fix:
+
+```bash
+sudo systemctl restart usb-enforcerd.service
+```
+
+For a permanent fix, see [docs/LINUX-MINT-NOTIFICATIONS.md](docs/LINUX-MINT-NOTIFICATIONS.md).
 
 ### No notifications on Ubuntu/Debian
 If notifications don't appear when USB drives are inserted:
