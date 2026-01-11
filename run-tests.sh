@@ -74,9 +74,10 @@ else
 fi
 
 # Check if pytest is installed
-if ! command -v pytest &> /dev/null; then
-    echo -e "${RED}Error: pytest not found${NC}"
-    echo "Install test dependencies: pip install -r requirements-test.txt"
+PYTEST="${SCRIPT_DIR}/.venv/bin/pytest"
+if [ ! -f "$PYTEST" ]; then
+    echo -e "${RED}Error: pytest not found in .venv${NC}"
+    echo "Install test dependencies: python -m venv .venv && .venv/bin/pip install -r requirements-test.txt"
     exit 1
 fi
 
@@ -90,11 +91,11 @@ if [ "$RUN_UNIT" = true ]; then
     echo
     
     if [ "$RUN_COVERAGE" = true ]; then
-        pytest tests/unit/ -v --cov=src/usb_enforcer --cov-report=html --cov-report=term || FAILED=1
+        $PYTEST tests/unit/ -v --cov=src/usb_enforcer --cov-report=html --cov-report=term || FAILED=1
         echo
         echo -e "${GREEN}Coverage report generated: htmlcov/index.html${NC}"
     else
-        pytest tests/unit/ -v || FAILED=1
+        $PYTEST tests/unit/ -v || FAILED=1
     fi
     echo
 fi
@@ -129,7 +130,7 @@ if [ "$RUN_INTEGRATION" = true ]; then
         exit 1
     fi
     
-    pytest tests/integration/ -v -m integration || FAILED=1
+    $PYTEST tests/integration/ -v -m integration || FAILED=1
     echo
 fi
 
