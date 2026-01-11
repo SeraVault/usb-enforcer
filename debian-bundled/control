@@ -30,7 +30,8 @@ Depends: ${misc:Depends},
          exfatprogs,
          gir1.2-gtk-3.0,
          python3-gi,
-         python3-gi-cairo
+         python3-gi-cairo,
+         libnotify-bin
 Description: USB encryption enforcement daemon (bundled dependencies)
  A system daemon that enforces encryption requirements on USB storage devices.
  .
