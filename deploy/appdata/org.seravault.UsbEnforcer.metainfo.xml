@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.seravault.UsbEnforcer</id>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>GPL-3.0</project_license>
+  
+  <name>USB Enforcer</name>
+  <summary>USB data loss prevention for Linux desktops</summary>
+  
+  <description>
+    <p>
+      USB Enforcer is a data loss prevention (DLP) system for Linux desktops that enforces
+      encryption on USB mass-storage devices. Plaintext USB devices are automatically forced
+      read-only, while LUKS2-encrypted devices can be unlocked and mounted with write access.
+    </p>
+    <p>Key Features:</p>
+    <ul>
+      <li>Automatic detection and classification of USB storage devices</li>
+      <li>Block-level enforcement of read-only mode for plaintext devices</li>
+      <li>Support for LUKS2-encrypted USB drives</li>
+      <li>Desktop notifications for USB events</li>
+      <li>GTK4 wizard for encrypting drives</li>
+      <li>Configurable group-based exemptions</li>
+      <li>Integration with systemd, udev, DBus, and PolicyKit</li>
+    </ul>
+    <p>
+      The system consists of a daemon that watches for USB devices via udev, enforces
+      encryption policies, and provides a DBus API. A user-session UI bridge displays
+      desktop notifications and can launch the encryption wizard when needed.
+    </p>
+  </description>
+  
+  <launchable type="desktop-id">usb-enforcer-wizard.desktop</launchable>
+  
+  <icon type="stock">usb-enforcer</icon>
+  
+  <categories>
+    <category>System</category>
+    <category>Security</category>
+  </categories>
+  
+  <keywords>
+    <keyword>usb</keyword>
+    <keyword>encryption</keyword>
+    <keyword>security</keyword>
+    <keyword>luks</keyword>
+    <keyword>dlp</keyword>
+    <keyword>data loss prevention</keyword>
+  </keywords>
+  
+  <screenshots>
+    <screenshot type="default">
+      <caption>USB Enforcer notification when a plaintext USB drive is inserted</caption>
+    </screenshot>
+  </screenshots>
+  
+  <url type="homepage">https://github.com/seravault/usb-enforcer</url>
+  <url type="bugtracker">https://github.com/seravault/usb-enforcer/issues</url>
+  <url type="vcs-browser">https://github.com/seravault/usb-enforcer</url>
+  
+  <developer_name>Seravault</developer_name>
+  
+  <provides>
+    <binary>usb-enforcerd</binary>
+    <binary>usb-enforcer-wizard</binary>
+    <binary>usb-enforcer-helper</binary>
+    <binary>usb-enforcer-ui</binary>
+    <dbus type="system">org.seravault.UsbEnforcer</dbus>
+  </provides>
+  
+  <releases>
+    <release version="1.0.0" date="2026-01-11">
+      <description>
+        <p>Initial release of USB Enforcer</p>
+        <ul>
+          <li>USB encryption enforcement daemon</li>
+          <li>GTK4/libadwaita encryption wizard</li>
+          <li>Desktop notifications for USB events</li>
+          <li>Group-based exemptions support</li>
+          <li>RPM and DEB package support</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+  
+  <content_rating type="oars-1.1" />
+  
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </recommends>
+</component>

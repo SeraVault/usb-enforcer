@@ -3,7 +3,7 @@ Version:        1.0.0
 Release:        0.1.rc1
 Summary:        USB data loss prevention for Linux desktops (bundled Python deps)
 
-License:        MIT
+License:        GPL-3.0
 URL:            https://github.com/seravault/usb-enforcer
 Source0:        usb-enforcer-%{version}.tar.gz
 # Bundled Python dependencies (download these separately)
@@ -81,6 +81,7 @@ install -d %{buildroot}%{_unitdir}/usb-enforcerd.service.d
 install -d %{buildroot}%{_userunitdir}/usb-enforcer-ui.service.d
 install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
 install -d %{buildroot}%{_datadir}/applications
+install -d %{buildroot}%{_datadir}/metainfo
 
 # Install Python package
 cp -r src/usb_enforcer %{buildroot}%{_libdir}/usb-enforcer/
@@ -115,6 +116,12 @@ install -m 0644 deploy/systemd/usb-enforcer-ui.service %{buildroot}%{_userunitdi
 # Install icon and desktop file
 install -m 0644 deploy/icons/usb-enforcer.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 install -m 0644 deploy/desktop/usb-enforcer-wizard.desktop %{buildroot}%{_datadir}/applications/
+
+# Install AppStream metadata for package managers
+install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml %{buildroot}%{_datadir}/metainfo/
+
+# Install AppStream metadata for package managers
+install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml %{buildroot}%{_datadir}/metainfo/
 
 # Create systemd drop-in files
 cat > %{buildroot}%{_unitdir}/usb-enforcerd.service.d/env.conf <<'EOF'
@@ -206,6 +213,7 @@ fi
 %{_userunitdir}/usb-enforcer-ui.service.d/env.conf
 %{_datadir}/icons/hicolor/scalable/apps/usb-enforcer.svg
 %{_datadir}/applications/usb-enforcer-wizard.desktop
+%{_datadir}/metainfo/org.seravault.UsbEnforcer.metainfo.xml
 
 %changelog
 * Thu Jan 09 2025 Your Name <your.email@example.com> - 1.0.0-1

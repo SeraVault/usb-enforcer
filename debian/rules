@@ -50,6 +50,10 @@ override_dh_auto_install:
 	install -m 0644 deploy/icons/usb-enforcer.svg $(CURDIR)/debian/usb-enforcer/usr/share/icons/hicolor/scalable/apps/
 	install -d $(CURDIR)/debian/usb-enforcer/usr/share/applications
 	install -m 0644 deploy/desktop/usb-enforcer-wizard.desktop $(CURDIR)/debian/usb-enforcer/usr/share/applications/
+	
+	# Install AppStream metadata for package managers
+	install -d $(CURDIR)/debian/usb-enforcer/usr/share/metainfo
+	install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml $(CURDIR)/debian/usb-enforcer/usr/share/metainfo/
 
 override_dh_auto_test:
 	# Skip tests
