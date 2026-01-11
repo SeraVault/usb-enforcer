@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="128" height="128" version="1.1" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+<svg width="512" height="512" version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
  <defs>
   <linearGradient id="usbGradient" x1="0%" y1="0%" x2="0%" y2="100%">
    <stop offset="0%" style="stop-color:#5E81AC;stop-opacity:1" />
@@ -12,31 +12,31 @@
  </defs>
  
  <!-- Background circle -->
- <circle cx="64" cy="64" r="60" fill="#2E3440" opacity="0.95"/>
+ <circle cx="256" cy="256" r="240" fill="#2E3440" opacity="0.95"/>
  
  <!-- USB drive body -->
- <rect x="38" y="45" width="52" height="45" rx="4" ry="4" fill="url(#usbGradient)" stroke="#3B4252" stroke-width="2"/>
+ <rect x="106" y="130" width="300" height="260" rx="20" ry="20" fill="url(#usbGradient)" stroke="#3B4252" stroke-width="10"/>
  
  <!-- USB connector -->
- <rect x="50" y="35" width="28" height="12" rx="2" ry="2" fill="#4C566A" stroke="#3B4252" stroke-width="1.5"/>
- <rect x="54" y="30" width="20" height="7" rx="1" ry="1" fill="#D8DEE9"/>
+ <rect x="176" y="70" width="160" height="70" rx="10" ry="10" fill="#4C566A" stroke="#3B4252" stroke-width="8"/>
+ <rect x="196" y="40" width="120" height="40" rx="6" ry="6" fill="#D8DEE9"/>
  
  <!-- USB contacts -->
- <rect x="57" y="38" width="3" height="6" fill="#3B4252"/>
- <rect x="62" y="38" width="3" height="6" fill="#3B4252"/>
- <rect x="68" y="38" width="3" height="6" fill="#3B4252"/>
+ <rect x="216" y="90" width="16" height="35" fill="#3B4252"/>
+ <rect x="248" y="90" width="16" height="35" fill="#3B4252"/>
+ <rect x="280" y="90" width="16" height="35" fill="#3B4252"/>
  
  <!-- Lock body -->
- <rect x="48" y="62" width="32" height="22" rx="3" ry="3" fill="url(#lockGradient)" stroke="#BF616A" stroke-width="2"/>
+ <rect x="156" y="240" width="200" height="130" rx="18" ry="18" fill="url(#lockGradient)" stroke="#BF616A" stroke-width="10"/>
  
  <!-- Lock shackle -->
- <path d="M 56 62 L 56 55 Q 56 48 64 48 Q 72 48 72 55 L 72 62" 
-       fill="none" stroke="url(#lockGradient)" stroke-width="5" stroke-linecap="round"/>
+ <path d="M 206 240 L 206 190 Q 206 140 256 140 Q 306 140 306 190 L 306 240" 
+       fill="none" stroke="url(#lockGradient)" stroke-width="28" stroke-linecap="round"/>
  
  <!-- Keyhole -->
- <circle cx="64" cy="69" r="3.5" fill="#2E3440"/>
- <rect x="62.5" y="69" width="3" height="8" rx="1.5" fill="#2E3440"/>
+ <circle cx="256" cy="280" r="20" fill="#2E3440"/>
+ <rect x="246" y="280" width="20" height="50" rx="10" fill="#2E3440"/>
  
  <!-- LED indicator -->
- <circle cx="70" cy="52" r="2.5" fill="#A3BE8C" opacity="0.9"/>
+ <circle cx="320" cy="180" r="14" fill="#A3BE8C" opacity="0.9"/>
 </svg>
