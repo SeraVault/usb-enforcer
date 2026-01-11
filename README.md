@@ -27,8 +27,10 @@ This tool has been tested and is supported on:
 **DEB-based:**
 - Ubuntu 22.04 LTS (Jammy) and newer
 - Debian 12 (Bookworm) and newer
-- Linux Mint 21+ (based on Ubuntu 22.04+)
+- Linux Mint 21+ (Cinnamon, MATE, Xfce editions)
 - Pop!_OS 22.04+
+- Zorin OS 16+ (Core, Lite, Pro editions)
+- elementary OS 7+
 
 ### System Requirements
 - **Python**: 3.8 or newer
