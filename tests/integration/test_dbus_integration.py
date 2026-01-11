@@ -77,9 +77,12 @@ class TestDBusServiceInitialization:
         assert hasattr(service, 'GetDeviceStatus')
         assert hasattr(service, 'RequestUnlock')
         assert hasattr(service, 'RequestEncrypt')
-        assert "org.seravault.UsbEnforcer" in dbus_xml
-        assert "GetStatus" in dbus_xml
-        assert "RequestEncryption" in dbus_xml
+        
+        # Check docstring has interface definition
+        assert service.__doc__ is not None
+        assert "org.seravault.UsbEnforcer" in service.__doc__
+        assert "GetDeviceStatus" in service.__doc__
+        assert "RequestEncrypt" in service.__doc__
 
 
 @pytest.mark.skipif(not DBUS_AVAILABLE, reason="D-Bus not available")
@@ -88,65 +91,71 @@ class TestDBusMethodCalls:
     """Test D-Bus method invocations."""
     
     def test_get_status_method(self):
-        """Test GetStatus D-Bus method."""
+        """Test GetDeviceStatus D-Bus method."""
         service = create_test_dbus_service()
         
-        # Call GetStatus
-        status = service.GetStatus()
+        # Call GetDeviceStatus with a device path
+        status = service.GetDeviceStatus("/dev/sdb1")
         
-        # Should return JSON string
-        assert isinstance(status, str)
-        
-        # Should be valid JSON
-        status_data = json.loads(status)
-        assert "status" in status_data
+        # Should return dict
+        assert isinstance(status, dict)
+        assert "devnode" in status
+        assert status["devnode"] == "/dev/sdb1"
     
     def test_list_devices_method(self):
         """Test ListDevices D-Bus method."""
-        service = create_test_dbus_service()
+        # Create service with mock that returns devices
+        def mock_list_with_devices():
+            return [
+                {constants.LOG_KEY_DEVNODE: "/dev/sdb1", constants.LOG_KEY_CLASSIFICATION: constants.PLAINTEXT},
+                {constants.LOG_KEY_DEVNODE: "/dev/sdc1", constants.LOG_KEY_CLASSIFICATION: constants.LUKS2_LOCKED},
+            ]
         
-        # Add some mock devices
-        service._devices = {
-            "/dev/sdb1": {
-                constants.LOG_KEY_DEVNODE: "/dev/sdb1",
-                constants.LOG_KEY_CLASSIFICATION: constants.PLAINTEXT,
-            },
-            "/dev/sdc1": {
-                constants.LOG_KEY_DEVNODE: "/dev/sdc1",
-                constants.LOG_KEY_CLASSIFICATION: constants.LUKS2_LOCKED,
-            },
-        }
+        logger = logging.getLogger("test-dbus")
+        service = dbus_api.UsbEnforcerDBus(
+            logger=logger,
+            list_devices_func=mock_list_with_devices,
+            get_status_func=lambda d: {"devnode": d, "status": "unknown"},
+            unlock_func=lambda d, m, p: "success",
+            encrypt_func=lambda d, m, p, f, l: "success"
+        )
         
         # Call ListDevices
-        devices_json = service.ListDevices()
+        devices = service.ListDevices()
         
-        # Should return JSON string
-        assert isinstance(devices_json, str)
-        
-        # Should be valid JSON with devices
-        devices = json.loads(devices_json)
-        assert "/dev/sdb1" in devices
-        assert "/dev/sdc1" in devices
+        # Should return list of dicts
+        assert isinstance(devices, list)
+        assert len(devices) == 2
+        assert devices[0][constants.LOG_KEY_DEVNODE] == "/dev/sdb1"
+        assert devices[1][constants.LOG_KEY_DEVNODE] == "/dev/sdc1"
     
     def test_request_encryption_method(self):
-        """Test RequestEncryption D-Bus method."""
-        service = create_test_dbus_service()
+        """Test RequestEncrypt D-Bus method."""
+        # Create service with mock encrypt function that returns token
+        def mock_encrypt(devnode, mapper_name, passphrase, fs_type, label):
+            return f"token-{devnode}-{mapper_name}"
         
-        device = "/dev/sdb1"
-        passphrase = "test-passphrase-123"
+        logger = logging.getLogger("test-dbus")
+        service = dbus_api.UsbEnforcerDBus(
+            logger=logger,
+            list_devices_func=lambda: [],
+            get_status_func=lambda d: {"devnode": d},
+            unlock_func=lambda d, m, p: "success",
+            encrypt_func=mock_encrypt
+        )
         
-        # Mock the daemon callback
-        service._encryption_callback = MagicMock(return_value="test-token-12345")
+        # Call RequestEncrypt
+        result = service.RequestEncrypt(
+            devnode="/dev/sdb1",
+            mapper_name="test-mapper",
+            passphrase="TestPass123!@#",
+            fs_type="exfat",
+            label="TestLabel"
+        )
         
-        # Call RequestEncryption
-        token = service.RequestEncryption(device, passphrase)
-        
-        # Should return a token
-        assert isinstance(token, str)
-        assert len(token) > 0
-        
-        # Callback should be called
-        service._encryption_callback.assert_called_once_with(device, passphrase)
+        # Should return result string
+        assert isinstance(result, str)
+        assert "token" in result or "success" in result
 
 
 @pytest.mark.skipif(not DBUS_AVAILABLE, reason="D-Bus not available")
@@ -196,40 +205,54 @@ class TestDBusServiceLifecycle:
     """Test D-Bus service lifecycle operations."""
     
     def test_service_device_tracking(self):
-        """Test service tracks devices correctly."""
-        service = create_test_dbus_service()
+        """Test service uses callback functions correctly."""
+        # Track devices in test
+        device_list = []
+        
+        def mock_list():
+            return device_list
+        
+        logger = logging.getLogger("test-dbus")
+        service = dbus_api.UsbEnforcerDBus(
+            logger=logger,
+            list_devices_func=mock_list,
+            get_status_func=lambda d: {"devnode": d},
+            unlock_func=lambda d, m, p: "success",
+            encrypt_func=lambda d, m, p, f, l: "success"
+        )
         
         # Initially empty
-        assert len(service._devices) == 0
+        assert len(service.ListDevices()) == 0
         
-        # Add device
-        device_info = {
+        # Add device to external list
+        device_list.append({
             constants.LOG_KEY_DEVNODE: "/dev/sdb1",
             constants.LOG_KEY_CLASSIFICATION: constants.PLAINTEXT,
-        }
-        service._devices["/dev/sdb1"] = device_info
-        
-        # Should be tracked
-        assert "/dev/sdb1" in service._devices
-        assert len(service._devices) == 1
+        })
         
         # List devices should return it
-        devices_json = service.ListDevices()
-        devices = json.loads(devices_json)
-        assert "/dev/sdb1" in devices
+        devices = service.ListDevices()
+        assert len(devices) == 1
+        assert devices[0][constants.LOG_KEY_DEVNODE] == "/dev/sdb1"
     
     def test_service_set_daemon_callback(self):
-        """Test setting daemon callback for encryption."""
-        service = create_test_dbus_service()
-        
+        """Test daemon callback for encryption works."""
         callback = MagicMock(return_value="token-12345")
-        service._encryption_callback = callback
         
-        # Use the callback
-        result = service._encryption_callback("/dev/sdb1", "password")
+        logger = logging.getLogger("test-dbus")
+        service = dbus_api.UsbEnforcerDBus(
+            logger=logger,
+            list_devices_func=lambda: [],
+            get_status_func=lambda d: {"devnode": d},
+            unlock_func=lambda d, m, p: "success",
+            encrypt_func=callback
+        )
+        
+        # Use RequestEncrypt which calls the callback
+        result = service.RequestEncrypt("/dev/sdb1", "mapper", "TestPass123!@#", "exfat", "label")
         
         assert result == "token-12345"
-        callback.assert_called_once_with("/dev/sdb1", "password")
+        callback.assert_called_once()
 
 
 @pytest.mark.skipif(not DBUS_AVAILABLE, reason="D-Bus not available")
@@ -239,7 +262,20 @@ class TestDBusRealWorldScenarios:
     
     def test_device_add_workflow(self):
         """Test complete device add workflow via D-Bus."""
-        service = create_test_dbus_service()
+        # Simulate device list tracking
+        devices_list = []
+        
+        def mock_list():
+            return devices_list
+        
+        logger = logging.getLogger("test-dbus")
+        service = dbus_api.UsbEnforcerDBus(
+            logger=logger,
+            list_devices_func=mock_list,
+            get_status_func=lambda d: {"devnode": d, "status": "mounted"},
+            unlock_func=lambda d, m, p: "success",
+            encrypt_func=lambda d, m, p, f, l: "success"
+        )
         
         # Simulate device added
         device_info = {
@@ -248,8 +284,7 @@ class TestDBusRealWorldScenarios:
             constants.LOG_KEY_ACTION: "block_ro",
             constants.LOG_KEY_RESULT: "allow",
         }
-        
-        service._devices["/dev/sdb1"] = device_info
+        devices_list.append(device_info)
         
         # Emit event
         try:
@@ -257,37 +292,41 @@ class TestDBusRealWorldScenarios:
         except Exception:
             pass  # Expected without actual bus
         
-        # Check status
-        status = service.GetStatus()
-        status_data = json.loads(status)
-        assert status_data["status"] == "running"
+        # Check device status
+        status = service.GetDeviceStatus("/dev/sdb1")
+        assert status["devnode"] == "/dev/sdb1"
         
         # List devices
-        devices = json.loads(service.ListDevices())
-        assert "/dev/sdb1" in devices
+        devices = service.ListDevices()
+        assert len(devices) == 1
+        assert devices[0][constants.LOG_KEY_DEVNODE] == "/dev/sdb1"
     
     def test_encryption_request_workflow(self):
         """Test complete encryption request workflow."""
-        service = create_test_dbus_service()
-        
         # Setup encryption callback
-        def mock_encrypt(device: str, passphrase: str) -> str:
+        def mock_encrypt(devnode: str, mapper_name: str, passphrase: str, fs_type: str, label: str) -> str:
             # Simulate encryption
-            return f"token-{device}-{hash(passphrase)}"
+            return f"token-{devnode}-{mapper_name}"
         
-        service._encryption_callback = mock_encrypt
+        logger = logging.getLogger("test-dbus")
+        service = dbus_api.UsbEnforcerDBus(
+            logger=logger,
+            list_devices_func=lambda: [],
+            get_status_func=lambda d: {"devnode": d},
+            unlock_func=lambda d, m, p: "success",
+            encrypt_func=mock_encrypt
+        )
         
         # Request encryption
-        token = service.RequestEncryption("/dev/sdb1", "secure-password")
+        token = service.RequestEncrypt("/dev/sdb1", "test-mapper", "SecurePass123!@#", "exfat", "MyUSB")
         
         # Should get a token
         assert token.startswith("token-/dev/sdb1")
     
     def test_multiple_device_tracking(self):
         """Test tracking multiple devices simultaneously."""
-        service = create_test_dbus_service()
-        
-        # Add multiple devices
+        # Build device list
+        devices_list = []
         devices_to_add = [
             ("/dev/sdb1", constants.PLAINTEXT),
             ("/dev/sdc1", constants.LUKS2_LOCKED),
@@ -295,19 +334,28 @@ class TestDBusRealWorldScenarios:
         ]
         
         for devnode, classification in devices_to_add:
-            device_info = {
+            devices_list.append({
                 constants.LOG_KEY_DEVNODE: devnode,
                 constants.LOG_KEY_CLASSIFICATION: classification,
-            }
-            service._devices[devnode] = device_info
+            })
+        
+        logger = logging.getLogger("test-dbus")
+        service = dbus_api.UsbEnforcerDBus(
+            logger=logger,
+            list_devices_func=lambda: devices_list,
+            get_status_func=lambda d: {"devnode": d},
+            unlock_func=lambda d, m, p: "success",
+            encrypt_func=lambda d, m, p, f, l: "success"
+        )
         
         # List devices
-        devices = json.loads(service.ListDevices())
+        devices = service.ListDevices()
         
         assert len(devices) == 3
-        assert "/dev/sdb1" in devices
-        assert "/dev/sdc1" in devices
-        assert "/dev/sdd1" in devices
+        devnodes = [d[constants.LOG_KEY_DEVNODE] for d in devices]
+        assert "/dev/sdb1" in devnodes
+        assert "/dev/sdc1" in devnodes
+        assert "/dev/sdd1" in devnodes
 
 
 @pytest.mark.skipif(not DBUS_AVAILABLE, reason="D-Bus not available")
@@ -316,39 +364,46 @@ class TestDBusErrorHandling:
     """Test D-Bus error handling."""
     
     def test_list_devices_when_empty(self):
-        """Test ListDevices returns empty dict when no devices."""
+        """Test ListDevices returns empty list when no devices."""
         service = create_test_dbus_service()
         
-        devices_json = service.ListDevices()
-        devices = json.loads(devices_json)
+        devices = service.ListDevices()
         
-        assert devices == {}
+        assert devices == []
+        assert isinstance(devices, list)
     
     def test_get_status_always_works(self):
-        """Test GetStatus always returns valid response."""
+        """Test GetDeviceStatus always returns valid response."""
         service = create_test_dbus_service()
         
-        status = service.GetStatus()
+        # Get status for different devices
+        status1 = service.GetDeviceStatus("/dev/sdb1")
+        assert isinstance(status1, dict)
+        assert "devnode" in status1
+        assert status1["devnode"] == "/dev/sdb1"
         
-        # Should always be valid JSON
-        status_data = json.loads(status)
-        assert "status" in status_data
+        status2 = service.GetDeviceStatus("/dev/sdc1")
+        assert isinstance(status2, dict)
+        assert "devnode" in status2
+        assert status2["devnode"] == "/dev/sdc1"
     
     def test_encryption_without_callback(self):
-        """Test encryption request without callback set."""
-        service = create_test_dbus_service()
+        """Test encryption request when encrypt function raises error."""
+        def mock_encrypt_error(devnode, mapper_name, passphrase, fs_type, label):
+            raise RuntimeError("Encryption not available")
         
-        # No callback set
-        service._encryption_callback = None
+        logger = logging.getLogger("test-dbus")
+        service = dbus_api.UsbEnforcerDBus(
+            logger=logger,
+            list_devices_func=lambda: [],
+            get_status_func=lambda d: {"devnode": d},
+            unlock_func=lambda d, m, p: "success",
+            encrypt_func=mock_encrypt_error
+        )
         
-        # Should handle gracefully
-        try:
-            token = service.RequestEncryption("/dev/sdb1", "password")
-            # If it returns, should be empty string
-            assert token == ""
-        except (TypeError, AttributeError):
-            # Or it might raise an error, which is also acceptable
-            pass
+        # Should raise error
+        with pytest.raises(RuntimeError):
+            service.RequestEncrypt("/dev/sdb1", "mapper", "TestPass123!@#", "exfat", "label")
 
 
 @pytest.mark.skipif(not DBUS_AVAILABLE, reason="D-Bus not available")
