@@ -114,10 +114,10 @@ Environment=PATH=%{_libdir}/%{name}/.venv/bin:/usr/local/bin:/usr/bin
 EOF
 
 %post
-# Create virtualenv
+# Create virtualenv with system site packages (for python3-gobject access)
 if [ $1 -eq 1 ]; then
     # Fresh install
-    python3 -m venv %{_libdir}/%{name}/.venv
+    python3 -m venv --system-site-packages %{_libdir}/%{name}/.venv
     %{_libdir}/%{name}/.venv/bin/pip install --upgrade pip >/dev/null 2>&1
     %{_libdir}/%{name}/.venv/bin/pip install pyudev>=0.24.0 pydbus>=0.6.0 typing-extensions>=4.8.0 PyGObject>=3.46.0 >/dev/null 2>&1
 fi

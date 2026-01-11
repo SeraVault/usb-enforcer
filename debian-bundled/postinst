@@ -3,10 +3,11 @@ set -e
 
 case "$1" in
     configure)
-        # Create Python virtual environment
+        # Create Python virtual environment with system site packages
+        # (allows access to system python3-gi, python3-gi-cairo, etc.)
         if [ ! -d /usr/lib/usb-enforcer/.venv ]; then
             echo "Creating Python virtual environment..."
-            python3 -m venv /usr/lib/usb-enforcer/.venv
+            python3 -m venv --system-site-packages /usr/lib/usb-enforcer/.venv
         fi
         
         # Upgrade pip

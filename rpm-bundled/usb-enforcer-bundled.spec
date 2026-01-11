@@ -130,10 +130,10 @@ Environment=PATH=%{_libdir}/usb-enforcer/.venv/bin:/usr/local/bin:/usr/bin
 EOF
 
 %post
-# Create virtualenv and install from bundled wheels (no network required)
+# Create virtualenv with system site packages and install from bundled wheels (no network required)
 if [ $1 -eq 1 ]; then
     # Fresh install
-    python3 -m venv %{_libdir}/usb-enforcer/.venv
+    python3 -m venv --system-site-packages %{_libdir}/usb-enforcer/.venv
     %{_libdir}/usb-enforcer/.venv/bin/pip install --upgrade pip --no-index --find-links %{_libdir}/usb-enforcer/wheels >/dev/null 2>&1
     %{_libdir}/usb-enforcer/.venv/bin/pip install --no-index --find-links %{_libdir}/usb-enforcer/wheels \
         pyudev pydbus typing-extensions >/dev/null 2>&1
