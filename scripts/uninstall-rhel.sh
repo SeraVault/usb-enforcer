@@ -77,6 +77,20 @@ remove_scripts() {
   rm -f "${LIBEXEC}/usb-enforcer-wizard"
 }
 
+remove_desktop_files() {
+  log "Removing icon and desktop file"
+  rm -f "${PREFIX}/share/icons/hicolor/scalable/apps/usb-enforcer.svg"
+  rm -f "${PREFIX}/share/applications/usb-enforcer-wizard.desktop"
+  # Update icon cache if gtk-update-icon-cache is available
+  if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "${PREFIX}/share/icons/hicolor" 2>/dev/null || true
+  fi
+  # Update desktop database if update-desktop-database is available
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "${PREFIX}/share/applications" 2>/dev/null || true
+  fi
+}
+
 remove_python_bits() {
   log "Removing Python package and virtualenv"
   rm -rf "${LIBDIR}"
@@ -101,6 +115,7 @@ main() {
   remove_systemd_units
   remove_config_rules
   remove_scripts
+  remove_desktop_files
   remove_python_bits
   reload_services
   log "Uninstall complete."

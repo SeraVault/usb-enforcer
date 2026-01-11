@@ -1,6 +1,15 @@
-#!/usr/bin/env python3
-from usb_enforcer.ui.wizard import main
+#!/bin/bash
+# USB Enforcer wizard wrapper
+set -e
 
+LIBDIR="/usr/lib/usb-enforcer"
+VENV="${LIBDIR}/.venv"
 
-if __name__ == "__main__":
-    main()
+# Use venv if available, otherwise use system Python with PYTHONPATH
+if [ -d "${VENV}" ] && [ -f "${VENV}/bin/python3" ]; then
+    export PYTHONPATH="${LIBDIR}"
+    exec "${VENV}/bin/python3" -c "from usb_enforcer.ui.wizard import main; main()" "$@"
+else
+    export PYTHONPATH="${LIBDIR}"
+    exec python3 -c "from usb_enforcer.ui.wizard import main; main()" "$@"
+fi

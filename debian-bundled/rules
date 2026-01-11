@@ -13,6 +13,7 @@ override_dh_auto_install:
 	# Install Python package
 	install -d $(CURDIR)/debian/usb-enforcer-bundled/usr/lib/usb-enforcer
 	cp -r src/usb_enforcer $(CURDIR)/debian/usb-enforcer-bundled/usr/lib/usb-enforcer/
+	install -m 0644 src/usb_enforcer/usb_enforcer_ui.py $(CURDIR)/debian/usb-enforcer-bundled/usr/lib/usb-enforcer/
 	
 	# Install bundled Python wheels
 	install -d $(CURDIR)/debian/usb-enforcer-bundled/usr/lib/usb-enforcer/wheels
@@ -47,6 +48,12 @@ override_dh_auto_install:
 	install -m 0644 deploy/systemd/usb-enforcerd.service $(CURDIR)/debian/usb-enforcer-bundled/usr/lib/systemd/system/
 	install -d $(CURDIR)/debian/usb-enforcer-bundled/usr/lib/systemd/user
 	install -m 0644 deploy/systemd/usb-enforcer-ui.service $(CURDIR)/debian/usb-enforcer-bundled/usr/lib/systemd/user/
+	
+	# Install icon and desktop file
+	install -d $(CURDIR)/debian/usb-enforcer-bundled/usr/share/icons/hicolor/scalable/apps
+	install -m 0644 deploy/icons/usb-enforcer.svg $(CURDIR)/debian/usb-enforcer-bundled/usr/share/icons/hicolor/scalable/apps/
+	install -d $(CURDIR)/debian/usb-enforcer-bundled/usr/share/applications
+	install -m 0644 deploy/desktop/usb-enforcer-wizard.desktop $(CURDIR)/debian/usb-enforcer-bundled/usr/share/applications/
 
 override_dh_auto_test:
 	# Skip tests

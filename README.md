@@ -224,6 +224,69 @@ If you frequently need Windows access, consider these alternatives to LUKS2:
 - **Data portability**: If cross-platform access is required, evaluate whether LUKS2 meets your needs before encrypting drives with this tool
 - **macOS support**: LUKS2 can be accessed on macOS via Homebrew's `cryptsetup` package
 
+## Troubleshooting
+
+### No notifications on Ubuntu/Debian
+If notifications don't appear when USB drives are inserted:
+
+1. **Check if the UI service is running:**
+   ```bash
+   systemctl --user status usb-enforcer-ui.service
+   ```
+
+2. **If service is inactive, start it manually:**
+   ```bash
+   systemctl --user start usb-enforcer-ui.service
+   ```
+
+3. **Check service logs:**
+   ```bash
+   journalctl --user -u usb-enforcer-ui.service -f
+   ```
+
+4. **Ensure it starts automatically on login:**
+   ```bash
+   systemctl --user enable usb-enforcer-ui.service
+   systemctl --user is-enabled usb-enforcer-ui.service  # Should show "enabled"
+   ```
+
+5. **If still not working after reboot/re-login**, check notification daemon:
+   ```bash
+   # Verify notification service is available
+   gdbus introspect --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications
+   ```
+
+**Common cause:** On some distributions (especially Ubuntu), user services may not start automatically on first install. The service will start on next login, or start it manually with the command above.
+
+### Daemon not detecting USB devices
+```bash
+# Check daemon status
+sudo systemctl status usb-enforcerd.service
+
+# View daemon logs
+sudo journalctl -u usb-enforcerd -f
+
+# Verify udev rules are loaded
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+# Test USB detection manually
+udevadm monitor --property
+# Then plug in a USB drive
+```
+
+### Permission errors
+```bash
+# Check if polkit rules are installed
+ls -la /etc/polkit-1/rules.d/49-usb-enforcer.rules
+
+# Reload polkit
+sudo systemctl restart polkit
+```
+
+### More troubleshooting
+See [docs/HEADLESS-USAGE.md](docs/HEADLESS-USAGE.md) for detailed troubleshooting steps and command-line debugging.
+
 ## More Detail
 - **[docs/USB-ENFORCER.md](docs/USB-ENFORCER.md)**: Technical architecture, design goals, and enforcement policy details
 - **[docs/HEADLESS-USAGE.md](docs/HEADLESS-USAGE.md)**: Complete guide for using USB Enforcer on headless/server systems without GUI

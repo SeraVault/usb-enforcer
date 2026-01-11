@@ -91,12 +91,16 @@ create_dirs() {
   install -d "$LIBDIR" "$LIBEXEC" "$CONFIG_DIR" "$SYSTEMD_SYSTEM_DIR" "$SYSTEMD_USER_DIR" "$POLKIT_DIR" "$UDEV_DIR" "$DBUS_DIR"
   install -d "${SYSTEMD_SYSTEM_DIR}/usb-enforcerd.service.d"
   install -d "${SYSTEMD_USER_DIR}/usb-enforcer-ui.service.d"
+  install -d "${PREFIX}/share/icons/hicolor/scalable/apps"
+  install -d "${PREFIX}/share/applications"
 }
 
 install_python_bits() {
   log "Copying Python package to ${LIBDIR}"
   rm -rf "${LIBDIR}/usb_enforcer"
   cp -r "${REPO_ROOT}/src/usb_enforcer" "${LIBDIR}/"
+  # Install UI script
+  install -m 0644 "${REPO_ROOT}/src/usb_enforcer/usb_enforcer_ui.py" "${LIBDIR}/"
 }
 
 install_scripts() {
@@ -104,6 +108,20 @@ install_scripts() {
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-helper" "${LIBEXEC}/"
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-ui" "${LIBEXEC}/"
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-wizard" "${LIBEXEC}/"
+}
+
+install_desktop_files() {
+  log "Installing icon and desktop file"
+  install -m 0644 "${REPO_ROOT}/deploy/icons/usb-enforcer.svg" "${PREFIX}/share/icons/hicolor/scalable/apps/"
+  install -m 0644 "${REPO_ROOT}/deploy/desktop/usb-enforcer-wizard.desktop" "${PREFIX}/share/applications/"
+  # Update icon cache if gtk-update-icon-cache is available
+  if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "${PREFIX}/share/icons/hicolor" 2>/dev/null || true
+  fi
+  # Update desktop database if update-desktop-database is available
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "${PREFIX}/share/applications" 2>/dev/null || true
+  fi
 }
 
 install_config_rules() {
@@ -173,6 +191,7 @@ main() {
   create_dirs
   install_python_bits
   install_scripts
+  install_desktop_files
   install_config_rules
   install_systemd_units
   setup_venv

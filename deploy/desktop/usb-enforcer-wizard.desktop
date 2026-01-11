@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=USB Encryption Wizard
+GenericName=USB Drive Encryption
+Comment=Encrypt USB drives with LUKS encryption
+Icon=usb-enforcer
+Exec=/usr/libexec/usb-enforcer-wizard
+Terminal=false
+Categories=System;Security;Utility;
+Keywords=usb;encryption;security;luks;drive;
+StartupNotify=true
+StartupWMClass=com.seravault.usb.encryption.wizard

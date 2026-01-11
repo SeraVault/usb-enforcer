@@ -66,9 +66,12 @@ install -d %{buildroot}%{_udevrulesdir}
 install -d %{buildroot}%{_sysconfdir}/dbus-1/system.d
 install -d %{buildroot}%{_unitdir}/usb-enforcerd.service.d
 install -d %{buildroot}%{_userunitdir}/usb-enforcer-ui.service.d
+install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
+install -d %{buildroot}%{_datadir}/applications
 
 # Install Python package
 cp -r src/usb_enforcer %{buildroot}%{_libdir}/%{name}/
+install -m 0644 src/usb_enforcer/usb_enforcer_ui.py %{buildroot}%{_libdir}/%{name}/
 
 # Install scripts
 install -m 0755 scripts/usb-enforcerd %{buildroot}%{_libexecdir}/
@@ -93,6 +96,10 @@ install -m 0644 deploy/dbus/org.seravault.UsbEnforcer.conf %{buildroot}%{_syscon
 install -m 0644 deploy/systemd/usb-enforcerd.service %{buildroot}%{_unitdir}/
 install -m 0644 deploy/systemd/usb-enforcer-ui.service %{buildroot}%{_userunitdir}/
 
+# Install icon and desktop file
+install -m 0644 deploy/icons/usb-enforcer.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
+install -m 0644 deploy/desktop/usb-enforcer-wizard.desktop %{buildroot}%{_datadir}/applications/
+
 # Create systemd drop-in files
 cat > %{buildroot}%{_unitdir}/usb-enforcerd.service.d/env.conf <<'EOF'
 [Service]
@@ -113,6 +120,16 @@ if [ $1 -eq 1 ]; then
     python3 -m venv %{_libdir}/%{name}/.venv
     %{_libdir}/%{name}/.venv/bin/pip install --upgrade pip >/dev/null 2>&1
     %{_libdir}/%{name}/.venv/bin/pip install pyudev>=0.24.0 pydbus>=0.6.0 typing-extensions>=4.8.0 PyGObject>=3.46.0 >/dev/null 2>&1
+fi
+
+# Update icon cache
+if [ -x %{_bindir}/gtk-update-icon-cache ]; then
+    %{_bindir}/gtk-update-icon-cache -f -t %{_datadir}/icons/hicolor >/dev/null 2>&1 || :
+fi
+
+# Update desktop database
+if [ -x %{_bindir}/update-desktop-database ]; then
+    %{_bindir}/update-desktop-database %{_datadir}/applications >/dev/null 2>&1 || :
 fi
 
 %systemd_post usb-enforcerd.service
@@ -155,6 +172,7 @@ fi
 %doc docs/USB-ENFORCER.md
 %config(noreplace) %{_sysconfdir}/%{name}/config.toml
 %{_libdir}/%{name}/usb_enforcer/
+%{_libdir}/%{name}/usb_enforcer_ui.py
 %{_libexecdir}/usb-enforcerd
 %{_libexecdir}/usb-enforcer-helper
 %{_libexecdir}/usb-enforcer-ui
@@ -167,6 +185,8 @@ fi
 %{_unitdir}/usb-enforcerd.service.d/env.conf
 %{_userunitdir}/usb-enforcer-ui.service
 %{_userunitdir}/usb-enforcer-ui.service.d/env.conf
+%{_datadir}/icons/hicolor/scalable/apps/usb-enforcer.svg
+%{_datadir}/applications/usb-enforcer-wizard.desktop
 
 %changelog
 * Thu Jan 09 2025 Your Name <your.email@example.com> - 1.0.0-1

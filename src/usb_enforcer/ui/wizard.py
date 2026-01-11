@@ -58,35 +58,14 @@ def strength_color(length: int) -> str:
     return "error"
 
 
-class DeviceRow(Adw.ActionRow):
-    def __init__(self, device: Dict[str, str]):
-        super().__init__()
-        self.device = device
-        self.set_title(device.get("devnode", "unknown"))
-        subtitle = f"{device.get('classification', 'unknown')} {device.get('id_type', '')}".strip()
-        self.set_subtitle(subtitle)
-        self.set_activatable(True)
-        self.checkbox = Gtk.CheckButton()
-        self.add_prefix(self.checkbox)
-
-    def set_active(self, active: bool):
-        self.checkbox.set_active(active)
-
-    def get_active(self) -> bool:
-        return self.checkbox.get_active()
-
-
 class WizardWindow(Gtk.ApplicationWindow):
     def __init__(self, app: Adw.Application, proxy, target_device: Optional[str] = None):
         super().__init__(application=app, title="USB Encryption Wizard")
-        # Adjust window size based on whether we're showing device selection
-        if target_device:
-            self.set_default_size(520, 400)  # Smaller since no device list
-        else:
-            self.set_default_size(520, 600)  # Larger with device list
+        # Uniform window size - dropdown is compact either way
+        self.set_default_size(520, 420)
         self.proxy = proxy
-        self.selected_row: Optional[DeviceRow] = None
         self.target_device = target_device
+        self.devices_cache: List[Dict[str, str]] = []
         
         # Header - use set_titlebar to replace the default title bar
         header = Adw.HeaderBar()
@@ -101,26 +80,29 @@ class WizardWindow(Gtk.ApplicationWindow):
         self.content_box.set_margin_end(12)
         self.set_child(self.content_box)
 
-        # Device info label (shown when target_device is set)
-        self.device_info_label = Gtk.Label(xalign=0)
-        self.device_info_label.set_markup("<b>Device:</b> Loading...")
-        self.device_info_label.set_margin_bottom(12)
+        # Device selection area
+        device_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        device_label = Gtk.Label(label="USB Device to Encrypt", xalign=0)
+        device_label.add_css_class("heading")
+        device_box.append(device_label)
         
-        self.device_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
-        self.device_list.add_css_class("boxed-list")
-        self.device_list.connect("row-activated", self.on_row_activated)
+        # Create combo box for device selection
+        self.device_store = Gio.ListStore.new(Gtk.StringObject)
+        self.device_combo = Gtk.DropDown(model=self.device_store)
+        self.device_combo.set_enable_search(False)
+        self.device_combo.set_tooltip_text("Select a USB device to encrypt")
+        device_box.append(self.device_combo)
         
-        # Wrap device list in a scrolled window
-        self.scrolled = Gtk.ScrolledWindow()
-        self.scrolled.set_child(self.device_list)
-        self.scrolled.set_vexpand(True)
-        self.scrolled.set_min_content_height(150)
+        # Refresh button next to combo
+        refresh_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        refresh_box.append(device_box)
+        self.refresh_button = Gtk.Button(icon_name="view-refresh-symbolic")
+        self.refresh_button.set_tooltip_text("Refresh device list")
+        self.refresh_button.set_valign(Gtk.Align.END)
+        self.refresh_button.connect("clicked", self.refresh_devices)
+        refresh_box.append(self.refresh_button)
         
-        # Only show device list or info label based on target_device
-        if self.target_device:
-            self.content_box.append(self.device_info_label)
-        else:
-            self.content_box.append(self.scrolled)
+        self.content_box.append(refresh_box)
 
         # Label field
         label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -160,11 +142,7 @@ class WizardWindow(Gtk.ApplicationWindow):
         # Actions
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.encrypt_button = Gtk.Button(label="Encrypt", css_classes=["suggested-action"])
-        self.refresh_button = Gtk.Button(label="Refresh")
         actions.append(self.encrypt_button)
-        # Only show refresh button if not in target_device mode
-        if not self.target_device:
-            actions.append(self.refresh_button)
         self.content_box.append(actions)
 
         # Status
@@ -172,7 +150,6 @@ class WizardWindow(Gtk.ApplicationWindow):
         self.content_box.append(self.progress)
 
         self.encrypt_button.connect("clicked", self.on_encrypt)
-        self.refresh_button.connect("clicked", self.refresh_devices)
         self.pass_entry.connect("changed", self.update_strength)
 
         if proxy:
@@ -182,13 +159,6 @@ class WizardWindow(Gtk.ApplicationWindow):
             except Exception as e:
                 print(f"[WizardWindow] Failed to subscribe to Event signal: {e}")
         self.refresh_devices()
-
-    def on_row_activated(self, _listbox, row):
-        if isinstance(row, DeviceRow):
-            if self.selected_row:
-                self.selected_row.set_active(False)
-            row.set_active(True)
-            self.selected_row = row
 
     def update_strength(self, *_args):
         val = len(self.pass_entry.get_text())
@@ -228,14 +198,17 @@ class WizardWindow(Gtk.ApplicationWindow):
             # Fallback: create minimal device info
             return {"devnode": self.target_device, "classification": "plaintext"}
         
-        if self.selected_row:
-            return self.selected_row.device
+        # Get selected device from dropdown
+        selected_idx = self.device_combo.get_selected()
+        if selected_idx != Gtk.INVALID_LIST_POSITION and selected_idx < len(self.devices_cache):
+            return self.devices_cache[selected_idx]
         return None
 
     def refresh_devices(self, *_args):
         print("[refresh_devices] Starting device refresh...")
-        self.device_list.remove_all()
-        self.selected_row = None
+        self.devices_cache.clear()
+        self.device_store.remove_all()
+        
         try:
             devices = self.proxy.ListDevices()
             print(f"[refresh_devices] Got {len(devices)} devices from daemon: {devices}")
@@ -246,7 +219,6 @@ class WizardWindow(Gtk.ApplicationWindow):
         
         # Show parent disk devices instead of partitions for encryption
         # e.g., show /dev/sda instead of /dev/sda1
-        filtered_devices = []
         device_paths = {dev.get("devnode") for dev in devices}
         print(f"[refresh_devices] Device paths: {device_paths}")
         
@@ -269,7 +241,7 @@ class WizardWindow(Gtk.ApplicationWindow):
         
         print(f"[refresh_devices] Parent devices: {parent_devices}")
         
-        # If target_device is set, update the info label instead of showing list
+        # If target_device is set, pre-select it and lock the combo
         if self.target_device:
             # Normalize target_device to parent disk if it's a partition
             lookup_device = self.target_device
@@ -277,37 +249,59 @@ class WizardWindow(Gtk.ApplicationWindow):
                 # This is a partition, get parent device
                 lookup_device = lookup_device.rstrip("0123456789")
             
-            print(f"[refresh_devices] Looking up target_device={self.target_device}, normalized to {lookup_device}")
-            print(f"[refresh_devices] Available parent devices: {list(parent_devices.keys())}")
+            print(f"[refresh_devices] Target device mode: looking up {self.target_device}, normalized to {lookup_device}")
             dev_info = parent_devices.get(lookup_device)
             if dev_info:
+                # Ensure devnode is parent disk
+                dev_info_clean = dev_info.copy()
+                dev_info_clean["devnode"] = lookup_device
+                self.devices_cache.append(dev_info_clean)
+                
                 classification = dev_info.get("classification", "unknown")
-                serial = dev_info.get("serial", "")
-                info_text = f"<b>Device:</b> {lookup_device}\n<b>Type:</b> {classification}"
-                if serial:
-                    info_text += f"\n<b>Serial:</b> {serial}"
-                self.device_info_label.set_markup(info_text)
-                # Set this as selected device - create a clean copy with parent devnode
-                self.selected_row = type('obj', (object,), {
-                    'device': {
-                        'devnode': lookup_device,  # Use parent disk explicitly
-                        'classification': classification,
-                        'serial': serial,
-                        'id_bus': dev_info.get('id_bus'),
-                        'id_type': dev_info.get('id_type'),
-                    }
-                })()
-                print(f"[refresh_devices] Selected device will use devnode: {lookup_device}")
+                serial = dev_info.get("serial", "N/A")
+                id_type = dev_info.get("id_type", "")
+                display_text = f"{lookup_device} - {classification}"
+                if id_type:
+                    display_text += f" ({id_type})"
+                
+                self.device_store.append(Gtk.StringObject.new(display_text))
+                self.device_combo.set_selected(0)
+                self.device_combo.set_sensitive(False)  # Lock selection when device is specified
+                self.refresh_button.set_sensitive(False)  # Disable refresh too
+                print(f"[refresh_devices] Pre-selected target device: {lookup_device}")
             else:
-                print(f"[refresh_devices] Lookup failed! {lookup_device} not in parent_devices")
-                self.device_info_label.set_markup(f"<b>Device:</b> {lookup_device}\n<i>Device not found in daemon cache</i>")
+                print(f"[refresh_devices] Warning: Target device {lookup_device} not found!")
+                self.device_store.append(Gtk.StringObject.new(f"{self.target_device} (not found)"))
+                self.device_combo.set_selected(0)
+                self.device_combo.set_sensitive(False)
         else:
-            # Show device list as before
-            for devnode, dev in parent_devices.items():
-                print(f"[refresh_devices] Adding device: {dev}")
-                row = DeviceRow(dev)
-                self.device_list.append(row)
-                filtered_devices.append(dev)
+            # Show all available devices in dropdown
+            for devnode, dev in sorted(parent_devices.items()):
+                classification = dev.get("classification", "unknown")
+                serial = dev.get("serial", "N/A")
+                id_type = dev.get("id_type", "")
+                
+                # Only show plaintext devices (can be encrypted)
+                if classification == "plaintext":
+                    display_text = f"{devnode}"
+                    if id_type:
+                        display_text += f" - {id_type}"
+                    if serial and serial != "N/A":
+                        display_text += f" (Serial: {serial})"
+                    
+                    self.devices_cache.append(dev)
+                    self.device_store.append(Gtk.StringObject.new(display_text))
+                    print(f"[refresh_devices] Added device: {display_text}")
+            
+            # Select first device by default
+            if len(self.devices_cache) > 0:
+                self.device_combo.set_selected(0)
+                print(f"[refresh_devices] Auto-selected first device")
+            else:
+                print(f"[refresh_devices] No plaintext devices available")
+                self.device_store.append(Gtk.StringObject.new("No USB devices available for encryption"))
+                self.device_combo.set_selected(0)
+                self.device_combo.set_sensitive(False)
 
     def on_encrypt(self, _btn):
         print("[on_encrypt] Encrypt button clicked")
