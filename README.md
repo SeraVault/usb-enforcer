@@ -7,6 +7,7 @@ USB data loss prevention for Linux desktops: plaintext USB mass-storage devices 
 ## Quick Links
 
 - **[Installation](#installing-and-running)** - Install via RPM/DEB packages or scripts
+- **[Administration Guide](docs/ADMINISTRATION.md)** - Configuration, service management, and troubleshooting
 - **[Headless/Server Usage](docs/HEADLESS-USAGE.md)** - Command-line usage without GUI
 - **[Windows Access](#accessing-encrypted-drives-on-windows)** - Using encrypted drives on Windows
 - **[Group Exemptions](docs/GROUP-EXEMPTIONS.md)** - Exempt specific users/groups from enforcement
