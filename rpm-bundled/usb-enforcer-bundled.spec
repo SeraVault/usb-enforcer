@@ -1,6 +1,6 @@
 Name:           usb-enforcer-bundled
 Version:        1.0.0
-Release:        0.1.rc1
+Release:        1
 Summary:        USB data loss prevention for Linux desktops (bundled Python deps)
 
 License:        GPL-3.0
@@ -116,9 +116,6 @@ install -m 0644 deploy/systemd/usb-enforcer-ui.service %{buildroot}%{_userunitdi
 # Install icon and desktop file
 install -m 0644 deploy/icons/usb-enforcer.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 install -m 0644 deploy/desktop/usb-enforcer-wizard.desktop %{buildroot}%{_datadir}/applications/
-
-# Install AppStream metadata for package managers
-install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml %{buildroot}%{_datadir}/metainfo/
 
 # Install AppStream metadata for package managers
 install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml %{buildroot}%{_datadir}/metainfo/

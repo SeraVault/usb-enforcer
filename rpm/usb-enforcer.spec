@@ -1,6 +1,6 @@
 Name:           usb-enforcer
 Version:        1.0.0
-Release:        0.1.rc1
+Release:        1
 Summary:        USB data loss prevention for Linux desktops
 
 License:        GPL-3.0
@@ -68,6 +68,7 @@ install -d %{buildroot}%{_unitdir}/usb-enforcerd.service.d
 install -d %{buildroot}%{_userunitdir}/usb-enforcer-ui.service.d
 install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
 install -d %{buildroot}%{_datadir}/applications
+install -d %{buildroot}%{_datadir}/metainfo
 
 # Install Python package
 cp -r src/usb_enforcer %{buildroot}%{_libdir}/%{name}/
