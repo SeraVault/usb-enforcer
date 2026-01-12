@@ -1,4 +1,4 @@
-usb-enforcer-bundled (1.0.0~rc1-1) unstable; urgency=medium
+usb-enforcer-bundled (1.0.0-1) unstable; urgency=medium
 
   * Initial release (bundled variant)
   * USB encryption enforcement daemon

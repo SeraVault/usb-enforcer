@@ -1,4 +1,4 @@
-usb-enforcer (1.0.0~rc1-1) unstable; urgency=medium
+usb-enforcer (1.0.0-1) unstable; urgency=medium
 
   * Initial release candidate
   * USB encryption enforcement daemon
