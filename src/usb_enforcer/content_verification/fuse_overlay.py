@@ -65,7 +65,7 @@ class ContentScanningFuse(Operations):
         Initialize FUSE overlay.
         
         Args:
-            root: Real mount point (e.g., /media/.usb-enforcer-real/xxx)
+            root: Real mount point in hidden backing directory (e.g., /media/user/.usb-enforcer-backing/drive)
             scanner: Configured ContentScanner instance
             archive_scanner: ArchiveScanner instance
             document_scanner: DocumentScanner instance
@@ -506,11 +506,19 @@ class FuseManager:
             True if successful, False otherwise
         """
         try:
-            # Create real mount point (hidden)
-            real_mount = f"{mount_point}.real"
-            os.makedirs(real_mount, exist_ok=True)
+            # Create real mount point in a hidden directory
+            # Extract the parent directory and drive name
+            parent_dir = os.path.dirname(mount_point)
+            drive_name = os.path.basename(mount_point)
+            
+            # Create hidden backing directory in parent (e.g., /run/media/user/.usb-enforcer-backing)
+            hidden_base = os.path.join(parent_dir, '.usb-enforcer-backing')
+            os.makedirs(hidden_base, exist_ok=True)
             
             # Mount actual device to hidden location
+            real_mount = os.path.join(hidden_base, drive_name)
+            os.makedirs(real_mount, exist_ok=True)
+            
             import subprocess
             result = subprocess.run(
                 ['mount', device_path, real_mount],
@@ -586,9 +594,16 @@ class FuseManager:
             # Unmount real device
             subprocess.run(['umount', real_mount])
             
-            # Clean up
+            # Clean up mount directories
             try:
                 os.rmdir(real_mount)
+                # Try to remove parent hidden directory if empty
+                hidden_base = os.path.dirname(real_mount)
+                if os.path.basename(hidden_base) == '.usb-enforcer-backing':
+                    try:
+                        os.rmdir(hidden_base)
+                    except OSError:
+                        pass  # Directory not empty or other error
             except:
                 pass
             

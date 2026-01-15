@@ -312,8 +312,12 @@ def mount_with_content_scanning(device_path: str, mount_point: str,
         FUSE instance if successful, None otherwise
     """
     try:
-        # Create real mount point (hidden)
-        real_mount = f"{mount_point}.real"
+        # Create real mount point in a hidden directory
+        parent_dir = os.path.dirname(mount_point)
+        drive_name = os.path.basename(mount_point)
+        hidden_base = os.path.join(parent_dir, '.usb-enforcer-backing')
+        os.makedirs(hidden_base, exist_ok=True)
+        real_mount = os.path.join(hidden_base, drive_name)
         os.makedirs(real_mount, exist_ok=True)
         
         # Mount actual device to hidden location

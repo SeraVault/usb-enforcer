@@ -152,8 +152,8 @@ class Daemon:
                     self.logger.warning(f"Device {device_path} not mounted after {max_wait}s")
                     return
             
-            # Skip if mount point ends with .real (already a FUSE backing mount)
-            if mount_point.endswith('.real') or mount_point.endswith('.real.real'):
+            # Skip if mount point is in hidden backing directory (already a FUSE backing mount)
+            if '/.usb-enforcer-backing/' in mount_point or mount_point.endswith('.real'):
                 self.logger.debug(f"Skipping FUSE overlay for backing mount: {mount_point}")
                 return
             

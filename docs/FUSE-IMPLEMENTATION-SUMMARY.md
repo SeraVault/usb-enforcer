@@ -95,13 +95,13 @@ The FUSE overlay with GUI notifications has been successfully implemented for re
 ### FUSE Mount Structure
 
 ```
-/media/user/usb-device/          ← FUSE overlay (user sees this)
-    └── .real/                   ← Real device mount (hidden)
-        └── actual-files/        ← Physical device
+/media/user/usb-device/                        ← FUSE overlay (user sees this)
+/media/user/.usb-enforcer-backing/usb-device/  ← Real device mount (hidden)
+    └── actual-files/                          ← Physical device
 
 Write to /media/user/usb-device/file.txt
   → FUSE buffers and scans
-  → If allowed, writes to .real/file.txt
+  → If allowed, writes to hidden backing directory
   → Actual data reaches physical USB
 ```
 
