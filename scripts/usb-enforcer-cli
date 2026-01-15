@@ -1,0 +1,306 @@
+#!/usr/bin/env python3
+"""
+USB Enforcer CLI - Command-line interface for testing content scanning
+
+This tool provides manual testing and management of content scanning features.
+"""
+
+import sys
+import argparse
+import logging
+from pathlib import Path
+
+# Add src to path for development
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+
+from usb_enforcer.content_verification import ContentScanner, PatternLibrary
+from usb_enforcer.content_verification.config import ContentScanningConfig
+
+
+def setup_logging(verbose: bool = False):
+    """Setup logging configuration"""
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+
+def cmd_scan_file(args):
+    """Scan a file for sensitive content"""
+    filepath = Path(args.file)
+    
+    if not filepath.exists():
+        print(f"Error: File not found: {filepath}")
+        return 1
+    
+    # Initialize scanner
+    config = {}
+    if args.config:
+        import toml
+        config_data = toml.load(args.config)
+        config = config_data.get('content_scanning', {})
+    
+    scanner = ContentScanner(config)
+    
+    print(f"Scanning: {filepath}")
+    print(f"File size: {filepath.stat().st_size} bytes")
+    print()
+    
+    # Scan file
+    result = scanner.scan_file(filepath)
+    
+    # Display results
+    print(f"Result: {'BLOCKED' if result.blocked else 'ALLOWED'}")
+    print(f"Action: {result.action.value}")
+    print(f"Reason: {result.reason}")
+    print(f"Scan duration: {result.scan_duration:.3f}s")
+    print()
+    
+    if result.matches:
+        print(f"Found {len(result.matches)} sensitive pattern(s):")
+        for i, match in enumerate(result.matches, 1):
+            print(f"  {i}. {match.pattern_name} ({match.pattern_category}) - {match.severity}")
+            print(f"     Position: {match.position}")
+            if args.verbose:
+                print(f"     Context: {match.context}")
+        print()
+    
+    # Display statistics
+    if args.stats:
+        stats = scanner.get_statistics()
+        print("Scanner Statistics:")
+        print(f"  Patterns loaded: {stats['patterns_loaded']}")
+        print(f"  By category:")
+        for category, count in stats['patterns_by_category'].items():
+            print(f"    {category}: {count}")
+        if 'cache' in stats:
+            cache_stats = stats['cache']
+            print(f"  Cache:")
+            print(f"    Entries: {cache_stats['entries']}")
+            print(f"    Size: {cache_stats['size_mb']:.2f} MB")
+            print(f"    Hit rate: {cache_stats['hit_rate']:.1f}%")
+    
+    return 0 if not result.blocked else 1
+
+
+def cmd_scan_text(args):
+    """Scan text content for sensitive data"""
+    text = args.text
+    
+    # Initialize scanner
+    scanner = ContentScanner()
+    
+    print(f"Scanning text ({len(text)} characters)")
+    print()
+    
+    # Scan content
+    result = scanner.scan_content(text.encode('utf-8'), "stdin")
+    
+    # Display results
+    print(f"Result: {'BLOCKED' if result.blocked else 'ALLOWED'}")
+    print(f"Action: {result.action.value}")
+    print(f"Reason: {result.reason}")
+    print()
+    
+    if result.matches:
+        print(f"Found {len(result.matches)} sensitive pattern(s):")
+        for i, match in enumerate(result.matches, 1):
+            print(f"  {i}. {match.pattern_name} ({match.pattern_category}) - {match.severity}")
+            print(f"     Position: {match.position}")
+            if args.verbose:
+                print(f"     Context: {match.context}")
+    
+    return 0 if not result.blocked else 1
+
+
+def cmd_list_patterns(args):
+    """List all available detection patterns"""
+    # Initialize pattern library
+    enabled_categories = None
+    if args.category:
+        enabled_categories = [args.category]
+    
+    lib = PatternLibrary(enabled_categories=enabled_categories)
+    patterns = lib.get_all_patterns()
+    
+    print(f"Loaded {len(patterns)} patterns")
+    print()
+    
+    # Group by category
+    by_category = {}
+    for pattern in patterns:
+        category = pattern.category.value
+        if category not in by_category:
+            by_category[category] = []
+        by_category[category].append(pattern)
+    
+    # Display
+    for category, category_patterns in sorted(by_category.items()):
+        print(f"{category.upper()} ({len(category_patterns)} patterns):")
+        for pattern in sorted(category_patterns, key=lambda p: p.name):
+            print(f"  {pattern.name:25} {pattern.severity.value:10} {pattern.description}")
+        print()
+    
+    return 0
+
+
+def cmd_test_pattern(args):
+    """Test a specific pattern against text"""
+    pattern_name = args.pattern
+    text = args.text
+    
+    # Initialize pattern library
+    lib = PatternLibrary()
+    patterns = lib.get_all_patterns()
+    
+    # Find pattern
+    target_pattern = None
+    for pattern in patterns:
+        if pattern.name == pattern_name:
+            target_pattern = pattern
+            break
+    
+    if not target_pattern:
+        print(f"Error: Pattern '{pattern_name}' not found")
+        print(f"Use 'usb-enforcer-cli patterns list' to see available patterns")
+        return 1
+    
+    print(f"Testing pattern: {target_pattern.name}")
+    print(f"Category: {target_pattern.category.value}")
+    print(f"Severity: {target_pattern.severity.value}")
+    print(f"Description: {target_pattern.description}")
+    print(f"Regex: {target_pattern.regex}")
+    print()
+    
+    # Test pattern
+    matches = target_pattern.compiled_regex.finditer(text)
+    found_matches = list(matches)
+    
+    if found_matches:
+        print(f"Found {len(found_matches)} match(es):")
+        for i, match in enumerate(found_matches, 1):
+            matched_text = match.group(0)
+            print(f"  {i}. Position {match.start()}-{match.end()}: '{matched_text}'")
+            
+            # Apply validator if present
+            if target_pattern.validator:
+                is_valid = target_pattern.validator(matched_text)
+                print(f"     Validation: {'PASS' if is_valid else 'FAIL'}")
+    else:
+        print("No matches found")
+    
+    return 0
+
+
+def cmd_config_show(args):
+    """Show current configuration"""
+    if args.file:
+        import toml
+        config_data = toml.load(args.file)
+        content_scanning = config_data.get('content_scanning', {})
+        config = ContentScanningConfig.from_dict(content_scanning)
+    else:
+        config = ContentScanningConfig()
+    
+    print("Content Scanning Configuration")
+    print("=" * 50)
+    print(f"Enabled: {config.enabled}")
+    print(f"Scan encrypted devices: {config.scan_encrypted_devices}")
+    print(f"Max file size: {config.max_file_size_mb} MB")
+    print(f"Max scan time: {config.max_scan_time_seconds}s")
+    print(f"Block on error: {config.block_on_error}")
+    print()
+    
+    print("Patterns:")
+    print(f"  Enabled categories: {', '.join(config.patterns.enabled_categories)}")
+    print(f"  Disabled patterns: {', '.join(config.patterns.disabled_patterns) if config.patterns.disabled_patterns else 'None'}")
+    print(f"  Custom patterns: {len(config.patterns.custom_patterns)}")
+    print()
+    
+    print("Archives:")
+    print(f"  Scan archives: {config.archives.scan_archives}")
+    print(f"  Max depth: {config.archives.max_depth}")
+    print(f"  Max members: {config.archives.max_members}")
+    print(f"  Block encrypted: {config.archives.block_encrypted_archives}")
+    print()
+    
+    print("Documents:")
+    print(f"  Scan documents: {config.documents.scan_documents}")
+    print(f"  Supported formats: {', '.join(config.documents.supported_formats)}")
+    print()
+    
+    print("Policy:")
+    print(f"  Action: {config.policy.action}")
+    print(f"  Notify user: {config.policy.notify_user}")
+    print(f"  Allow override: {config.policy.allow_override}")
+    
+    return 0
+
+
+def main():
+    """Main entry point"""
+    parser = argparse.ArgumentParser(
+        description='USB Enforcer CLI - Test and manage content scanning',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument('-v', '--verbose', action='store_true',
+                       help='Enable verbose output')
+    
+    subparsers = parser.add_subparsers(dest='command', help='Command to execute')
+    
+    # scan command
+    scan_parser = subparsers.add_parser('scan', help='Scan a file for sensitive content')
+    scan_parser.add_argument('file', help='File to scan')
+    scan_parser.add_argument('-c', '--config', help='Configuration file')
+    scan_parser.add_argument('-s', '--stats', action='store_true',
+                           help='Show scanner statistics')
+    scan_parser.set_defaults(func=cmd_scan_file)
+    
+    # scan-text command
+    scan_text_parser = subparsers.add_parser('scan-text', help='Scan text for sensitive content')
+    scan_text_parser.add_argument('text', help='Text to scan')
+    scan_text_parser.set_defaults(func=cmd_scan_text)
+    
+    # patterns command
+    patterns_parser = subparsers.add_parser('patterns', help='List available patterns')
+    patterns_parser.add_argument('-c', '--category',
+                               choices=['pii', 'financial', 'medical', 'corporate', 'custom'],
+                               help='Filter by category')
+    patterns_parser.set_defaults(func=cmd_list_patterns)
+    
+    # test-pattern command
+    test_parser = subparsers.add_parser('test-pattern', help='Test a pattern against text')
+    test_parser.add_argument('pattern', help='Pattern name to test')
+    test_parser.add_argument('text', help='Text to test against')
+    test_parser.set_defaults(func=cmd_test_pattern)
+    
+    # config command
+    config_parser = subparsers.add_parser('config', help='Show configuration')
+    config_parser.add_argument('-f', '--file', help='Configuration file to load')
+    config_parser.set_defaults(func=cmd_config_show)
+    
+    # Parse arguments
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        return 1
+    
+    # Setup logging
+    setup_logging(args.verbose)
+    
+    # Execute command
+    try:
+        return args.func(args)
+    except KeyboardInterrupt:
+        print("\nInterrupted")
+        return 130
+    except Exception as e:
+        logging.error(f"Error: {e}", exc_info=args.verbose)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

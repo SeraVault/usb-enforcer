@@ -18,7 +18,10 @@ case "$1" in
         /usr/lib/usb-enforcer/.venv/bin/pip install \
             --no-index \
             --find-links=/usr/lib/usb-enforcer/wheels \
-            pyudev pydbus typing-extensions
+            pyudev pydbus typing-extensions python-magic \
+            pdfplumber python-docx openpyxl python-pptx odfpy \
+            py7zr rarfile fusepy \
+            xlrd olefile extract-msg striprtf
         
         # Reload systemd and udev
         systemctl daemon-reload || true

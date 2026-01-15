@@ -522,7 +522,7 @@ class ArchiveScanner:
                             return result
                     else:
                         # Scan file content
-                        result = self.content_scanner.scan(
+                        result = self.content_verification.scan(
                             content,
                             filename=member.name
                         )
@@ -630,7 +630,7 @@ class DocumentScanner:
             full_text.append(section.footer.text)
         
         content = '\n'.join(full_text)
-        return self.content_scanner.scan(content)
+        return self.content_verification.scan(content)
     
     def scan_xlsx(self, filepath: Path) -> ScanResult:
         """Scan Excel spreadsheet"""
@@ -642,7 +642,7 @@ class DocumentScanner:
             for row in sheet.iter_rows(values_only=True):
                 for cell_value in row:
                     if cell_value:
-                        result = self.content_scanner.scan(str(cell_value))
+                        result = self.content_verification.scan(str(cell_value))
                         if result.blocked:
                             result.location = f"{sheet.title}!{cell.coordinate}"
                             return result
@@ -657,7 +657,7 @@ class DocumentScanner:
             for page_num, page in enumerate(pdf.pages, 1):
                 text = page.extract_text()
                 if text:
-                    result = self.content_scanner.scan(text)
+                    result = self.content_verification.scan(text)
                     if result.blocked:
                         result.location = f"Page {page_num}"
                         return result
@@ -666,7 +666,7 @@ class DocumentScanner:
                 for table in page.extract_tables():
                     for row in table:
                         row_text = ' '.join(str(cell) for cell in row if cell)
-                        result = self.content_scanner.scan(row_text)
+                        result = self.content_verification.scan(row_text)
                         if result.blocked:
                             result.location = f"Page {page_num} (table)"
                             return result
@@ -791,7 +791,7 @@ def sample_scan(filepath: Path, sample_size_mb=5) -> ScanResult:
     with open(filepath, 'rb') as f:
         # Scan beginning
         head = f.read(sample_bytes)
-        result = content_scanner.scan(head)
+        result = content_verification.scan(head)
         if result.blocked:
             return result
         
@@ -799,7 +799,7 @@ def sample_scan(filepath: Path, sample_size_mb=5) -> ScanResult:
         if file_size > sample_bytes * 2:
             f.seek(-sample_bytes, 2)  # Seek from end
             tail = f.read(sample_bytes)
-            result = content_scanner.scan(tail)
+            result = content_verification.scan(tail)
             if result.blocked:
                 return result
     

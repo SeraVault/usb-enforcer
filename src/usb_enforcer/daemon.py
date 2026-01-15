@@ -18,12 +18,24 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import pyudev
 
-from . import classify, config as config_module, constants, crypto_engine, dbus_api, enforcer, logging_utils, udev_monitor
+from . import config as config_module, constants, dbus_api, logging_utils
+from .encryption import classify, crypto_engine, enforcer, udev_monitor
 
 try:
     from gi.repository import GLib  # type: ignore
 except Exception:  # pragma: no cover
     GLib = None
+
+# Content verification imports
+try:
+    from .content_verification.scanner import ContentScanner
+    from .content_verification.config import ContentScanningConfig
+    from .content_verification.fuse_overlay import FuseManager
+    from .content_verification.archive_scanner import ArchiveScanner
+    from .content_verification.document_scanner import DocumentScanner
+    CONTENT_VERIFICATION_AVAILABLE = True
+except ImportError:
+    CONTENT_VERIFICATION_AVAILABLE = False
 
 
 class Daemon:
@@ -40,6 +52,11 @@ class Daemon:
         self._secret_socket: Optional[socket.socket] = None
         self._secret_store: Dict[str, Tuple[str, str]] = {}  # token -> (op, passphrase)
         self._secret_lock = threading.Lock()
+        
+        # Content scanning support
+        self.content_scanner: Optional[ContentScanner] = None
+        self.fuse_manager: Optional[FuseManager] = None
+        self._init_content_scanner()
 
     def _emit_event(self, fields: Dict[str, str]) -> None:
         if self.dbus_service:
@@ -48,6 +65,47 @@ class Daemon:
     def _log_event(self, message: str, fields: Dict[str, str]) -> None:
         logging_utils.log_structured(self.logger, message, fields)
         self._emit_event(fields)
+    
+    def _init_content_scanner(self) -> None:
+        """Initialize content scanner if enabled in config"""
+        if not CONTENT_VERIFICATION_AVAILABLE:
+            self.logger.debug("Content verification module not available")
+            return
+        
+        # Check if content scanning is enabled
+        content_config = getattr(self.config, 'content_scanning', None)
+        if not content_config or not getattr(content_config, 'enabled', False):
+            self.logger.info("Content scanning disabled in config")
+            return
+        
+        try:
+            # Initialize scanner with dict config
+            scanner_config = content_config.get_scanner_config()
+            self.content_scanner = ContentScanner(scanner_config)
+            self.logger.info("Content scanner initialized")
+            
+            # Initialize archive and document scanners
+            archive_scanner = ArchiveScanner(
+                content_scanner=self.content_scanner,
+                config=content_config.archives
+            )
+            document_scanner = DocumentScanner(
+                content_scanner=self.content_scanner
+            )
+            
+            # Initialize FUSE manager for overlay mounting
+            self.fuse_manager = FuseManager(
+                scanner=self.content_scanner,
+                archive_scanner=archive_scanner,
+                document_scanner=document_scanner,
+                config=content_config
+            )
+            self.logger.info("FUSE manager initialized")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize content scanner: {e}")
+            self.content_scanner = None
+            self.fuse_manager = None
 
     def _is_enforcement_bypassed(self, devnode: str) -> bool:
         """
@@ -58,6 +116,122 @@ class Daemon:
             if devnode.startswith(bypass) or bypass.startswith(devnode):
                 return True
         return False
+    
+    def _setup_fuse_overlay(self, device_path: str, base_mount: Optional[str] = None) -> None:
+        """
+        Set up FUSE overlay for content scanning on a mounted device.
+        
+        Args:
+            device_path: Path to the device (e.g., /dev/mapper/usbenc-sdb1 or /dev/sdb1)
+            base_mount: Optional pre-determined mount point. If None, will search for it.
+        """
+        if not self.fuse_manager:
+            return
+        
+        try:
+            # Wait for the device to be mounted (if mount point not provided)
+            mount_point = base_mount
+            
+            if not mount_point:
+                max_wait = 10
+                start_time = time.time()
+                
+                while time.time() - start_time < max_wait:
+                    result = subprocess.run(
+                        ["findmnt", "-n", "-o", "TARGET", "-S", device_path],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        mount_point = result.stdout.strip()
+                        break
+                    time.sleep(0.5)
+                
+                if not mount_point:
+                    self.logger.warning(f"Device {device_path} not mounted after {max_wait}s")
+                    return
+            
+            # Skip if mount point ends with .real (already a FUSE backing mount)
+            if mount_point.endswith('.real') or mount_point.endswith('.real.real'):
+                self.logger.debug(f"Skipping FUSE overlay for backing mount: {mount_point}")
+                return
+            
+            # Check if already mounted with FUSE overlay
+            if mount_point in self.fuse_manager.mounts:
+                self.logger.debug(f"FUSE overlay already active for {mount_point}")
+                return
+            
+            self.logger.info(f"Setting up FUSE overlay for {mount_point}")
+            
+            # Define progress callback for notifications
+            def progress_callback(filepath: str, progress: float, status: str, total_size: int, scanned_size: int):
+                # Log progress
+                self.logger.debug(
+                    f"Scan progress: {filepath} - {progress:.1f}% - {status} - {scanned_size}/{total_size}"
+                )
+                
+                # Emit event for GUI notifications (if DBus service is running)
+                if self.dbus_service:
+                    try:
+                        self.dbus_service.emit_scan_progress(
+                            filepath, progress, status, total_size, scanned_size
+                        )
+                    except Exception as e:
+                        self.logger.debug(f"Failed to emit scan progress: {e}")
+            
+            # Define blocked file callback for notifications
+            def blocked_callback(filepath: str, reason: str, patterns: str, match_count: int):
+                # Log blocked file
+                self.logger.warning(
+                    f"File blocked: {filepath} - {reason} - Patterns: {patterns}"
+                )
+                
+                # Emit notification (if DBus service is running)
+                if self.dbus_service:
+                    self.logger.info(f"Emitting ContentBlocked signal for {filepath}")
+                    try:
+                        self.dbus_service.emit_content_blocked(
+                            filepath, reason, patterns, match_count
+                        )
+                        self.logger.info(f"ContentBlocked signal emitted successfully")
+                    except Exception as e:
+                        self.logger.error(f"Failed to emit blocked notification: {e}", exc_info=True)
+                else:
+                    self.logger.warning("DBus service not available, cannot emit ContentBlocked signal")
+            
+            # Add progress handler
+            self.fuse_manager.add_progress_handler(progress_callback)
+            
+            # Add blocked file handler
+            self.fuse_manager.add_blocked_handler(blocked_callback)
+            
+            # Need to unmount the device first, then remount through FUSE
+            # For now, since FuseManager.mount() expects to mount the device itself,
+            # we'll need to unmount, then let FUSE manager handle the remount
+            try:
+                subprocess.run(["umount", mount_point], check=False, capture_output=True)
+                time.sleep(0.5)
+            except Exception:
+                pass
+            
+            # Create FUSE mount point with same path
+            fuse_mount = mount_point
+            
+            # Determine if device is encrypted (mapper devices are LUKS encrypted)
+            is_encrypted = '/mapper/' in device_path
+            self.logger.debug(f"Device {device_path} - is_encrypted: {is_encrypted}")
+            
+            # Mount FUSE overlay (it will handle mounting the device internally)
+            success = self.fuse_manager.mount(device_path, fuse_mount, is_encrypted=is_encrypted)
+            
+            if success:
+                self.logger.info(f"FUSE overlay active for {fuse_mount}")
+            else:
+                self.logger.error(f"Failed to activate FUSE overlay for {fuse_mount}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to set up FUSE overlay: {e}", exc_info=True)
 
     def handle_device(self, device_props: Dict[str, str], devnode: str, action: str) -> None:
         # Handle device removal - cleanup and remove from cache
@@ -77,6 +251,18 @@ class Daemon:
             "id_type": device_props.get("ID_TYPE", ""),
             "serial": device_props.get("ID_SERIAL_SHORT", device_props.get("ID_SERIAL", "")),
         }
+        
+        # Handle mapper devices (unlocked LUKS) - set up FUSE overlay if content scanning enabled
+        if classification == constants.MAPPER and action in ("add", "change"):
+            self.logger.info(f"DEBUG: Mapper device detected - classification={classification}, action={action}")
+            self.logger.info(f"DEBUG: fuse_manager={self.fuse_manager is not None}, content_scanner={self.content_scanner is not None}")
+            if self.fuse_manager and self.content_scanner:
+                self.logger.info(f"Mapper device detected: {devnode}, setting up FUSE overlay")
+                self._setup_fuse_overlay(devnode)
+            else:
+                self.logger.warning(f"Mapper device detected: {devnode}, no content scanning configured (fuse_manager={self.fuse_manager is not None}, content_scanner={self.content_scanner is not None})")
+            return
+        
         if self._is_enforcement_bypassed(devnode):
             log_fields = {
                 constants.LOG_KEY_DEVNODE: devnode,
@@ -95,9 +281,77 @@ class Daemon:
         log_fields[constants.LOG_KEY_EVENT] = constants.EVENT_ENFORCE
         self._log_event(f"handled {devnode} action={action} classification={classification}", log_fields)
         
-        # Trigger automount for plaintext devices after setting them read-only
+        # Trigger automount for plaintext devices
         if log_fields.get(constants.LOG_KEY_ACTION) == "block_rw" and log_fields.get(constants.LOG_KEY_RESULT) == "allow":
+            # Read-only mount (no exemption)
             self._trigger_mount_ro(devnode)
+        elif log_fields.get(constants.LOG_KEY_ACTION) == "exempt" and log_fields.get(constants.LOG_KEY_RESULT) == "allow":
+            # Writable mount (exempted user) - apply content scanning if enabled
+            if self.fuse_manager and self.content_scanner:
+                self._trigger_mount_rw_with_fuse(devnode)
+            else:
+                # No content scanning, just mount normally (will be writable)
+                self._trigger_mount_rw(devnode)
+    
+    def _trigger_mount_rw(self, devnode: str) -> None:
+        """
+        Trigger a normal writable mount via udisks2 (for exempted plaintext devices without content scanning).
+        """
+        def do_mount():
+            try:
+                # Get the active session user
+                uid = None
+                gid = None
+                username = None
+                
+                # Try to find logged-in user
+                try:
+                    result = subprocess.run(["who"], capture_output=True, text=True, check=False)
+                    for line in result.stdout.splitlines():
+                        parts = line.split()
+                        if parts:
+                            user = parts[0]
+                            if user != "root":
+                                try:
+                                    pw = pwd.getpwnam(user)
+                                    uid = pw.pw_uid
+                                    gid = pw.pw_gid
+                                    username = user
+                                    break
+                                except KeyError:
+                                    continue
+                except Exception:
+                    pass
+                
+                # Wait briefly for udev to settle
+                time.sleep(0.5)
+                
+                # Mount the device
+                result = subprocess.run(
+                    ["udisksctl", "mount", "-b", devnode, "--no-user-interaction"],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                if result.returncode == 0:
+                    self.logger.info(f"Auto-mounted writable (exempted, no scan): {devnode}")
+                    
+                    # Fix ownership if we found a user
+                    if uid is not None and gid is not None and "at " in result.stdout:
+                        mountpoint = result.stdout.split("at ")[-1].strip().rstrip(".")
+                        try:
+                            time.sleep(0.2)
+                            os.chown(mountpoint, uid, gid)
+                            self.logger.info(f"Fixed ownership of {mountpoint} to {username} ({uid}:{gid})")
+                        except Exception as e:
+                            self.logger.warning(f"Failed to fix ownership of {mountpoint}: {e}")
+                else:
+                    self.logger.debug(f"Mount via udisksctl failed for {devnode}: {result.stderr.strip()}")
+            except Exception as e:
+                self.logger.debug(f"Failed to trigger mount for {devnode}: {e}")
+        
+        # Run in background thread to avoid blocking udev processing
+        threading.Thread(target=do_mount, daemon=True).start()
 
     def _trigger_mount_ro(self, devnode: str) -> None:
         """
@@ -162,16 +416,110 @@ class Daemon:
         
         # Run in background thread to avoid blocking udev processing
         threading.Thread(target=do_mount, daemon=True).start()
+    
+    def _trigger_mount_rw_with_fuse(self, devnode: str) -> None:
+        """
+        Trigger a writable mount via udisks2 for plaintext devices (when user is exempted),
+        then overlay with FUSE for content scanning.
+        """
+        def do_mount():
+            try:
+                # Get the active session user
+                uid = None
+                gid = None
+                username = None
+                
+                # Try to find logged-in user
+                try:
+                    result = subprocess.run(["who"], capture_output=True, text=True, check=False)
+                    for line in result.stdout.splitlines():
+                        parts = line.split()
+                        if parts:
+                            user = parts[0]
+                            if user != "root":
+                                try:
+                                    pw = pwd.getpwnam(user)
+                                    uid = pw.pw_uid
+                                    gid = pw.pw_gid
+                                    username = user
+                                    break
+                                except KeyError:
+                                    continue
+                except Exception:
+                    pass
+                
+                # Wait briefly for udev to settle
+                time.sleep(0.5)
+                
+                # Mount the device as writable
+                result = subprocess.run(
+                    ["udisksctl", "mount", "-b", devnode, "--no-user-interaction"],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                if result.returncode == 0:
+                    self.logger.info(f"Auto-mounted writable (exempted): {devnode}")
+                    
+                    # Extract mountpoint from output
+                    if "at " in result.stdout:
+                        mountpoint = result.stdout.split("at ")[-1].strip().rstrip(".")
+                        
+                        # Fix ownership if we found a user
+                        if uid is not None and gid is not None:
+                            try:
+                                time.sleep(0.2)
+                                os.chown(mountpoint, uid, gid)
+                                self.logger.info(f"Fixed ownership of {mountpoint} to {username} ({uid}:{gid})")
+                            except Exception as e:
+                                self.logger.warning(f"Failed to fix ownership of {mountpoint}: {e}")
+                        
+                        # Set up FUSE overlay for content scanning
+                        if self.fuse_manager and self.content_scanner:
+                            self._setup_fuse_overlay(devnode, base_mount=mountpoint)
+                else:
+                    # Device might already be mounted
+                    self.logger.debug(f"Mount via udisksctl failed for {devnode}: {result.stderr.strip()}")
+            except Exception as e:
+                self.logger.debug(f"Failed to trigger mount+FUSE for {devnode}: {e}")
+        
+        # Run in background thread to avoid blocking udev processing
+        threading.Thread(target=do_mount, daemon=True).start()
 
     def list_devices(self) -> List[Dict[str, str]]:
         return list(self.devices.values())
 
     def get_device_status(self, devnode: str) -> Dict[str, str]:
         return self.devices.get(devnode, {})
-
-    def _mapper_name_for(self, devnode: str) -> str:
-        basename = devnode.split("/")[-1]
-        return f"usbenc-{basename}"
+    
+    def get_scanner_statistics(self) -> Dict[str, str]:
+        """Get content scanner statistics"""
+        if not self.fuse_manager:
+            return {}
+        
+        try:
+            # Get aggregated statistics from all active mounts
+            all_stats = {
+                'files_scanned': 0,
+                'files_blocked': 0,
+                'files_allowed': 0,
+                'total_bytes_scanned': 0,
+                'patterns_detected': 0,
+                'active_mounts': len(self.fuse_manager.mounts)
+            }
+            
+            # Aggregate from all mounts
+            for mount_point in self.fuse_manager.mounts:
+                mount_stats = self.fuse_manager.get_statistics(mount_point)
+                if mount_stats:
+                    for key in ['files_scanned', 'files_blocked', 'files_allowed', 'total_bytes_scanned', 'patterns_detected']:
+                        all_stats[key] += mount_stats.get(key, 0)
+            
+            # Convert all values to strings for DBus
+            return {k: str(v) for k, v in all_stats.items()}
+        except Exception as e:
+            self.logger.error(f"Failed to get scanner statistics: {e}")
+            return {}
 
     def _cleanup_stale_mounts(self, devnode: str) -> None:
         """
@@ -209,6 +557,7 @@ class Daemon:
         return f"usbenc-{basename}"
 
     def request_unlock(self, devnode: str, mapper_name: Optional[str], passphrase: str) -> str:
+        self.logger.info(f"request_unlock called for {devnode}")
         token = passphrase  # now treated as token from secret socket
         passphrase = self._consume_secret(token, "unlock")
         self._assert_usb_storage(devnode)
@@ -239,6 +588,15 @@ class Daemon:
         
         try:
             mapper_path = crypto_engine.unlock_luks(devnode, mapper, passphrase)
+            
+            # If content scanning is enabled, wait for mount and overlay with FUSE
+            self.logger.debug(f"After unlock: fuse_manager={self.fuse_manager is not None}, content_scanner={self.content_scanner is not None}")
+            if self.fuse_manager and self.content_scanner:
+                self.logger.info(f"Setting up FUSE overlay for {mapper_path}")
+                self._setup_fuse_overlay(mapper_path)
+            else:
+                self.logger.warning(f"Skipping FUSE overlay - fuse_manager={self.fuse_manager is not None}, content_scanner={self.content_scanner is not None}")
+            
             # Encrypted devices are auto-mounted by the system (UDISKS_AUTO=1 in udev rules)
             # The desktop environment handles ownership automatically
             self._log_event(
@@ -387,6 +745,7 @@ class Daemon:
             self.get_device_status,
             self.request_unlock,
             self.request_encrypt,
+            self.get_scanner_statistics,
         )
         dbus_service.Export()
         self.dbus_service = dbus_service

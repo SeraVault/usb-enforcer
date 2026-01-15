@@ -54,7 +54,7 @@ Test actual system operations using loop devices:
 
 ## Writing Tests
 
-See [TESTING.md](../TESTING.md) for comprehensive documentation on:
+See [TESTING.md](../docs/TESTING.md) for comprehensive documentation on:
 - Writing new tests
 - Using fixtures
 - Testing with loop devices
@@ -105,13 +105,13 @@ See `.github/workflows/test.yml` for details.
 ## Documentation
 
 For complete testing documentation, see:
-- [TESTING.md](../TESTING.md) - Comprehensive testing guide
+- [TESTING.md](../docs/TESTING.md) - Comprehensive testing guide
 - [conftest.py](conftest.py) - Available fixtures
 - Individual test files for examples
 
 ## Support
 
 Questions? Check:
-1. [TESTING.md](../TESTING.md)
+1. [TESTING.md](../docs/TESTING.md)
 2. Existing test examples
 3. Open an issue on GitHub

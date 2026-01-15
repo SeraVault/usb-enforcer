@@ -19,7 +19,20 @@ python3 -m pip download \
     --no-deps \
     "pyudev>=0.24.0" \
     "pydbus>=0.6.0" \
-    "typing-extensions>=4.8.0"
+    "typing-extensions>=4.8.0" \
+    "python-magic>=0.4.27" \
+    "pdfplumber>=0.10.0" \
+    "python-docx>=1.0.0" \
+    "openpyxl>=3.1.0" \
+    "python-pptx>=0.6.0" \
+    "odfpy>=1.4.0" \
+    "py7zr>=0.20.0" \
+    "rarfile>=4.1" \
+    "fusepy>=3.0.1" \
+    "xlrd>=2.0.0" \
+    "olefile>=0.46" \
+    "extract-msg>=0.41.0" \
+    "striprtf>=0.0.26"
 
 echo ""
 echo "Downloaded wheels to: $WHEELS_DIR"

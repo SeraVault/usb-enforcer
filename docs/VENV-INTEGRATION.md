@@ -9,7 +9,7 @@ All Python scripts have been updated to use the installed virtual environment lo
 1. **usb-enforcer-helper** (was direct Python script)
    - Converted to bash wrapper
    - Moved Python code to `src/usb_enforcer/helper.py`
-   - Now uses venv: `${VENV}/bin/python3 -c "from usb_enforcer.helper import main; main()"`
+   - Now uses venv: `${VENV}/bin/python3 -c "from usb_enforcer.encryption.helper import main; main()"`
 
 2. **usb_enforcer_ui.py** 
    - Removed shebang (called through wrapper)

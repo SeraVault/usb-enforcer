@@ -29,9 +29,14 @@ Depends: ${misc:Depends},
          gir1.2-adw-1,
          python3-gi,
          python3-gi-cairo,
-         libnotify-bin
-Description: USB encryption enforcement daemon
- A system daemon that enforces encryption requirements on USB storage devices.
+         libnotify-bin,
+         fuse3,
+         libfuse3-3,
+         libmagic1,
+         unrar | unrar-free
+Description: USB encryption enforcement daemon with content scanning
+ A system daemon that enforces encryption requirements on USB storage devices
+ and scans files for sensitive data before allowing writes to removable media.
  .
  This package downloads Python dependencies from PyPI during installation.
  For offline/airgapped installations, use usb-enforcer-bundled instead.
@@ -39,6 +44,10 @@ Description: USB encryption enforcement daemon
  Features:
   - Automatic detection of USB storage devices
   - Encryption requirement enforcement
-  - User notifications via GUI
+  - Content scanning for sensitive data (SSN, credit cards, API keys, etc.)
+  - FUSE overlay filesystem with real-time scanning
+  - Archive scanning (ZIP, 7z, RAR, tar)
+  - Document scanning (PDF, DOCX, XLSX, PPTX)
+  - User notifications via GUI with progress tracking
   - Integration with udev, systemd, and DBus
   - Configuration via TOML file

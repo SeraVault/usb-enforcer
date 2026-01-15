@@ -4,7 +4,7 @@ import subprocess
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib
-from usb_enforcer import secret_socket
+from . import secret_socket
 
 
 def show_unlock_dialog(devnode):

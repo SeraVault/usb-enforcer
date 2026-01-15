@@ -3,3 +3,19 @@ pydbus>=0.6.0
 typing-extensions>=4.8.0
 # UI deps (GTK/libadwaita are system packages; pygobject is required for wizard)
 PyGObject>=3.46.0
+
+# Content scanning dependencies
+python-magic>=0.4.27  # File type detection via magic numbers
+pdfplumber>=0.10.0  # PDF text extraction
+python-docx>=1.0.0  # DOCX parsing
+openpyxl>=3.1.0  # XLSX parsing
+python-pptx>=0.6.0  # PPTX parsing
+odfpy>=1.4.0  # ODF format support
+py7zr>=0.20.0  # 7z archive support
+rarfile>=4.1  # RAR archive support (requires unrar binary)
+fusepy>=3.0.1  # FUSE filesystem support
+xlrd>=2.0.0  # Old Excel (.xls) support
+olefile>=0.46  # Old Office format (OLE2) detection
+extract-msg>=0.41.0  # Outlook .msg parsing
+striprtf>=0.0.26  # RTF text extraction
+

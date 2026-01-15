@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
-from . import constants, crypto_engine
-
-from . import constants
+from .. import constants
+from . import crypto_engine
 
 
 def _get(dev: Dict[str, str], key: str) -> Optional[str]:

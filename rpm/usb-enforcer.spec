@@ -29,13 +29,19 @@ Requires:       dbus
 Requires:       libnotify
 Requires:       gtk4
 Requires:       libadwaita
+Requires:       fuse3
+Requires:       fuse3-libs
+Requires:       file-libs
+Requires:       unrar
 
 %description
-USB Enforcer enforces encryption on USB mass-storage devices.
+USB Enforcer enforces encryption on USB mass-storage devices and scans
+files for sensitive data before allowing writes to removable media.
 Plaintext USB devices are forced read-only, while LUKS2-encrypted devices
 can be unlocked and mounted writable. A Python daemon watches udev, enforces
 block-level read-only mode, and provides a DBus API. Includes a GTK wizard
-for encryption/unlock flows and desktop notifications.
+for encryption/unlock flows, content scanning with FUSE overlay, and
+desktop notifications with progress tracking.
 
 %prep
 %setup -q
@@ -123,7 +129,11 @@ if [ $1 -eq 1 ]; then
     # Fresh install
     python3 -m venv --system-site-packages %{_libdir}/%{name}/.venv
     %{_libdir}/%{name}/.venv/bin/pip install --upgrade pip >/dev/null 2>&1
-    %{_libdir}/%{name}/.venv/bin/pip install pyudev>=0.24.0 pydbus>=0.6.0 typing-extensions>=4.8.0 PyGObject>=3.46.0 >/dev/null 2>&1
+    %{_libdir}/%{name}/.venv/bin/pip install \
+        pyudev>=0.24.0 pydbus>=0.6.0 typing-extensions>=4.8.0 PyGObject>=3.46.0 \
+        python-magic>=0.4.27 pdfplumber>=0.10.0 python-docx>=1.0.0 openpyxl>=3.1.0 \
+        python-pptx>=0.6.0 odfpy>=1.4.0 py7zr>=0.20.0 rarfile>=4.1 fusepy>=3.0.1 \
+        xlrd>=2.0.0 olefile>=0.46 extract-msg>=0.41.0 striprtf>=0.0.26 >/dev/null 2>&1
 fi
 
 # Update icon cache

@@ -42,8 +42,24 @@ class UsbEnforcerDBus:
           <arg type='s' name='label' direction='in'/>
           <arg type='s' name='result' direction='out'/>
         </method>
+        <method name='GetScannerStatistics'>
+          <arg type='a{ss}' name='statistics' direction='out'/>
+        </method>
         <signal name='Event'>
           <arg type='a{ss}' name='fields'/>
+        </signal>
+        <signal name='ScanProgress'>
+          <arg type='s' name='filepath'/>
+          <arg type='d' name='progress'/>
+          <arg type='s' name='status'/>
+          <arg type='x' name='total_size'/>
+          <arg type='x' name='scanned_size'/>
+        </signal>
+        <signal name='ContentBlocked'>
+          <arg type='s' name='filepath'/>
+          <arg type='s' name='reason'/>
+          <arg type='s' name='patterns'/>
+          <arg type='i' name='match_count'/>
         </signal>
       </interface>
     </node>
@@ -56,17 +72,21 @@ class UsbEnforcerDBus:
         get_status_func: Callable[[str], Dict[str, str]],
         unlock_func: Callable[[str, str, str], str],
         encrypt_func: Callable[[str, str, str, str, Optional[str]], str],
+        get_scanner_stats_func: Optional[Callable[[], Dict[str, str]]] = None,
     ):
         self.logger = logger
         self.list_devices_func = list_devices_func
         self.get_status_func = get_status_func
         self.unlock_func = unlock_func
         self.encrypt_func = encrypt_func
+        self.get_scanner_stats_func = get_scanner_stats_func
         self.bus: Optional[Any] = None
         self._event_subscribers: List[Any] = []
 
-    # pydbus signal definition
+    # pydbus signal definitions
     Event = dbus_signal() if dbus_signal else None
+    ScanProgress = dbus_signal() if dbus_signal else None
+    ContentBlocked = dbus_signal() if dbus_signal else None
 
     def Export(self):  # noqa: N802
         """
@@ -98,6 +118,12 @@ class UsbEnforcerDBus:
 
     def RequestEncrypt(self, devnode: str, mapper_name: str, passphrase: str, fs_type: str, label: str) -> str:  # noqa: N802
         return self.encrypt_func(devnode, mapper_name, passphrase, fs_type, label or None)
+    
+    def GetScannerStatistics(self) -> Dict[str, str]:  # noqa: N802
+        """Get content scanner statistics"""
+        if self.get_scanner_stats_func:
+            return self.get_scanner_stats_func()
+        return {}
 
     # Events: emit dict fields to listeners
     def emit_event(self, fields: Dict[str, str]) -> None:
@@ -107,3 +133,22 @@ class UsbEnforcerDBus:
             self.Event(fields)
         except Exception:  # pragma: no cover
             self.logger.exception("Failed to emit Event signal")
+    
+    def emit_scan_progress(self, filepath: str, progress: float, status: str,
+                          total_size: int, scanned_size: int) -> None:
+        """Emit scan progress signal for GUI notifications"""
+        if not self.bus or not dbus_signal:
+            return
+        try:
+            self.ScanProgress(filepath, progress, status, total_size, scanned_size)
+        except Exception:  # pragma: no cover
+            self.logger.exception("Failed to emit ScanProgress signal")
+    
+    def emit_content_blocked(self, filepath: str, reason: str, patterns: str, match_count: int) -> None:
+        """Emit content blocked signal for GUI notifications"""
+        if not self.bus or not dbus_signal:
+            return
+        try:
+            self.ContentBlocked(filepath, reason, patterns, match_count)
+        except Exception:  # pragma: no cover
+            self.logger.exception("Failed to emit ContentBlocked signal")

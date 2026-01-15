@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""
+USB Enforcer Content Scanning Notifications
+
+Listens for content scanning progress via DBus and displays GUI notifications.
+Run this as the logged-in user to see scan progress notifications.
+"""
+
+import sys
+import os
+import logging
+import argparse
+
+# Setup path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
+
+import gi
+gi.require_version('Gtk', '4.0')
+from gi.repository import GLib
+
+try:
+    import pydbus
+    from pydbus import SystemBus
+except ImportError:
+    print("Error: pydbus is required for DBus communication")
+    print("Install with: pip install pydbus")
+    sys.exit(1)
+
+from usb_enforcer.content_verification.notifications import create_notification_app
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class ScanProgressListener:
+    """
+    Listens to DBus signals for scan progress and displays notifications.
+    """
+    
+    def __init__(self, app):
+        self.app = app
+        self.bus = None
+        self.proxy = None
+        
+    def start(self):
+        """Connect to DBus and start listening"""
+        try:
+            # Connect to system bus
+            self.bus = SystemBus()
+            
+            # Get proxy to USB Enforcer service
+            self.proxy = self.bus.get(
+                'org.seravault.UsbEnforcer',
+                '/org/seravault/UsbEnforcer'
+            )
+            
+            # Subscribe to ScanProgress signal
+            self.proxy.ScanProgress.connect(self.on_scan_progress)
+            
+            logger.info("Connected to USB Enforcer DBus service")
+            logger.info("Listening for content scanning notifications...")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to connect to DBus: {e}")
+            logger.error("Make sure usb-enforcerd is running")
+            return False
+    
+    def on_scan_progress(self, filepath: str, progress: float, status: str,
+                        total_size: int, scanned_size: int):
+        """Handle scan progress signal"""
+        try:
+            # Forward to notification service
+            self.app.service.notify_scan_progress(
+                filepath, progress, status, total_size, scanned_size
+            )
+            
+            # Send desktop notification for blocked files
+            if status == 'blocked':
+                self.app.service.notify_blocked(
+                    filepath,
+                    "File contains sensitive data and was blocked"
+                )
+                
+        except Exception as e:
+            logger.error(f"Error handling scan progress: {e}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='USB Enforcer Content Scanning Notifications'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable debug logging'
+    )
+    args = parser.parse_args()
+    
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    # Create GTK application
+    app = create_notification_app()
+    
+    # Create and start listener
+    listener = ScanProgressListener(app)
+    
+    def on_activate(app):
+        logger.info("USB Enforcer notification service started")
+        if not listener.start():
+            logger.error("Failed to start listener, exiting")
+            app.quit()
+    
+    app.connect('activate', on_activate)
+    
+    # Run application
+    try:
+        app.run(None)
+    except KeyboardInterrupt:
+        logger.info("Shutting down")
+        return 0
+    
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -32,18 +32,37 @@ Requires:       dbus
 Requires:       libnotify
 Requires:       gtk4
 Requires:       libadwaita
+Requires:       fuse3
+Requires:       fuse3-libs
+Requires:       file-libs
+Requires:       unrar
 
 # Provide bundled Python packages
 Provides:       bundled(python3dist(pyudev)) = 0.24.4
 Provides:       bundled(python3dist(pydbus)) = 0.6.0
 Provides:       bundled(python3dist(typing-extensions)) = 4.15.0
+Provides:       bundled(python3dist(fusepy)) = 3.0.1
+Provides:       bundled(python3dist(python-magic)) = 0.4.27
+Provides:       bundled(python3dist(pdfplumber)) = 0.10.3
+Provides:       bundled(python3dist(python-docx)) = 1.1.0
+Provides:       bundled(python3dist(openpyxl)) = 3.1.2
+Provides:       bundled(python3dist(python-pptx)) = 0.6.23
+Provides:       bundled(python3dist(odfpy)) = 1.4.1
+Provides:       bundled(python3dist(py7zr)) = 0.20.8
+Provides:       bundled(python3dist(rarfile)) = 4.1
+Provides:       bundled(python3dist(xlrd)) = 2.0.1
+Provides:       bundled(python3dist(olefile)) = 0.47
+Provides:       bundled(python3dist(extract-msg)) = 0.48.0
+Provides:       bundled(python3dist(striprtf)) = 0.0.26
 
 %description
-USB Enforcer enforces encryption on USB mass-storage devices.
+USB Enforcer enforces encryption on USB mass-storage devices and scans
+files for sensitive data before allowing writes to removable media.
 Plaintext USB devices are forced read-only, while LUKS2-encrypted devices
 can be unlocked and mounted writable. A Python daemon watches udev, enforces
 block-level read-only mode, and provides a DBus API. Includes a GTK wizard
-for encryption/unlock flows and desktop notifications.
+for encryption/unlock flows, content scanning with FUSE overlay, and
+desktop notifications with progress tracking.
 
 This package bundles Python dependencies for airgapped/offline installation.
 
@@ -140,7 +159,10 @@ if [ $1 -eq 1 ]; then
     python3 -m venv --system-site-packages %{_libdir}/usb-enforcer/.venv
     %{_libdir}/usb-enforcer/.venv/bin/pip install --upgrade pip --no-index --find-links %{_libdir}/usb-enforcer/wheels >/dev/null 2>&1
     %{_libdir}/usb-enforcer/.venv/bin/pip install --no-index --find-links %{_libdir}/usb-enforcer/wheels \
-        pyudev pydbus typing-extensions >/dev/null 2>&1
+        pyudev pydbus typing-extensions python-magic \
+        pdfplumber python-docx openpyxl python-pptx odfpy \
+        py7zr rarfile fusepy \
+        xlrd olefile extract-msg striprtf >/dev/null 2>&1
 fi
 
 # Update icon cache

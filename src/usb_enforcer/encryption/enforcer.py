@@ -5,8 +5,8 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Optional
 
-from . import classify, constants
-from . import user_utils
+from .. import constants
+from . import classify, user_utils
 
 
 def set_block_read_only(devnode: str, logger: logging.Logger) -> bool:

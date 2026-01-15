@@ -29,6 +29,9 @@ help:
 	@echo "  make test-lint       - Run code quality checks"
 	@echo "  make test-all        - Run all tests and checks"
 	@echo ""
+	@echo "Translation Targets:"
+	@echo "  make translations    - Compile all translation files"
+	@echo ""
 	@echo "Utility Targets:"
 	@echo "  make dist        - Create source tarball"
 	@echo "  make bundle-deps - Download Python dependencies as wheels"
@@ -191,3 +194,13 @@ test-lint:
 test-all:
 	@echo "Running all tests and checks..."
 	@./run-tests.sh all
+
+# Translation targets
+translations:
+	@echo "Compiling translation files..."
+	@for po in locale/*/LC_MESSAGES/*.po; do \
+		mo=$${po%.po}.mo; \
+		echo "  Compiling $${po}..."; \
+		msgfmt $$po -o $$mo; \
+	done
+	@echo "Translation files compiled"

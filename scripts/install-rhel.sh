@@ -52,14 +52,46 @@ check_dependencies() {
     missing+=("python3-gobject")
   fi
   
+  # Content scanning dependencies
+  if ! rpm -q fuse3 >/dev/null 2>&1; then
+    missing+=("fuse3")
+  fi
+  if ! rpm -q fuse3-libs >/dev/null 2>&1; then
+    missing+=("fuse3-libs")
+  fi
+  if ! rpm -q file-libs >/dev/null 2>&1; then
+    missing+=("file-libs")
+  fi
+  if ! command -v unrar >/dev/null 2>&1; then
+    missing+=("unrar")
+  fi
+  
   if [ ${#missing[@]} -gt 0 ]; then
     log "Missing required packages: ${missing[*]}"
-    log "Install them with: sudo dnf install ${missing[*]}"
-    log "Note: On RHEL you may need to enable EPEL repository first:"
-    log "  sudo dnf install epel-release"
-    exit 1
+    log "Installing missing packages..."
+    
+    # Check if we need EPEL (for unrar)
+    if [[ " ${missing[*]} " =~ " unrar " ]]; then
+      log "Note: unrar requires EPEL repository"
+      if ! rpm -q epel-release >/dev/null 2>&1; then
+        log "Installing EPEL repository..."
+        if ! dnf install -y epel-release 2>/dev/null; then
+          log "Warning: Could not install EPEL. You may need to enable it manually:"
+          log "  sudo dnf install epel-release"
+        fi
+      fi
+    fi
+    
+    # Install missing packages
+    if ! dnf install -y "${missing[@]}"; then
+      log "ERROR: Failed to install required packages: ${missing[*]}"
+      log "Please install them manually with: sudo dnf install ${missing[*]}"
+      exit 1
+    fi
+    log "Successfully installed missing dependencies."
+  else
+    log "All required dependencies found."
   fi
-  log "All required dependencies found."
 }
 
 create_dirs() {

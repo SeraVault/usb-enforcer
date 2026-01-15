@@ -64,6 +64,20 @@ check_dependencies() {
     missing+=("gir1.2-adw-1")
   fi
   
+  # Content scanning dependencies
+  if ! dpkg -s fuse3 >/dev/null 2>&1; then
+    missing+=("fuse3")
+  fi
+  if ! dpkg -s libfuse3-3 >/dev/null 2>&1; then
+    missing+=("libfuse3-3")
+  fi
+  if ! dpkg -s libmagic1 >/dev/null 2>&1; then
+    missing+=("libmagic1")
+  fi
+  if ! command -v unrar >/dev/null 2>&1 && ! command -v unrar-free >/dev/null 2>&1; then
+    missing+=("unrar")
+  fi
+  
   # Build dependencies for PyGObject/pycairo
   if ! command -v pkg-config >/dev/null 2>&1; then
     missing+=("pkg-config")
@@ -83,11 +97,21 @@ check_dependencies() {
   
   if [[ ${#missing[@]} -gt 0 ]]; then
     log "Missing system packages: ${missing[*]}"
-    log "Install them with: sudo apt install ${missing[*]}"
-    exit 1
+    log "Installing missing packages..."
+    
+    # Update package list
+    apt-get update
+    
+    # Install missing packages
+    if ! apt-get install -y "${missing[@]}"; then
+      log "ERROR: Failed to install required packages: ${missing[*]}"
+      log "Please install them manually with: sudo apt install ${missing[*]}"
+      exit 1
+    fi
+    log "Successfully installed missing dependencies."
+  else
+    log "All system dependencies found"
   fi
-  
-  log "All system dependencies found"
 }
 
 create_dirs() {

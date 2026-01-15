@@ -1,0 +1,148 @@
+# Example content scanning configuration for USB Enforcer
+
+[content_scanning]
+# Enable/disable content verification
+enabled = true
+
+# Scan encrypted USB devices (in addition to block-level enforcement)
+scan_encrypted_devices = true
+
+# Performance settings
+max_file_size_mb = 500  # Files larger than this: sample or skip
+max_scan_time_seconds = 30
+max_memory_per_scan_mb = 100
+max_concurrent_scans = 4
+
+# Caching
+enable_cache = true
+cache_size_mb = 100
+cache_ttl_hours = 24
+
+# Error handling
+block_on_error = true  # Block transfers if scanning fails
+
+[content_scanning.patterns]
+# Built-in pattern categories to enable
+enabled_categories = [
+    "pii",          # SSN, driver's license, passport, email, phone
+    "financial",    # Credit cards, bank accounts, IBAN, SWIFT
+    "corporate",    # API keys, credentials, tokens, private keys
+]
+
+# Optional: disable specific patterns
+disabled_patterns = []
+# Example: disabled_patterns = ["email", "phone_us"]
+
+# Custom patterns (regex)
+# Add organization-specific patterns here
+[[content_scanning.patterns.custom]]
+name = "employee_id"
+regex = "EMP-\\d{6}"
+description = "Company employee ID format"
+severity = "high"
+
+[[content_scanning.patterns.custom]]
+name = "project_codename"
+regex = "PROJECT-(ALPHA|BETA|GAMMA)-\\d{4}"
+description = "Confidential project codenames"
+severity = "critical"
+
+[content_scanning.archives]
+# Enable archive scanning (ZIP, TAR, 7Z, etc.)
+scan_archives = true
+
+# Maximum nesting depth (protection against zip bombs)
+max_depth = 5
+
+# Maximum files per archive
+max_members = 1000
+
+# Maximum size to extract per member
+max_extract_size_mb = 100
+
+# Handle encrypted/password-protected archives
+block_encrypted_archives = true  # Set to false to skip instead of block
+
+# Supported formats
+supported_formats = ["zip", "tar", "tar.gz", "tar.bz2", "tar.xz", "7z"]
+
+[content_scanning.documents]
+# Enable document format parsing
+scan_documents = true
+
+# Supported formats
+supported_formats = ["pdf", "docx", "xlsx", "pptx", "odt", "ods"]
+
+[content_scanning.ngrams]
+# Enable n-gram analysis for obfuscated patterns
+enabled = true
+
+# Thresholds (0.0-1.0)
+block_threshold = 0.65  # Block if suspicion score >= this
+warn_threshold = 0.45   # Log warning if score >= this (when action=warn)
+
+# N-gram sizes
+character_ngram_size = 3  # Trigrams for digit sequences
+word_ngram_size = 2       # Bigrams for sensitive phrases
+
+[content_scanning.entropy]
+# Enable entropy analysis for detecting encrypted/encoded content
+enabled = true
+
+# High entropy threshold (0-8 bits per byte)
+threshold = 7.5
+
+# Block size for analysis (KB)
+block_size_kb = 1
+
+[content_scanning.policy]
+# Action on detection
+action = "block"  # Options: "block", "warn", "log"
+                  # block = prevent transfer
+                  # warn = prompt user (allow override if enabled)
+                  # log = allow but log incident
+
+# User notification
+notify_user = true
+notification_message = "File transfer blocked: contains sensitive data"
+
+# Allow user override (with audit trail)
+allow_override = false  # Set to true to allow admin password override
+
+# Exemptions - users/groups that bypass content scanning
+exempt_users = []
+# Example: exempt_users = ["backup", "dbadmin"]
+
+exempt_groups = []
+# Example: exempt_groups = ["usb-exempt"]
+
+# File type exemptions (skip scanning these extensions)
+exempt_extensions = [
+    ".iso",   # Disk images
+    ".img",
+    ".vmdk",
+    ".vdi",
+    ".qcow2",
+]
+
+[content_scanning.logging]
+# Audit configuration
+
+# Log all scan results (even clean files)
+log_all_scans = false
+
+# Log only blocked files
+log_blocked_only = true
+
+# Where to log
+log_to_journald = true
+log_to_file = true
+log_file_path = "/var/log/usb-enforcer/content-scans.log"
+
+# Retention
+max_log_age_days = 90
+
+# SIEM integration (optional)
+syslog_enabled = false
+syslog_server = ""  # Example: "siem.company.com:514"
+syslog_facility = "local0"

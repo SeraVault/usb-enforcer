@@ -14,6 +14,7 @@ except Exception:
     print("pydbus / pygobject not installed; UI bridge inactive")
     raise SystemExit(0)
 
+from .i18n import _, ngettext
 
 BUS_NAME = "org.seravault.UsbEnforcer"
 BUS_PATH = "/org/seravault/UsbEnforcer"
@@ -115,7 +116,7 @@ class NotificationManager:
             "resident": GLib.Variant("b", True),  # keep in notification tray
         }
         print(f"[notify] Calling Notify with summary='{summary}', body='{body}', actions={action_list}, hints={hints}")
-        notif_id = self.iface.Notify("usb-enforcer", 0, "", summary, body, action_list, hints, 0)
+        notif_id = self.iface.Notify("USB Enforcer", 0, "", summary, body, action_list, hints, 0)
         print(f"[notify] Notification ID returned: {notif_id}")
         if action_cb:
             self.callbacks[notif_id] = action_cb
@@ -176,30 +177,30 @@ def handle_event(fields: Dict[str, str], notifier: NotificationManager) -> None:
             return
         print(f"[handle_event] showing unlock notification with action")
         notifier.notify(
-            "Encrypted USB detected",
-            f"{devnode} needs to be unlocked",
-            actions={"unlock": ("Unlock drive…", lambda _a: launch_unlock_dialog(devnode))},
+            _("Encrypted USB detected"),
+            _("Device {device} needs to be unlocked").format(device=devnode),
+            actions={"unlock": (_("Unlock drive…"), lambda _a: launch_unlock_dialog(devnode))},
         )
     elif event == "encrypt" and action == "encrypt_done":
-        notifier.notify("USB encryption complete", f"{devnode} mounted writable")
+        notifier.notify(_("USB encryption complete"), _("Device {device} mounted writable").format(device=devnode))
     elif event == "encrypt" and action.startswith("encrypt_"):
         # Progress updates visible in wizard UI - no notification spam
         pass
     elif event == "unlock" and action == "unlock_done":
-        notifier.notify("Encrypted USB unlocked", f"{devnode} is now writable")
+        notifier.notify(_("Encrypted USB unlocked"), _("Device {device} is now writable").format(device=devnode))
     elif event == "unlock" and action == "unlock_fail":
-        notifier.notify("Unlock failed", f"{devnode} unlock failed")
+        notifier.notify(_("Unlock failed"), _("Device {device} unlock failed").format(device=devnode))
     elif event == "encrypt" and action == "encrypt_fail":
-        notifier.notify("Encryption failed", f"{devnode} encryption failed")
+        notifier.notify(_("Encryption failed"), _("Device {device} encryption failed").format(device=devnode))
     elif event == "enforce" and action == "block_rw":
         if notifier._suppress_duplicate(devnode, action):
             print(f"[handle_event] suppressing duplicate for {devnode}:{action}")
             return
         print(f"[handle_event] showing notification with encrypt action for {devnode}")
         notifier.notify(
-            "USB mounted read-only",
-            "Writing requires encryption.",
-            actions={"encrypt": ("Encrypt drive…", lambda _a: launch_wizard(devnode))},
+            _("USB mounted read-only"),
+            _("Writing requires encryption."),
+            actions={"encrypt": (_("Encrypt drive…"), lambda _a: launch_wizard(devnode))},
         )
 
 
@@ -207,17 +208,44 @@ def main():
     bus = pydbus.SystemBus()
     try:
         proxy = bus.get(BUS_NAME, BUS_PATH)
-    except Exception:
-        print("Daemon DBus service not available; exiting UI bridge")
+        print("✓ Connected to daemon DBus service", flush=True)
+    except Exception as e:
+        print(f"Daemon DBus service not available: {e}", flush=True)
         return
     notifier = NotificationManager()
 
     def on_event(fields):
         handle_event(fields, notifier)
+    
+    def on_content_blocked(filepath, reason, patterns, match_count):
+        """Handle ContentBlocked signal - show notification when sensitive data is detected"""
+        print(f"⛔ Content blocked: {filepath} - {reason}", flush=True)
+        notifier.notify(
+            _("⛔ File Blocked - Sensitive Data Detected"),
+            _("File: {filepath}\n\nReason: {reason}\n\nPatterns detected: {patterns}\n\n{message}").format(
+                filepath=filepath,
+                reason=reason,
+                patterns=patterns,
+                message=ngettext(
+                    "This file contains {n} sensitive pattern and cannot be written to USB.",
+                    "This file contains {n} sensitive patterns and cannot be written to USB.",
+                    match_count
+                ).format(n=match_count)
+            )
+        )
 
     # Subscribe to Event signal using pydbus subscription pattern
     proxy.Event.connect(on_event)
-    print("usb-enforcer-ui listening for events...")
+    print("✓ Subscribed to Event signal", flush=True)
+    
+    # Subscribe to ContentBlocked signal for DLP notifications
+    try:
+        proxy.ContentBlocked.connect(on_content_blocked)
+        print("✓ Subscribed to ContentBlocked signal for content scanning notifications", flush=True)
+    except Exception as e:
+        print(f"✗ Failed to subscribe to ContentBlocked signal: {e}", flush=True)
+    
+    print("🎧 USB Enforcer UI listening for events...", flush=True)
     loop = GLib.MainLoop()
     loop.run()
 

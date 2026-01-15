@@ -1,0 +1,221 @@
+# USB Enforcer - Strict Testing Configuration
+# This configuration enables ALL security features with aggressive settings
+# Use this for testing maximum enforcement capabilities
+
+# ============================================================================
+# ENCRYPTION ENFORCEMENT
+# ============================================================================
+# Note: Settings must be at root level, not under [enforcement] section
+
+# Force USB devices to be encrypted (block all plaintext)
+enforce_on_usb_only = true
+
+# Minimum passphrase length (characters)
+min_passphrase_length = 16  # Strict (vs default 12)
+
+# Block LUKS1 devices entirely (LUKS2 only)
+allow_luks1_readonly = false  # Stricter than default (true)
+
+# Default filesystem for newly encrypted drives
+filesystem_type = "ext4"  # More secure than exfat
+
+# ============================================================================
+# CONTENT SCANNING - MAXIMUM ENFORCEMENT
+# ============================================================================
+
+[content_scanning]
+# Enable real-time content scanning via FUSE overlay
+enabled = true
+
+# Action when sensitive data detected
+action = "block"  # Options: block, warn, quarantine
+
+# Aggressive file size limits (prevent large file bypass)
+max_file_size_mb = 100  # Strict (vs default 500)
+
+# Aggressive scan timeout
+max_scan_time_seconds = 60  # Longer to ensure thorough scanning
+
+# Block writes on scan errors (fail-secure)
+block_on_error = true
+
+# Enable result caching for performance
+enable_cache = true
+cache_size_mb = 50  # Smaller cache for testing
+
+# Pattern detection sensitivity
+block_threshold = 0.5  # Lower = more sensitive (vs default 0.65)
+
+# Enable ALL pattern categories
+enabled_categories = ["pii", "financial", "corporate"]
+
+# Don't disable any patterns (scan everything)
+disabled_patterns = []
+
+# ============================================================================
+# ARCHIVE SCANNING - STRICT SETTINGS
+# ============================================================================
+
+[content_scanning.archives]
+# Prevent deep nesting attacks
+max_depth = 3  # Strict (vs default 5)
+
+# Prevent zip bombs
+max_members = 500  # Strict (vs default 1000)
+max_extract_size_mb = 50  # Strict (vs default 100)
+
+# Timeout protection
+scan_timeout_seconds = 30
+
+# BLOCK encrypted/password-protected archives
+block_encrypted_archives = true  # Strict (vs default false)
+
+# Supported formats (all enabled)
+supported_formats = ["zip", "tar", "tar.gz", "tar.bz2", "tar.xz", "7z", "rar", "jar", "war", "ear", "gz", "bz2", "xz"]
+
+# ============================================================================
+# CUSTOM PATTERNS (Example organization-specific patterns)
+# ============================================================================
+
+# Employee ID pattern
+[[content_scanning.custom_patterns]]
+name = "employee_id"
+regex = "\\b(EMP|EMPLOYEE)[\\s-]?\\d{4,8}\\b"
+description = "Internal employee ID numbers"
+severity = "high"
+category = "pii"
+
+# Internal project code pattern
+[[content_scanning.custom_patterns]]
+name = "project_code"
+regex = "\\b(PROJ|PROJECT)[\\s-]?[A-Z]{2,4}[\\s-]?\\d{3,6}\\b"
+description = "Internal project codes"
+severity = "medium"
+category = "corporate"
+
+# Customer ID pattern
+[[content_scanning.custom_patterns]]
+name = "customer_id"
+regex = "\\b(CUST|CID)[\\s-]?\\d{6,10}\\b"
+description = "Customer identification numbers"
+severity = "high"
+category = "pii"
+
+# ============================================================================
+# MOUNT OPTIONS
+# ============================================================================
+
+[mount]
+# Plaintext USB drives (read-only, restricted)
+default_plain_mount_opts = ["nodev", "nosuid", "noexec", "ro"]
+
+# Encrypted USB drives (writable, but still restricted)
+default_encrypted_mount_opts = ["nodev", "nosuid", "noexec", "rw"]
+
+# ============================================================================
+# LUKS2 ENCRYPTION PARAMETERS
+# ============================================================================
+
+[kdf]
+# Key derivation function (most secure option)
+type = "argon2id"
+memory_kb = 1048576  # 1 GB RAM (strict)
+iterations = 4        # Default
+parallel_threads = 4  # Default
+
+[cipher]
+# Encryption cipher (most secure option)
+type = "aes-xts-plain64"
+key_size = 512  # bits
+
+# ============================================================================
+# EXEMPTIONS (Empty for strict testing)
+# ============================================================================
+
+[exemptions]
+# No exempted groups (enforce for all users)
+exempted_groups = []
+
+# ============================================================================
+# LOGGING AND AUDIT
+# ============================================================================
+
+[logging]
+# Log level (for systemd journal)
+level = "DEBUG"  # Verbose logging for testing
+
+# Log all scan events
+log_scan_events = true
+
+# Log all blocked files
+log_blocked_files = true
+
+# Log extension mismatches (anti-evasion)
+log_extension_mismatches = true
+
+# ============================================================================
+# NOTIFICATIONS
+# ============================================================================
+
+[notifications]
+# Show desktop notifications
+enabled = true
+
+# Show notification for every blocked file
+show_blocked_notifications = true
+
+# Show progress during scanning
+show_progress_notifications = true
+
+# Notification urgency level
+urgency = "critical"  # Options: low, normal, critical
+
+# ============================================================================
+# NOTES FOR TESTING
+# ============================================================================
+
+# This configuration is designed for MAXIMUM SECURITY and TESTING:
+#
+# 1. ENCRYPTION:
+#    - 16+ character passphrases required
+#    - LUKS1 completely blocked (LUKS2 only)
+#    - Strong Argon2id KDF with 1GB RAM requirement
+#
+# 2. CONTENT SCANNING:
+#    - ALL pattern categories enabled (PII, financial, corporate)
+#    - Encrypted archives BLOCKED
+#    - Lower thresholds = more sensitive detection
+#    - Smaller file size limits (100 MB vs 500 MB)
+#
+# 3. ARCHIVE LIMITS:
+#    - Shallow depth (3 vs 5 levels)
+#    - Fewer members (500 vs 1000)
+#    - Smaller extracted files (50 MB vs 100 MB)
+#
+# 4. ZERO EXEMPTIONS:
+#    - No exempted groups (enforce for everyone)
+#    - All users subject to full DLP controls
+#
+# 5. VERBOSE LOGGING:
+#    - DEBUG level logging
+#    - Log all scan events, blocks, and mismatches
+#    - Full audit trail for testing
+#
+# TEST SCENARIOS:
+# - Copy file with SSN → BLOCKED
+# - Copy file with credit card → BLOCKED
+# - Copy file with API key → BLOCKED
+# - Copy password-protected ZIP → BLOCKED
+# - Rename secrets.txt to secrets.jpg → Detected via magic numbers, BLOCKED
+# - Create deeply nested archives → BLOCKED at depth 3
+# - Create archive with 600 members → BLOCKED
+# - Try to copy 200 MB file → BLOCKED (exceeds 100 MB limit)
+#
+# TO USE THIS CONFIG:
+# sudo cp /etc/usb-enforcer/config.toml /etc/usb-enforcer/config.toml.backup
+# sudo cp deploy/config.toml.test-strict /etc/usb-enforcer/config.toml
+# sudo systemctl restart usb-enforcerd
+#
+# TO RESTORE DEFAULT:
+# sudo cp /etc/usb-enforcer/config.toml.backup /etc/usb-enforcer/config.toml
+# sudo systemctl restart usb-enforcerd

@@ -1,0 +1,85 @@
+# Spanish translation for USB Enforcer
+# Copyright (C) 2026 USB Enforcer Contributors
+msgid ""
+msgstr ""
+"Project-Id-Version: USB Enforcer 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-14 18:00+0000\n"
+"PO-Revision-Date: 2026-01-14 18:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Encrypted USB detected"
+msgstr "USB cifrado detectado"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Device {device} needs to be unlocked"
+msgstr "El dispositivo {device} necesita ser desbloqueado"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Unlock drive…"
+msgstr "Desbloquear unidad…"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "USB encryption complete"
+msgstr "Cifrado USB completado"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Device {device} mounted writable"
+msgstr "Dispositivo {device} montado con escritura"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Encrypted USB unlocked"
+msgstr "USB cifrado desbloqueado"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Device {device} is now writable"
+msgstr "El dispositivo {device} ahora es escribible"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Unlock failed"
+msgstr "Desbloqueo fallido"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Device {device} unlock failed"
+msgstr "Falló el desbloqueo del dispositivo {device}"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Encryption failed"
+msgstr "Cifrado fallido"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Device {device} encryption failed"
+msgstr "Falló el cifrado del dispositivo {device}"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "USB mounted read-only"
+msgstr "USB montado solo lectura"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Writing requires encryption."
+msgstr "La escritura requiere cifrado."
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "Encrypt drive…"
+msgstr "Cifrar unidad…"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "⛔ File Blocked - Sensitive Data Detected"
+msgstr "⛔ Archivo bloqueado - Datos sensibles detectados"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "File: {filepath}\\n\\nReason: {reason}\\n\\nPatterns detected: {patterns}\\n\\n{message}"
+msgstr "Archivo: {filepath}\\n\\nRazón: {reason}\\n\\nPatrones detectados: {patterns}\\n\\n{message}"
+
+#: src/usb_enforcer/usb_enforcer_ui.py
+msgid "This file contains {n} sensitive pattern and cannot be written to USB."
+msgid_plural "This file contains {n} sensitive patterns and cannot be written to USB."
+msgstr[0] "Este archivo contiene {n} patrón sensible y no puede escribirse en USB."
+msgstr[1] "Este archivo contiene {n} patrones sensibles y no puede escribirse en USB."

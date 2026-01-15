@@ -1,22 +1,70 @@
-# USB Encryption Enforcer DLP config
-enforce_on_usb_only = true
-allow_luks1_readonly = true
-default_plain_mount_opts = ["nodev", "nosuid", "noexec", "ro"]
-default_encrypted_mount_opts = ["nodev", "nosuid", "rw"]
-require_noexec_on_plain = true
-min_passphrase_length = 12
-encryption_target_mode = "whole_disk"
-filesystem_type = "exfat"
-notification_enabled = true
+# ============================================================================
+# USB Enforcer Configuration
+# ============================================================================
 
-# Group-based exemptions: Users in these groups will bypass USB encryption enforcement
-# This allows administrators to exempt specific users from DLP restrictions
-# Example: exempted_groups = ["usb-exempt", "developers", "sysadmin"]
-exempted_groups = []
+# ============================================================================
+# BASIC ENFORCEMENT
+# ============================================================================
+enforce_on_usb_only = true              # Only enforce on USB devices
+allow_luks1_readonly = true             # Allow LUKS1 encrypted USB in read-only mode
+notification_enabled = true             # Show desktop notifications
+min_passphrase_length = 12              # Minimum password length for encryption
+exempted_groups = []                    # Groups exempt from enforcement: ["admins", "developers"]
+
+# ============================================================================
+# MOUNT SECURITY
+# ============================================================================
+default_plain_mount_opts = ["nodev", "nosuid", "noexec", "ro"]    # Unencrypted USB (read-only)
+default_encrypted_mount_opts = ["nodev", "nosuid", "rw"]          # Encrypted USB (read-write)
+require_noexec_on_plain = true                                     # Block executables on unencrypted USB
+
+# ============================================================================
+# ENCRYPTION DEFAULTS
+# ============================================================================
+encryption_target_mode = "whole_disk"   # Options: "whole_disk", "partition"
+filesystem_type = "exfat"               # Filesystem after encryption: "exfat", "ext4", "ntfs"
 
 [kdf]
-type = "argon2id"
+type = "argon2id"                       # Key derivation: argon2id (recommended)
 
 [cipher]
-type = "aes-xts-plain64"
-key_size = 512
+type = "aes-xts-plain64"                # Encryption algorithm
+key_size = 512                          # Key size in bits
+
+# ============================================================================
+# CONTENT SCANNING (Data Loss Prevention)
+# ============================================================================
+[content_scanning]
+enabled = false                         # Enable DLP scanning (scans files for sensitive data)
+enforce_on_encrypted_devices = true     # true: block everywhere | false: only block on unencrypted USB
+action = "block"                        # Options: "block", "warn", "log_only"
+
+# What to scan for (remove items to disable specific categories)
+enabled_categories = ["financial", "personal", "authentication", "medical"]
+    # financial:      Credit cards, bank accounts, SWIFT codes, IBANs
+    # personal:       SSN, passport numbers, driver licenses, phone numbers
+    # authentication: API keys, passwords, tokens, private keys
+    # medical:        Medical record numbers, insurance IDs
+
+# Performance limits
+max_file_size_mb = 100                  # Skip files larger than this
+scan_timeout_seconds = 30               # Maximum scan time per file
+max_concurrent_scans = 2                # Parallel scanning threads
+
+# Advanced scanning options
+archive_scanning_enabled = true         # Scan inside ZIP, TAR, 7Z, RAR files
+max_archive_depth = 5                   # Maximum nested archive levels
+document_scanning_enabled = true        # Scan PDF, DOCX, XLSX, PPTX, ODT files
+ngram_analysis_enabled = true           # Machine learning pattern detection
+cache_enabled = true                    # Cache scan results for speed
+cache_max_size_mb = 100                 # Cache size limit
+
+# ============================================================================
+# CUSTOM PATTERNS (Optional - define your own sensitive data patterns)
+# ============================================================================
+# [[content_scanning.custom_patterns]]
+# name = "internal_employee_id"
+# description = "Company employee ID format"
+# category = "personal"
+# regex = "EMP-\\d{6}"
+

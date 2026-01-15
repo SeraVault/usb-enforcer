@@ -3,10 +3,17 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
-
+from typing import List, Optional, Any
 
 DEFAULT_CONFIG_PATH = Path("/etc/usb-enforcer/config.toml")
+
+# Import content verification config if available
+try:
+    from .content_verification.config import ContentScanningConfig
+    CONTENT_VERIFICATION_AVAILABLE = True
+except ImportError:
+    CONTENT_VERIFICATION_AVAILABLE = False
+    ContentScanningConfig = None
 
 
 @dataclass
@@ -23,6 +30,7 @@ class Config:
     exempted_groups: List[str] = field(default_factory=list)
     kdf: dict = field(default_factory=lambda: {"type": "argon2id"})
     cipher: dict = field(default_factory=lambda: {"type": "aes-xts-plain64", "key_size": 512})
+    content_scanning: Optional[Any] = None  # ContentScanningConfig when available
 
     @classmethod
     def load(cls, path: Optional[Path] = None) -> "Config":
@@ -31,6 +39,18 @@ class Config:
             return cls()
         with cfg_path.open("rb") as f:
             parsed = tomllib.load(f)
+        
+        # Parse content scanning config if available
+        content_scanning = None
+        if CONTENT_VERIFICATION_AVAILABLE and "content_scanning" in parsed:
+            try:
+                content_scanning = ContentScanningConfig.from_dict(
+                    parsed["content_scanning"]
+                )
+            except Exception:
+                # If parsing fails, content scanning will be disabled
+                pass
+        
         return cls(
             enforce_on_usb_only=parsed.get("enforce_on_usb_only", True),
             allow_luks1_readonly=parsed.get("allow_luks1_readonly", True),
@@ -44,4 +64,5 @@ class Config:
             exempted_groups=parsed.get("exempted_groups", []),
             kdf=parsed.get("kdf", {"type": "argon2id"}),
             cipher=parsed.get("cipher", {"type": "aes-xts-plain64", "key_size": 512}),
+            content_scanning=content_scanning,
         )

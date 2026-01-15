@@ -2,12 +2,17 @@
 
 USB data loss prevention for Linux desktops: plaintext USB mass-storage devices are forced read-only, while LUKS2-encrypted devices can be unlocked and mounted writable. A Python daemon watches udev, enforces block-level `ro`, publishes DBus events, and drives a minimal notification bridge plus a GTK wizard for encryption/unlock flows.
 
+**NEW:** Real-time content scanning with FUSE overlay prevents sensitive data (SSNs, credit cards, API keys, etc.) from being written to USB devices. Files are scanned transparently before reaching the physical device, with GUI progress notifications. Supports **35+ file formats** including archives (ZIP, 7z, RAR, JAR/WAR/EAR), documents (PDF, DOCX, XLSX, old Office formats), and uses **magic number validation** to prevent extension-based evasion (e.g., renaming `secrets.txt` to `secrets.jpg`).
+
 **Available as RPM and DEB packages** for easy installation on Fedora, RHEL, Debian, Ubuntu, and derivatives. Both standard (online) and bundled (offline/airgapped) package variants are provided.
 
 ## Quick Links
 
 - **[Installation](#installing-and-running)** - Install via RPM/DEB packages or scripts
+- **[Content Scanning](docs/FUSE-QUICK-START.md)** - Real-time content scanning with FUSE overlay
+- **[File Type Support](docs/FILE-TYPE-SUPPORT.md)** - 35+ supported formats & anti-evasion protection
 - **[Administration Guide](docs/ADMINISTRATION.md)** - Configuration, service management, and troubleshooting
+- **[Internationalization](docs/I18N.md)** - Multiple language support (English, Spanish, French, +more)
 - **[Headless/Server Usage](docs/HEADLESS-USAGE.md)** - Command-line usage without GUI
 - **[Windows Access](#accessing-encrypted-drives-on-windows)** - Using encrypted drives on Windows
 - **[Group Exemptions](docs/GROUP-EXEMPTIONS.md)** - Exempt specific users/groups from enforcement
@@ -58,6 +63,12 @@ This tool has been tested and is supported on:
 - `exfatprogs` - For exFAT formatting (default)
 - `e2fsprogs` - For ext4 formatting (optional)
 - `dosfstools` - For FAT32 formatting (optional)
+
+### Content Scanning Dependencies
+- `fuse3` / `libfuse3-3` / `fuse3-libs` - FUSE filesystem for real-time scanning
+- `libmagic1` / `file-libs` - File type detection (prevents extension spoofing)
+- `unrar` / `unrar-free` - RAR archive support
+- Python packages (16 total) - Automatically installed: pdfplumber, python-docx, openpyxl, python-pptx, odfpy, py7zr, rarfile, fusepy, xlrd, olefile, extract-msg, striprtf, python-magic, etc.
 
 ### Notes
 - **Desktop compatibility**: Core enforcement daemon is desktop-agnostic and works on any systemd-based Linux system. GTK4 UI components (wizard, notifications) are designed for GNOME but will run on other desktops (KDE, XFCE, etc.) with visual inconsistencies.
@@ -148,7 +159,7 @@ sudo ./scripts/uninstall-debian.sh  # Debian/Ubuntu/Mint
 
 ### Building Packages
 
-See [BUILD-RPM.md](BUILD-RPM.md) and [BUILD-DEB.md](BUILD-DEB.md) for detailed build instructions.
+See [BUILD-RPM.md](docs/BUILD-RPM.md) and [BUILD-DEB.md](docs/BUILD-DEB.md) for detailed build instructions.
 
 **Quick build:**
 ```bash
@@ -338,8 +349,37 @@ usb-enforce-encryption/
 │   └── usb-enforcer-bundled.spec
 ├── debian/                    # Debian packaging (standard)
 ├── debian-bundled/            # Debian packaging (bundled)
+├── docs/                      # Documentation
 ├── Makefile                   # Build automation
-├── BUILD-RPM.md               # RPM build guide
-├── BUILD-DEB.md               # Debian build guide
 └── README.md                  # This file
 ```
+## Documentation
+
+All documentation is located in the [docs/](docs/) folder:
+
+### User Guides
+- **[ADMINISTRATION.md](docs/ADMINISTRATION.md)** - System administration, configuration, and service management
+- **[FUSE-QUICK-START.md](docs/FUSE-QUICK-START.md)** - Quick start guide for content scanning
+- **[HEADLESS-USAGE.md](docs/HEADLESS-USAGE.md)** - Command-line usage without GUI
+- **[NOTIFICATIONS.md](docs/NOTIFICATIONS.md)** - Desktop notification configuration
+- **[GROUP-EXEMPTIONS.md](docs/GROUP-EXEMPTIONS.md)** - Configure user/group exemptions
+- **[I18N.md](docs/I18N.md)** - Internationalization and translations
+
+### Technical Documentation
+- **[USB-ENFORCER.md](docs/USB-ENFORCER.md)** - Architecture and technical design
+- **[CONTENT-VERIFICATION-WHITEPAPER.md](docs/CONTENT-VERIFICATION-WHITEPAPER.md)** - Content scanning design
+- **[FILE-TYPE-SUPPORT.md](docs/FILE-TYPE-SUPPORT.md)** - Supported file formats and anti-evasion
+- **[FUSE-OVERLAY-GUIDE.md](docs/FUSE-OVERLAY-GUIDE.md)** - FUSE filesystem overlay implementation
+- **[ANTI-EVASION.md](docs/ANTI-EVASION.md)** - Anti-evasion techniques
+
+### Build & Development
+- **[BUILD-RPM.md](docs/BUILD-RPM.md)** - RPM package build guide
+- **[BUILD-DEB.md](docs/BUILD-DEB.md)** - Debian package build guide
+- **[TESTING.md](docs/TESTING.md)** - Comprehensive testing guide
+- **[DEBUG-COMMANDS.md](docs/DEBUG-COMMANDS.md)** - Debugging and troubleshooting commands
+
+### Implementation Notes
+- **[I18N-IMPLEMENTATION.md](docs/I18N-IMPLEMENTATION.md)** - i18n implementation details
+- **[I18N-QUICKREF.md](docs/I18N-QUICKREF.md)** - Translation quick reference
+- **[CONTENT-SCANNING-TESTS.md](docs/CONTENT-SCANNING-TESTS.md)** - Content scanning test results
+- **[TEST-IMPLEMENTATION-SUMMARY.md](docs/TEST-IMPLEMENTATION-SUMMARY.md)** - Test suite overview
