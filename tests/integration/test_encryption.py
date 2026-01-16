@@ -112,7 +112,7 @@ class TestLUKSEncryption:
         """Test encrypting a device with LUKS1."""
         with loop_device(size_mb=100) as device:
             passphrase = "test-encryption-password-123"
-            mapper_name = "test-luks1"
+            mapper_name = f"test-luks1-{int(time.time())}"
             
             # Encrypt device
             try:
@@ -123,7 +123,7 @@ class TestLUKSEncryption:
                     fs_type="exfat",
                     mount_opts=[],
                     cipher_opts={"cipher": "aes-xts-plain64", "key_size": 512},
-                    kdf_opts={"type": "pbkdf2"}
+                    kdf_opts={"type": "pbkdf2", "luks_version": "luks1"}
                 )
             except crypto_engine.CryptoError as e:
                 pytest.fail(f"Encryption failed: {e}")

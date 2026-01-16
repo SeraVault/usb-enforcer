@@ -441,6 +441,68 @@ class TestEventLogging:
         d._emit_event(fields)
 
 
+class TestNotifications:
+    """Test notification emission from daemon callbacks."""
+
+    @patch('usb_enforcer.daemon.config_module.Config.load')
+    @patch('usb_enforcer.daemon.logging_utils.setup_logging')
+    @patch('usb_enforcer.daemon.pyudev.Context')
+    @patch('usb_enforcer.daemon.os.makedirs')
+    @patch('usb_enforcer.daemon.subprocess.run')
+    def test_content_blocked_emits_dbus_signal(
+        self,
+        mock_run,
+        mock_makedirs,
+        mock_context,
+        mock_logging,
+        mock_config
+    ):
+        """Blocked file callback should emit ContentBlocked signal when DBus is available."""
+        mock_config.return_value = Mock()
+        mock_logging.return_value = Mock()
+        mock_makedirs.return_value = None
+
+        def run_side_effect(args, **_kwargs):
+            if args[0] == "mount":
+                return Mock(returncode=0, stdout="", stderr="")
+            return Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = run_side_effect
+
+        d = daemon.Daemon()
+        d.dbus_service = Mock()
+        d._cleanup_existing_mounts = Mock()
+        d.fuse_manager = Mock()
+        d.fuse_manager.mounts = {}
+        d.fuse_manager.mount.return_value = True
+
+        captured = {}
+
+        def capture_blocked(cb):
+            captured["blocked"] = cb
+
+        d.fuse_manager.add_progress_handler = Mock()
+        d.fuse_manager.add_blocked_handler.side_effect = capture_blocked
+
+        d._setup_fuse_overlay("/dev/dm-0", base_mount="/run/media/user/test")
+
+        assert "blocked" in captured
+
+        captured["blocked"](
+            filepath="/run/media/user/test/ssn.txt",
+            reason="Detected 1 sensitive pattern",
+            patterns="ssn (pii)",
+            match_count=1,
+        )
+
+        d.dbus_service.emit_content_blocked.assert_called_once_with(
+            "/run/media/user/test/ssn.txt",
+            "Detected 1 sensitive pattern",
+            "ssn (pii)",
+            1,
+        )
+
+
 class TestTriggerMountRO:
     """Test read-only mount triggering."""
     

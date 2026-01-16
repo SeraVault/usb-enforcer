@@ -72,7 +72,7 @@ def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.L
     devtype = device_props.get("DEVTYPE", "")
     fs_usage = device_props.get("ID_FS_USAGE", "")
     fs_type = device_props.get("ID_FS_TYPE", "")
-    has_filesystem = fs_usage == "filesystem" and fs_type != ""
+    has_filesystem = fs_type != "" and (fs_usage == "filesystem" or fs_usage == "")
     
     logger.debug(f"enforce_policy: {devnode} devtype={devtype} fs_usage={fs_usage} fs_type={fs_type} has_filesystem={has_filesystem}")
     

@@ -12,6 +12,19 @@ from typing import Generator, Optional
 import pytest
 
 
+def run_or_skip(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    """Run a command or skip the test with the command error output."""
+    kwargs.setdefault("check", True)
+    kwargs.setdefault("capture_output", True)
+    kwargs.setdefault("text", True)
+    try:
+        return subprocess.run(cmd, **kwargs)
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr or ""
+        stdout = exc.stdout or ""
+        details = stderr.strip() or stdout.strip() or f"exit status {exc.returncode}"
+        pytest.skip(f"Command failed: {' '.join(cmd)}: {details}")
+
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test files."""

@@ -246,8 +246,14 @@ class TestEncryptedDriveContentScanning:
         with zipfile.ZipFile(archive_path, 'w') as zf:
             zf.writestr("data.txt", "SSN: 123-45-6789")
         
-        # Scan the archive
-        result = d.content_scanner.scan_file(archive_path)
+        # Scan the archive using archive scanner
+        from usb_enforcer.content_verification.archive_scanner import ArchiveScanner
+
+        archive_scanner = ArchiveScanner(
+            content_scanner=d.content_scanner,
+            config=d.config.content_scanning.archives,
+        )
+        result = archive_scanner.scan_archive(archive_path)
         
         # Verify sensitive data in archive was detected
         assert len(result.matches) > 0

@@ -224,3 +224,11 @@ def any_active_user_in_groups(exempted_groups: List[str], logger: logging.Logger
                 return True, reason
     
     return False, ""
+
+
+def any_active_user_exempted(exempted_groups: List[str], logger: logging.Logger) -> bool:
+    """
+    Backwards-compatible helper for callers that only need the boolean exemption flag.
+    """
+    is_exempted, _reason = any_active_user_in_groups(exempted_groups, logger)
+    return is_exempted

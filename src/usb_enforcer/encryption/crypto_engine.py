@@ -250,6 +250,11 @@ def encrypt_device(
 
     emit("luks_format", 10)
     pbkdf_type = (kdf_opts or {}).get("type", "argon2id")
+    luks_type = (kdf_opts or {}).get("luks_version") or (kdf_opts or {}).get("luks_type") or "luks2"
+    if str(luks_type) in ("1", "luks1"):
+        luks_type = "luks1"
+    else:
+        luks_type = "luks2"
     cipher_type = (cipher_opts or {}).get("type", "aes-xts-plain64")
     key_size = str((cipher_opts or {}).get("key_size", 512))
 
@@ -264,11 +269,13 @@ def encrypt_device(
         "luksFormat",
         "--batch-mode",  # Don't ask for confirmation
         "--type",
-        "luks2",
+        luks_type,
         "--hash",
         "sha256",
-        "--pbkdf",
-        pbkdf_type,
+    ]
+    if luks_type == "luks2":
+        luks_format_cmd += ["--pbkdf", pbkdf_type]
+    luks_format_cmd += [
         "--cipher",
         cipher_type,
         "--key-size",

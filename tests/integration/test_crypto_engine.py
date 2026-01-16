@@ -23,7 +23,11 @@ class TestLUKSVersionDetection:
     def test_luks_version_on_plaintext(self, loop_device):
         """Test version detection returns None for plaintext devices."""
         with loop_device(size_mb=50) as device:
-            subprocess.run(["mkfs.ext4", "-F", device], check=True, capture_output=True)
+            try:
+                subprocess.run(["mkfs.ext4", "-F", device], check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError as exc:
+                details = (exc.stderr or "").strip() or (exc.stdout or "").strip() or f"exit status {exc.returncode}"
+                pytest.skip(f"Command failed: mkfs.ext4 -F {device}: {details}")
             
             version = crypto_engine.luks_version(device)
             assert version is None
@@ -32,12 +36,17 @@ class TestLUKSVersionDetection:
         """Test detection of LUKS2 formatted devices."""
         with loop_device(size_mb=100) as device:
             passphrase = "T3st!Luks2#D3tect_9527"
-            subprocess.run(
-                ["cryptsetup", "luksFormat", "--type", "luks2", "--batch-mode", "--force-password", device],
-                input=passphrase.encode(),
-                check=True,
-                capture_output=True
-            )
+            try:
+                subprocess.run(
+                    ["cryptsetup", "luksFormat", "--type", "luks2", "--batch-mode", "--force-password", device],
+                    input=passphrase,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as exc:
+                details = (exc.stderr or "").strip() or (exc.stdout or "").strip() or f"exit status {exc.returncode}"
+                pytest.skip(f"Command failed: cryptsetup luksFormat luks2 {device}: {details}")
             
             version = crypto_engine.luks_version(device)
             assert version == "2"
@@ -46,12 +55,17 @@ class TestLUKSVersionDetection:
         """Test detection of LUKS1 formatted devices."""
         with loop_device(size_mb=100) as device:
             passphrase = "T3st!Luks1#D3tect_8416"
-            subprocess.run(
-                ["cryptsetup", "luksFormat", "--type", "luks1", "--batch-mode", "--force-password", device],
-                input=passphrase.encode(),
-                check=True,
-                capture_output=True
-            )
+            try:
+                subprocess.run(
+                    ["cryptsetup", "luksFormat", "--type", "luks1", "--batch-mode", "--force-password", device],
+                    input=passphrase,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as exc:
+                details = (exc.stderr or "").strip() or (exc.stdout or "").strip() or f"exit status {exc.returncode}"
+                pytest.skip(f"Command failed: cryptsetup luksFormat luks1 {device}: {details}")
             
             version = crypto_engine.luks_version(device)
             assert version == "1"

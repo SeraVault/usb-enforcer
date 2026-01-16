@@ -23,6 +23,7 @@ class ArchiveConfig:
     max_depth: int = 5
     max_members: int = 1000
     max_extract_size_mb: int = 100
+    scan_timeout_seconds: int = 30
     block_encrypted_archives: bool = True
     supported_formats: List[str] = field(default_factory=lambda: ['zip', 'tar', 'tar.gz', 'tar.bz2', 'tar.xz', '7z'])
 
