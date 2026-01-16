@@ -11,6 +11,7 @@ import secrets
 import signal
 import socket
 import stat
+import struct
 import subprocess
 import threading
 import time
@@ -19,7 +20,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import pyudev
 
 from . import config as config_module, constants, dbus_api, logging_utils
-from .encryption import classify, crypto_engine, enforcer, udev_monitor
+from .encryption import classify, crypto_engine, enforcer, udev_monitor, user_utils
 
 try:
     from gi.repository import GLib  # type: ignore
@@ -50,8 +51,11 @@ class Daemon:
         self._udev_context = pyudev.Context()
         self._secret_socket_path = "/run/usb-enforcer.sock"
         self._secret_socket: Optional[socket.socket] = None
-        self._secret_store: Dict[str, Tuple[str, str]] = {}  # token -> (op, passphrase)
+        self._secret_store: Dict[str, Tuple[str, str, float]] = {}  # token -> (op, passphrase, ts)
         self._secret_lock = threading.Lock()
+        self._secret_ttl_seconds = self.config.secret_token_ttl_seconds
+        self._secret_max_tokens = self.config.secret_token_max
+        self._fuse_handlers_registered = False
         
         # Content scanning support
         self.content_scanner: Optional[ContentScanner] = None
@@ -200,20 +204,34 @@ class Daemon:
                 else:
                     self.logger.warning("DBus service not available, cannot emit ContentBlocked signal")
             
-            # Add progress handler
-            self.fuse_manager.add_progress_handler(progress_callback)
+            if not self._fuse_handlers_registered:
+                # Add handlers once to avoid duplicates on repeated mounts.
+                self.fuse_manager.add_progress_handler(progress_callback)
+                self.fuse_manager.add_blocked_handler(blocked_callback)
+                self._fuse_handlers_registered = True
             
-            # Add blocked file handler
-            self.fuse_manager.add_blocked_handler(blocked_callback)
-            
-            # Need to unmount the device first, then remount through FUSE
-            # For now, since FuseManager.mount() expects to mount the device itself,
-            # we'll need to unmount, then let FUSE manager handle the remount
+            # Move the existing mount to a hidden backing directory to preserve ownership/options.
+            parent_dir = os.path.dirname(mount_point)
+            drive_name = os.path.basename(mount_point)
+            hidden_base = os.path.join(parent_dir, ".usb-enforcer-backing")
+            real_mount = os.path.join(hidden_base, drive_name)
             try:
-                subprocess.run(["umount", mount_point], check=False, capture_output=True)
-                time.sleep(0.5)
-            except Exception:
-                pass
+                os.makedirs(hidden_base, exist_ok=True)
+                os.makedirs(real_mount, exist_ok=True)
+                move_result = subprocess.run(
+                    ["mount", "--move", mount_point, real_mount],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                if move_result.returncode != 0:
+                    self.logger.error(
+                        f"Failed to move mount for {mount_point}: {move_result.stderr.strip()}"
+                    )
+                    return
+            except Exception as e:
+                self.logger.error(f"Failed to move mount for {mount_point}: {e}")
+                return
             
             # Create FUSE mount point with same path
             fuse_mount = mount_point
@@ -222,16 +240,69 @@ class Daemon:
             is_encrypted = '/mapper/' in device_path
             self.logger.debug(f"Device {device_path} - is_encrypted: {is_encrypted}")
             
-            # Mount FUSE overlay (it will handle mounting the device internally)
-            success = self.fuse_manager.mount(device_path, fuse_mount, is_encrypted=is_encrypted)
+            # Mount FUSE overlay on top of the moved mount to preserve ownership/options
+            success = self.fuse_manager.mount(
+                real_mount,
+                fuse_mount,
+                is_encrypted=is_encrypted,
+                source_is_mount=True,
+            )
             
             if success:
                 self.logger.info(f"FUSE overlay active for {fuse_mount}")
             else:
                 self.logger.error(f"Failed to activate FUSE overlay for {fuse_mount}")
+                try:
+                    subprocess.run(
+                        ["mount", "--move", real_mount, mount_point],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                    )
+                except Exception:
+                    pass
             
         except Exception as e:
             self.logger.error(f"Failed to set up FUSE overlay: {e}", exc_info=True)
+
+    def _plaintext_mount_options(self, readonly: bool) -> List[str]:
+        """
+        Build mount options for plaintext devices based on config.
+        """
+        opts = list(self.config.default_plain_mount_opts or [])
+        if readonly:
+            if "ro" not in opts:
+                opts.append("ro")
+            if "rw" in opts:
+                opts.remove("rw")
+        else:
+            if "rw" not in opts:
+                opts.append("rw")
+            if "ro" in opts:
+                opts.remove("ro")
+        if self.config.require_noexec_on_plain:
+            if "noexec" not in opts:
+                opts.append("noexec")
+        else:
+            if "noexec" in opts:
+                opts.remove("noexec")
+        return opts
+
+    def _mount_opts_str(self, opts: List[str]) -> str:
+        return ",".join(opts)
+
+    def _get_active_session_user(self) -> Tuple[Optional[int], Optional[int], Optional[str]]:
+        """
+        Resolve the active local session user for mounting decisions.
+        """
+        username = user_utils.get_active_session_user()
+        if not username:
+            return None, None, None
+        try:
+            pw = pwd.getpwnam(username)
+            return pw.pw_uid, pw.pw_gid, username
+        except KeyError:
+            return None, None, None
 
     def handle_device(self, device_props: Dict[str, str], devnode: str, action: str) -> None:
         # Handle device removal - cleanup and remove from cache
@@ -282,9 +353,20 @@ class Daemon:
         self._log_event(f"handled {devnode} action={action} classification={classification}", log_fields)
         
         # Trigger automount for plaintext devices
-        if log_fields.get(constants.LOG_KEY_ACTION) == "block_rw" and log_fields.get(constants.LOG_KEY_RESULT) == "allow":
-            # Read-only mount (no exemption)
-            self._trigger_mount_ro(devnode)
+        policy_action = log_fields.get(constants.LOG_KEY_ACTION)
+        policy_result = log_fields.get(constants.LOG_KEY_RESULT)
+        self.logger.info(f"Policy decision for {devnode}: action={policy_action}, result={policy_result}")
+        
+        if policy_action == "block_rw" and policy_result == "allow":
+            # Plaintext device - check if write is allowed with content scanning
+            if self.config.allow_plaintext_write_with_scanning and self.fuse_manager and self.content_scanner:
+                # Allow write with FUSE overlay for content scanning
+                self.logger.info(f"Triggering writable mount with content scanning for {devnode}")
+                self._trigger_mount_rw_with_fuse(devnode)
+            else:
+                # Read-only mount (no exemption, or no scanning available)
+                self.logger.info(f"Triggering read-only mount for {devnode}")
+                self._trigger_mount_ro(devnode)
         elif log_fields.get(constants.LOG_KEY_ACTION) == "exempt" and log_fields.get(constants.LOG_KEY_RESULT) == "allow":
             # Writable mount (exempted user) - apply content scanning if enabled
             if self.fuse_manager and self.content_scanner:
@@ -299,36 +381,17 @@ class Daemon:
         """
         def do_mount():
             try:
-                # Get the active session user
-                uid = None
-                gid = None
-                username = None
-                
-                # Try to find logged-in user
-                try:
-                    result = subprocess.run(["who"], capture_output=True, text=True, check=False)
-                    for line in result.stdout.splitlines():
-                        parts = line.split()
-                        if parts:
-                            user = parts[0]
-                            if user != "root":
-                                try:
-                                    pw = pwd.getpwnam(user)
-                                    uid = pw.pw_uid
-                                    gid = pw.pw_gid
-                                    username = user
-                                    break
-                                except KeyError:
-                                    continue
-                except Exception:
-                    pass
+                # Get the active local session user
+                uid, gid, username = self._get_active_session_user()
                 
                 # Wait briefly for udev to settle
                 time.sleep(0.5)
+                mount_opts = self._plaintext_mount_options(readonly=False)
+                mount_opts_str = self._mount_opts_str(mount_opts)
                 
                 # Mount the device
                 result = subprocess.run(
-                    ["udisksctl", "mount", "-b", devnode, "--no-user-interaction"],
+                    ["udisksctl", "mount", "-b", devnode, "-o", mount_opts_str, "--no-user-interaction"],
                     capture_output=True,
                     text=True,
                     check=False
@@ -360,59 +423,72 @@ class Daemon:
         """
         def do_mount():
             try:
-                # Get the active session user
-                uid = None
-                gid = None
-                username = None
-                
-                # Try to find logged-in user
-                try:
-                    result = subprocess.run(["who"], capture_output=True, text=True, check=False)
-                    for line in result.stdout.splitlines():
-                        parts = line.split()
-                        if parts:
-                            user = parts[0]
-                            if user != "root":
-                                try:
-                                    pw = pwd.getpwnam(user)
-                                    uid = pw.pw_uid
-                                    gid = pw.pw_gid
-                                    username = user
-                                    break
-                                except KeyError:
-                                    continue
-                except Exception:
-                    pass
+                # Get the active local session user
+                uid, gid, username = self._get_active_session_user()
                 
                 # Wait briefly for udev to settle
                 time.sleep(0.5)
+                mount_opts = self._plaintext_mount_options(readonly=True)
+                mount_opts_str = self._mount_opts_str(mount_opts)
                 
-                # Use udisksctl to mount the device - it will respect the read-only block device setting
-                result = subprocess.run(
-                    ["udisksctl", "mount", "-b", devnode, "--no-user-interaction"],
-                    capture_output=True,
-                    text=True,
-                    check=False
-                )
-                if result.returncode == 0:
-                    self.logger.info(f"Auto-mounted read-only: {devnode}")
+                # For plaintext devices, mount directly to /media/<username>/ so user can access it
+                # (udisks would mount under /run/media/root/ which user can't access)
+                if uid is not None and username:
+                    # Get drive label
+                    label_result = subprocess.run(
+                        ["blkid", "-s", "LABEL", "-o", "value", devnode],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    label = label_result.stdout.strip() if label_result.returncode == 0 and label_result.stdout.strip() else os.path.basename(devnode)
                     
-                    # Fix ownership if we found a user and the mount succeeded
-                    if uid is not None and gid is not None and "at " in result.stdout:
-                        mountpoint = result.stdout.split("at ")[-1].strip().rstrip(".")
+                    # Mount to /media/<username>/<label>
+                    mount_point = f"/media/{username}/{label}"
+                    try:
+                        os.makedirs(mount_point, mode=0o755, exist_ok=True)
+                        os.chown(mount_point, uid, -1)
+                    except Exception as e:
+                        self.logger.error(f"Failed to create mount point {mount_point}: {e}")
+                        return
+                    
+                    # Mount read-only
+                    result = subprocess.run(
+                        [
+                            "mount",
+                            "-o",
+                            "{},uid={},gid={}".format(mount_opts_str, uid, gid),
+                            devnode,
+                            mount_point,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    if result.returncode == 0:
+                        self.logger.info(f"Auto-mounted read-only: {devnode} at {mount_point}")
+                    else:
+                        self.logger.warning(f"Mount failed for {devnode}: {result.stderr.strip()}")
                         try:
-                            # Wait a moment for the mount to settle
-                            time.sleep(0.2)
-                            # Change ownership of the mountpoint
-                            os.chown(mountpoint, uid, gid)
-                            self.logger.info(f"Fixed ownership of {mountpoint} to {username} ({uid}:{gid})")
-                        except Exception as e:
-                            self.logger.warning(f"Failed to fix ownership of {mountpoint}: {e}")
+                            os.rmdir(mount_point)
+                        except:
+                            pass
                 else:
-                    # Device might already be mounted or mount might fail for other reasons
-                    self.logger.debug(f"Mount via udisksctl failed for {devnode}: {result.stderr.strip()}")
-            except Exception as e:
-                self.logger.debug(f"Failed to trigger mount for {devnode}: {e}")
+                    # No user found, use udisksctl as fallback
+                    result = subprocess.run(
+                        ["udisksctl", "mount", "-b", devnode, "-o", mount_opts_str, "--no-user-interaction"],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    if result.returncode == 0:
+                        self.logger.info(f"Auto-mounted read-only: {devnode}")
+                        if "at " in result.stdout:
+                            mountpoint = result.stdout.split("at ")[-1].strip().rstrip(".")
+                            self.logger.info(f"Mounted at: {mountpoint}")
+                    else:
+                        self.logger.warning(f"Mount via udisksctl failed for {devnode}: {result.stderr.strip()}")
+                return
         
         # Run in background thread to avoid blocking udev processing
         threading.Thread(target=do_mount, daemon=True).start()
@@ -424,36 +500,17 @@ class Daemon:
         """
         def do_mount():
             try:
-                # Get the active session user
-                uid = None
-                gid = None
-                username = None
-                
-                # Try to find logged-in user
-                try:
-                    result = subprocess.run(["who"], capture_output=True, text=True, check=False)
-                    for line in result.stdout.splitlines():
-                        parts = line.split()
-                        if parts:
-                            user = parts[0]
-                            if user != "root":
-                                try:
-                                    pw = pwd.getpwnam(user)
-                                    uid = pw.pw_uid
-                                    gid = pw.pw_gid
-                                    username = user
-                                    break
-                                except KeyError:
-                                    continue
-                except Exception:
-                    pass
+                # Get the active local session user
+                uid, gid, username = self._get_active_session_user()
                 
                 # Wait briefly for udev to settle
                 time.sleep(0.5)
+                mount_opts = self._plaintext_mount_options(readonly=False)
+                mount_opts_str = self._mount_opts_str(mount_opts)
                 
                 # Mount the device as writable
                 result = subprocess.run(
-                    ["udisksctl", "mount", "-b", devnode, "--no-user-interaction"],
+                    ["udisksctl", "mount", "-b", devnode, "-o", mount_opts_str, "--no-user-interaction"],
                     capture_output=True,
                     text=True,
                     check=False
@@ -841,7 +898,7 @@ class Daemon:
                 os.unlink(self._secret_socket_path)
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.bind(self._secret_socket_path)
-            # Default: allow users in the group (plugdev) to connect; fall back to 0666 so user-session UI can reach it
+            # Default: allow users in the group (plugdev) to connect.
             socket_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
             target_gid = None
             try:
@@ -855,8 +912,6 @@ class Daemon:
                     os.chown(self._secret_socket_path, 0, target_gid)
                 except PermissionError:
                     target_gid = None
-            if target_gid is None:
-                socket_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
             os.chmod(self._secret_socket_path, socket_mode)
             sock.listen(5)
             self._secret_socket = sock
@@ -880,6 +935,9 @@ class Daemon:
 
     def _handle_secret_client(self, conn: socket.socket) -> None:
         try:
+            if not self._secret_client_allowed(conn):
+                self._send_secret_response(conn, error="unauthorized")
+                return
             data = b""
             while True:
                 chunk = conn.recv(4096)
@@ -909,16 +967,45 @@ class Daemon:
             except Exception:
                 pass
 
+    def _secret_client_allowed(self, conn: socket.socket) -> bool:
+        """
+        Only allow active local desktop session users to access the secret socket.
+        """
+        try:
+            ucred = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+            _pid, uid, _gid = struct.unpack("3i", ucred)
+        except Exception:
+            return False
+
+        if uid == 0:
+            return True
+
+        active_users = user_utils.get_active_users()
+        try:
+            username = pwd.getpwuid(uid).pw_name
+        except KeyError:
+            return False
+        return username in active_users
+
     def _store_secret(self, token: str, op: str, passphrase: str) -> None:
         with self._secret_lock:
-            self._secret_store[token] = (op, passphrase)
+            now = time.time()
+            expired = [t for t, (_, _, ts) in self._secret_store.items() if now - ts > self._secret_ttl_seconds]
+            for t in expired:
+                self._secret_store.pop(t, None)
+            if len(self._secret_store) >= self._secret_max_tokens:
+                oldest_token = min(self._secret_store.items(), key=lambda item: item[1][2])[0]
+                self._secret_store.pop(oldest_token, None)
+            self._secret_store[token] = (op, passphrase, now)
 
     def _consume_secret(self, token: str, op: str) -> str:
         with self._secret_lock:
             entry = self._secret_store.pop(token, None)
         if not entry:
             raise ValueError("Invalid or expired token")
-        stored_op, passphrase = entry
+        stored_op, passphrase, ts = entry
+        if time.time() - ts > self._secret_ttl_seconds:
+            raise ValueError("Invalid or expired token")
         if stored_op != op:
             raise ValueError("Token operation mismatch")
         return passphrase

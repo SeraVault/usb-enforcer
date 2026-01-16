@@ -240,10 +240,12 @@ class ContentScanner:
         self.cache = ScanCache(cache_size_mb) if cache_enabled else None
         
         # Configuration
-        self.max_file_size = self.config.get('max_file_size_mb', 500) * 1024 * 1024
+        max_file_size_mb = self.config.get('max_file_size_mb', 500)
+        self.max_file_size = None if max_file_size_mb <= 0 else max_file_size_mb * 1024 * 1024
         self.max_scan_time = self.config.get('max_scan_time_seconds', 30)
         self.block_threshold = self.config.get('block_threshold', 0.65)
         self.action_mode = self.config.get('action', 'block')
+        self.large_file_scan_mode = self.config.get('large_file_scan_mode', 'sampled')
         
         logger.info(f"Content scanner initialized with {len(self.pattern_library.get_all_patterns())} patterns")
     
@@ -299,7 +301,7 @@ class ContentScanner:
                     )
             
             # Check file size
-            if file_size > self.max_file_size:
+            if self.max_file_size is not None and file_size > self.max_file_size:
                 logger.warning(f"File too large: {filepath.name} ({file_size} bytes)")
                 return ScanResult(
                     blocked=True,
@@ -498,6 +500,8 @@ class ContentScanner:
         
         Scans first and last few MB to balance performance and detection.
         """
+        if self.large_file_scan_mode == "full":
+            return self._scan_medium_file(filepath, file_hash)
         logger.debug(f"Sampling scan: {filepath.name}")
         
         sample_size = 5 * 1024 * 1024  # 5 MB

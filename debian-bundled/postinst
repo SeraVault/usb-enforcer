@@ -23,6 +23,14 @@ case "$1" in
             py7zr rarfile fusepy \
             xlrd olefile extract-msg striprtf
         
+        # Migrate config file (add new options if missing)
+        if [ -f /etc/usb-enforcer/config.toml ]; then
+            if ! grep -q "allow_plaintext_write_with_scanning" /etc/usb-enforcer/config.toml; then
+                sed -i '/allow_luks1_readonly = true/a allow_plaintext_write_with_scanning = false  # Allow write to unencrypted drives if content scanning is enabled' \
+                    /etc/usb-enforcer/config.toml || true
+            fi
+        fi
+        
         # Reload systemd and udev
         systemctl daemon-reload || true
         udevadm control --reload-rules || true

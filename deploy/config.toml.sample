@@ -1,15 +1,41 @@
 # ============================================================================
 # USB Enforcer Configuration
 # ============================================================================
+#
+# SECURITY NOTE: allow_plaintext_write_with_scanning option
+# ----------------------------------------------------------
+# By default, unencrypted USB drives are mounted read-only for maximum 
+# security. However, if you enable content_scanning (DLP), you can optionally
+# allow write access to unencrypted drives with allow_plaintext_write_with_scanning.
+#
+# When enabled:
+#   - Unencrypted USB drives are mounted read-write with FUSE overlay
+#   - All writes are scanned for sensitive data (credit cards, SSNs, secrets)
+#   - Prohibited content is blocked before writing to the drive
+#   - Provides data loss prevention without sacrificing usability
+#
+# Requirements:
+#   - content_scanning.enabled must be true
+#   - Only works when content scanning is available
+#   - If scanning unavailable, drive will mount read-only as fallback
+#
+# ============================================================================
 
 # ============================================================================
 # BASIC ENFORCEMENT
 # ============================================================================
 enforce_on_usb_only = true              # Only enforce on USB devices
 allow_luks1_readonly = true             # Allow LUKS1 encrypted USB in read-only mode
+allow_plaintext_write_with_scanning = false  # Allow write to unencrypted drives if content scanning is enabled (recommended for "writable but safe")
 notification_enabled = true             # Show desktop notifications
 min_passphrase_length = 12              # Minimum password length for encryption
-exempted_groups = []                    # Groups exempt from enforcement: ["admins", "developers"]
+exempted_groups = []                    # Groups exempt from enforcement (full bypass; prefer empty when using DLP scanning)
+
+# Secret socket access (for passphrase handoff):
+# The UNIX socket at /run/usb-enforcer.sock is owned by root and group "plugdev" by default.
+# Active desktop session users must be in that group (or set USB_EE_SOCKET_GROUP) to connect.
+secret_token_ttl_seconds = 300          # One-time token TTL (seconds) for unlock/encrypt requests
+secret_token_max = 128                  # Max number of outstanding tokens kept in memory
 
 # ============================================================================
 # MOUNT SECURITY
@@ -47,7 +73,10 @@ enabled_categories = ["financial", "personal", "authentication", "medical"]
     # medical:        Medical record numbers, insurance IDs
 
 # Performance limits
-max_file_size_mb = 100                  # Skip files larger than this
+max_file_size_mb = 100                  # Max size to scan; set 0 for unlimited
+oversize_action = "block"               # block | allow_unscanned (allow writes without scanning when limit is hit)
+streaming_threshold_mb = 16             # Spill writes to temp file when size exceeds this (0 = always stream)
+large_file_scan_mode = "sampled"        # sampled | full (full scans entire file contents)
 scan_timeout_seconds = 30               # Maximum scan time per file
 max_concurrent_scans = 2                # Parallel scanning threads
 
@@ -67,4 +96,3 @@ cache_max_size_mb = 100                 # Cache size limit
 # description = "Company employee ID format"
 # category = "personal"
 # regex = "EMP-\\d{6}"
-

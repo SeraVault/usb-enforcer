@@ -6,27 +6,15 @@ import grp
 import logging
 import pwd
 import subprocess
-from typing import List, Set
+from typing import List, Set, Optional
 
 
-def get_active_users() -> Set[str]:
+def _get_active_loginctl_users() -> Optional[Set[str]]:
     """
-    Get list of currently logged-in non-root users.
-    Returns a set of usernames.
+    Get list of active local users via loginctl.
+    Returns a set of usernames or None if loginctl is unavailable.
     """
-    users = set()
-    try:
-        result = subprocess.run(["who"], capture_output=True, text=True, check=False)
-        for line in result.stdout.splitlines():
-            parts = line.split()
-            if parts:
-                user = parts[0]
-                if user != "root":
-                    users.add(user)
-    except Exception:
-        pass
-    
-    # Also check loginctl if available (for systemd systems)
+    users: Set[str] = set()
     try:
         result = subprocess.run(
             ["loginctl", "list-sessions", "--no-legend"],
@@ -37,14 +25,139 @@ def get_active_users() -> Set[str]:
         if result.returncode == 0:
             for line in result.stdout.splitlines():
                 parts = line.split()
-                if len(parts) >= 3:
-                    user = parts[2]
-                    if user != "root":
+                if len(parts) >= 2:
+                    session_id = parts[0]
+                    session_info = subprocess.run(
+                        ["loginctl", "show-session", session_id, "-p", "Active", "-p", "Remote", "-p", "Name"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if session_info.returncode != 0:
+                        continue
+                    props = {}
+                    for prop_line in session_info.stdout.splitlines():
+                        if "=" in prop_line:
+                            key, value = prop_line.split("=", 1)
+                            props[key.strip()] = value.strip()
+                    if props.get("Active") != "yes":
+                        continue
+                    if props.get("Remote") == "yes":
+                        continue
+                    user = props.get("Name")
+                    if user and user != "root":
                         users.add(user)
+            return users
+    except (FileNotFoundError, Exception):
+        return None
+    return users
+
+
+def get_active_users() -> Set[str]:
+    """
+    Get list of currently active local non-root users.
+    Returns a set of usernames.
+    """
+    loginctl_users = _get_active_loginctl_users()
+    if loginctl_users is not None:
+        return loginctl_users
+
+    users: Set[str] = set()
+    try:
+        result = subprocess.run(["who"], capture_output=True, text=True, check=False)
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if parts:
+                user = parts[0]
+                if user == "root":
+                    continue
+                # Skip remote sessions when possible (who prints host in parentheses).
+                if "(" in line and ")" in line:
+                    continue
+                users.add(user)
+    except Exception:
+        pass
+
+    return users
+
+
+def get_active_session_user() -> Optional[str]:
+    """
+    Return the single active local session user (seat-based), or None if ambiguous.
+    """
+    try:
+        result = subprocess.run(
+            ["loginctl", "list-sessions", "--no-legend"],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.returncode == 0:
+            active_users: Set[str] = set()
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if len(parts) >= 2:
+                    session_id = parts[0]
+                    session_info = subprocess.run(
+                        [
+                            "loginctl",
+                            "show-session",
+                            session_id,
+                            "-p",
+                            "Active",
+                            "-p",
+                            "Remote",
+                            "-p",
+                            "Name",
+                            "-p",
+                            "Seat",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if session_info.returncode != 0:
+                        continue
+                    props = {}
+                    for prop_line in session_info.stdout.splitlines():
+                        if "=" in prop_line:
+                            key, value = prop_line.split("=", 1)
+                            props[key.strip()] = value.strip()
+                    if props.get("Active") != "yes":
+                        continue
+                    if props.get("Remote") == "yes":
+                        continue
+                    seat = props.get("Seat")
+                    if not seat or seat == "unknown":
+                        continue
+                    user = props.get("Name")
+                    if user and user != "root":
+                        active_users.add(user)
+            if len(active_users) == 1:
+                return next(iter(active_users))
+            return None
     except (FileNotFoundError, Exception):
         pass
-    
-    return users
+
+    # Fallback: use who, only if a single local user is present.
+    users = set()
+    try:
+        result = subprocess.run(["who"], capture_output=True, text=True, check=False)
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if parts:
+                user = parts[0]
+                if user == "root":
+                    continue
+                if "(" in line and ")" in line:
+                    continue
+                users.add(user)
+    except Exception:
+        pass
+
+    if len(users) == 1:
+        return next(iter(users))
+    return None
 
 
 def user_in_group(username: str, groupname: str) -> bool:

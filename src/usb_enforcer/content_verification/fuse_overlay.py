@@ -8,8 +8,10 @@ allowing writes to the underlying encrypted USB device.
 import os
 import errno
 import logging
+import shutil
 import threading
 import time
+import tempfile
 from pathlib import Path
 from typing import Optional, Dict
 from fuse import FUSE, FuseOSError, Operations
@@ -82,11 +84,17 @@ class ContentScanningFuse(Operations):
         self.blocked_callback = blocked_callback
         self.is_encrypted = is_encrypted
         self.config = config
+        self.max_write_bytes = None
+        if self.config and getattr(self.config, "max_file_size_mb", None):
+            self.max_write_bytes = int(self.config.max_file_size_mb * 1024 * 1024)
         
         # Track write operations
         self.write_buffers: Dict[int, bytearray] = {}
         self.file_paths: Dict[int, str] = {}
         self.file_progress: Dict[str, ScanProgress] = {}
+        self.temp_paths: Dict[int, str] = {}
+        self.temp_fds: Dict[int, int] = {}
+        self.temp_sizes: Dict[int, int] = {}
         
         # Statistics
         self.stats = {
@@ -96,6 +104,14 @@ class ContentScanningFuse(Operations):
             'total_bytes_scanned': 0,
             'patterns_detected': 0,
         }
+        self.passthrough_fds = set()
+        self.stream_threshold_bytes = None
+        if self.config and getattr(self.config, "streaming_threshold_mb", None) is not None:
+            threshold_mb = self.config.streaming_threshold_mb
+            if threshold_mb <= 0:
+                self.stream_threshold_bytes = 0
+            else:
+                self.stream_threshold_bytes = int(threshold_mb * 1024 * 1024)
         
         logger.info(f"FUSE overlay initialized: {root}")
     
@@ -181,6 +197,14 @@ class ContentScanningFuse(Operations):
         This is the critical security boundary where we buffer writes
         for scanning before allowing data to reach the USB device.
         """
+        if fh in self.passthrough_fds:
+            try:
+                os.lseek(fh, offset, os.SEEK_SET)
+                os.write(fh, buf)
+                return len(buf)
+            except Exception as e:
+                logger.error(f"Error writing file: {e}")
+                raise FuseOSError(errno.EIO)
         # Initialize buffer if needed
         if fh not in self.write_buffers:
             self.write_buffers[fh] = bytearray()
@@ -205,17 +229,104 @@ class ContentScanningFuse(Operations):
         
         # Extend buffer if needed
         required_len = offset + len(buf)
-        if required_len > len(buffer):
-            buffer.extend(b'\x00' * (required_len - len(buffer)))
-        
-        # Write to buffer
-        buffer[offset:offset + len(buf)] = buf
+        if self.max_write_bytes is not None and required_len > self.max_write_bytes:
+            action = "block"
+            if self.config and getattr(self.config, "oversize_action", None):
+                action = self.config.oversize_action
+            if action == "allow_unscanned":
+                logger.warning(f"⚠️  Oversize file, allowing without scan: {path}")
+                # Flush any buffered content, then switch to passthrough writes.
+                buffer = self.write_buffers.get(fh)
+                if buffer:
+                    try:
+                        os.lseek(fh, 0, os.SEEK_SET)
+                        os.ftruncate(fh, 0)
+                        os.write(fh, bytes(buffer))
+                    except Exception as e:
+                        logger.error(f"Error writing buffered data: {e}")
+                        raise FuseOSError(errno.EIO)
+                self.write_buffers.pop(fh, None)
+                self.file_paths.pop(fh, None)
+                self.passthrough_fds.add(fh)
+                try:
+                    os.lseek(fh, offset, os.SEEK_SET)
+                    os.write(fh, buf)
+                except Exception as e:
+                    logger.error(f"Error writing file: {e}")
+                    raise FuseOSError(errno.EIO)
+                return len(buf)
+            reason = f"File exceeds max size ({self.max_write_bytes} bytes)"
+            logger.warning(f"⛔ BLOCKED: {path}: {reason}")
+            self.stats['files_blocked'] += 1
+            file_path = self.file_paths.get(fh, path)
+            if file_path in self.file_progress:
+                progress = self.file_progress[file_path]
+                progress.complete(blocked=True, reason=reason)
+                self._notify_progress(progress)
+            if self.blocked_callback:
+                try:
+                    self.blocked_callback(
+                        filepath=file_path,
+                        reason=reason,
+                        patterns="",
+                        match_count=0
+                    )
+                except Exception as e:
+                    logger.error(f"Error in blocked callback: {e}")
+            if fh in self.write_buffers:
+                del self.write_buffers[fh]
+            if fh in self.file_paths:
+                del self.file_paths[fh]
+            try:
+                os.close(fh)
+            except Exception:
+                pass
+            full_path = self._full_path(path)
+            try:
+                if os.path.exists(full_path):
+                    os.unlink(full_path)
+            except Exception as e:
+                logger.error(f"Error deleting oversized file: {e}")
+            raise FuseOSError(errno.EFBIG)
+        # Switch to streaming temp file if threshold exceeded.
+        if self.stream_threshold_bytes is not None and required_len > self.stream_threshold_bytes:
+            if fh not in self.temp_paths:
+                file_path = self.file_paths.get(fh, path)
+                suffix = Path(file_path).suffix if file_path else ""
+                temp_fd, temp_path = tempfile.mkstemp(suffix=suffix)
+                self.temp_paths[fh] = temp_path
+                self.temp_fds[fh] = temp_fd
+                if buffer:
+                    try:
+                        os.lseek(temp_fd, 0, os.SEEK_SET)
+                        os.write(temp_fd, bytes(buffer))
+                        self.temp_sizes[fh] = len(buffer)
+                    except Exception as e:
+                        logger.error(f"Error writing buffered data: {e}")
+                        raise FuseOSError(errno.EIO)
+                self.write_buffers.pop(fh, None)
+            temp_fd = self.temp_fds[fh]
+            try:
+                os.lseek(temp_fd, offset, os.SEEK_SET)
+                os.write(temp_fd, buf)
+                current_size = max(self.temp_sizes.get(fh, 0), required_len)
+                self.temp_sizes[fh] = current_size
+            except Exception as e:
+                logger.error(f"Error writing temp file: {e}")
+                raise FuseOSError(errno.EIO)
+        else:
+            if required_len > len(buffer):
+                buffer.extend(b'\x00' * (required_len - len(buffer)))
+            buffer[offset:offset + len(buf)] = buf
         
         # Update progress
         file_path = self.file_paths.get(fh, path)
         if file_path in self.file_progress:
             progress = self.file_progress[file_path]
-            progress.update(len(buffer))
+            if fh in self.temp_sizes:
+                progress.update(self.temp_sizes[fh])
+            else:
+                progress.update(len(buffer))
             self._notify_progress(progress)
         
         return len(buf)
@@ -238,12 +349,25 @@ class ContentScanningFuse(Operations):
         commit to disk or block the operation.
         """
         try:
-            # Get accumulated buffer
+            # Get accumulated buffer or temp file
             buffer = self.write_buffers.get(fh)
             file_path = self.file_paths.get(fh, path)
+            temp_path = self.temp_paths.get(fh)
+            temp_fd = self.temp_fds.get(fh)
+
+            if fh in self.passthrough_fds:
+                self.passthrough_fds.discard(fh)
+                self.file_paths.pop(fh, None)
+                return os.close(fh)
             
-            if buffer and len(buffer) > 0:
-                logger.info(f"Scanning {file_path} ({len(buffer)} bytes)")
+            if temp_path:
+                try:
+                    os.lseek(temp_fd, 0, os.SEEK_SET)
+                except Exception:
+                    pass
+            if (buffer and len(buffer) > 0) or temp_path:
+                size_hint = self.temp_sizes.get(fh, len(buffer) if buffer else 0)
+                logger.info(f"Scanning {file_path} ({size_hint} bytes)")
                 
                 # Update progress to scanning
                 if file_path in self.file_progress:
@@ -256,43 +380,47 @@ class ContentScanningFuse(Operations):
                 # Determine scan method based on file type
                 filename = os.path.basename(path)
                 filepath_obj = Path(filename)
+                scan_path = Path(temp_path) if temp_path else None
                 
                 # Check if it's an archive
                 if self.archive_scanner.is_archive(filepath_obj):
                     logger.debug(f"Scanning as archive: {filename}")
-                    # Write to temp file for archive scanning
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=filepath_obj.suffix) as tmp:
-                        tmp.write(bytes(buffer))
-                        tmp_path = Path(tmp.name)
-                    
-                    try:
-                        result = self.archive_scanner.scan_archive(tmp_path)
-                    finally:
-                        tmp_path.unlink()
+                    if scan_path:
+                        result = self.archive_scanner.scan_archive(scan_path)
+                    else:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=filepath_obj.suffix) as tmp:
+                            tmp.write(bytes(buffer))
+                            tmp_path = Path(tmp.name)
+                        try:
+                            result = self.archive_scanner.scan_archive(tmp_path)
+                        finally:
+                            tmp_path.unlink()
                 
                 # Check if it's a document
                 elif self.document_scanner.is_document(filepath_obj):
                     logger.debug(f"Scanning as document: {filename}")
-                    # Write to temp file for document scanning
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=filepath_obj.suffix) as tmp:
-                        tmp.write(bytes(buffer))
-                        tmp_path = Path(tmp.name)
-                    
-                    try:
-                        result = self.document_scanner.scan_document(tmp_path)
-                    finally:
-                        tmp_path.unlink()
+                    if scan_path:
+                        result = self.document_scanner.scan_document(scan_path)
+                    else:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=filepath_obj.suffix) as tmp:
+                            tmp.write(bytes(buffer))
+                            tmp_path = Path(tmp.name)
+                        try:
+                            result = self.document_scanner.scan_document(tmp_path)
+                        finally:
+                            tmp_path.unlink()
                 
                 # Regular content scan
                 else:
                     logger.debug(f"Scanning as content: {filename}")
-                    result = self.scanner.scan_content(bytes(buffer), filename)
+                    if scan_path:
+                        result = self.scanner.scan_file(scan_path)
+                    else:
+                        result = self.scanner.scan_content(bytes(buffer), filename)
                 
                 # Update statistics
                 self.stats['files_scanned'] += 1
-                self.stats['total_bytes_scanned'] += len(buffer)
+                self.stats['total_bytes_scanned'] += size_hint
                 
                 # Check if we should enforce based on encryption status
                 should_enforce = True
@@ -335,11 +463,21 @@ class ContentScanningFuse(Operations):
                         except Exception as e:
                             logger.error(f"Error in blocked callback: {e}")
                     
-                    # Clean up buffer
+                    # Clean up buffer/temp
                     if fh in self.write_buffers:
                         del self.write_buffers[fh]
                     if fh in self.file_paths:
                         del self.file_paths[fh]
+                    if fh in self.temp_paths:
+                        temp_path = self.temp_paths.pop(fh)
+                        temp_fd = self.temp_fds.pop(fh, None)
+                        self.temp_sizes.pop(fh, None)
+                        try:
+                            if temp_fd is not None:
+                                os.close(temp_fd)
+                            os.unlink(temp_path)
+                        except Exception:
+                            pass
                     
                     # Close file handle
                     try:
@@ -374,16 +512,34 @@ class ContentScanningFuse(Operations):
                     try:
                         os.lseek(fh, 0, os.SEEK_SET)
                         os.ftruncate(fh, 0)
-                        os.write(fh, bytes(buffer))
+                        if temp_path:
+                            with open(temp_path, "rb") as src:
+                                while True:
+                                    chunk = src.read(1024 * 1024)
+                                    if not chunk:
+                                        break
+                                    os.write(fh, chunk)
+                        else:
+                            os.write(fh, bytes(buffer))
                     except Exception as e:
                         logger.error(f"Error writing file: {e}")
                         raise FuseOSError(errno.EIO)
                     
-                    # Clean up buffer
+                    # Clean up buffer/temp
                     if fh in self.write_buffers:
                         del self.write_buffers[fh]
                     if fh in self.file_paths:
                         del self.file_paths[fh]
+                    if fh in self.temp_paths:
+                        temp_path = self.temp_paths.pop(fh)
+                        temp_fd = self.temp_fds.pop(fh, None)
+                        self.temp_sizes.pop(fh, None)
+                        try:
+                            if temp_fd is not None:
+                                os.close(temp_fd)
+                            os.unlink(temp_path)
+                        except Exception:
+                            pass
             
             # Close file handle
             return os.close(fh)
@@ -493,42 +649,52 @@ class FuseManager:
             except Exception as e:
                 logger.error(f"Error in blocked handler: {e}")
     
-    def mount(self, device_path: str, mount_point: str, is_encrypted: bool = True) -> bool:
+    def mount(
+        self,
+        device_path: str,
+        mount_point: str,
+        is_encrypted: bool = True,
+        source_is_mount: bool = False,
+    ) -> bool:
         """
         Mount USB device with content scanning FUSE overlay.
         
         Args:
-            device_path: Underlying device path (e.g., /dev/mapper/luks-xxx)
+            device_path: Underlying device path (e.g., /dev/mapper/luks-xxx) or existing mount path
             mount_point: Where to expose FUSE overlay
             is_encrypted: Whether the device is LUKS encrypted
+            source_is_mount: Whether device_path is already a mounted path
             
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Create real mount point in a hidden directory
-            # Extract the parent directory and drive name
-            parent_dir = os.path.dirname(mount_point)
-            drive_name = os.path.basename(mount_point)
-            
-            # Create hidden backing directory in parent (e.g., /run/media/user/.usb-enforcer-backing)
-            hidden_base = os.path.join(parent_dir, '.usb-enforcer-backing')
-            os.makedirs(hidden_base, exist_ok=True)
-            
-            # Mount actual device to hidden location
-            real_mount = os.path.join(hidden_base, drive_name)
-            os.makedirs(real_mount, exist_ok=True)
-            
-            import subprocess
-            result = subprocess.run(
-                ['mount', device_path, real_mount],
-                capture_output=True,
-                text=True
-            )
-            
-            if result.returncode != 0:
-                logger.error(f"Failed to mount device: {result.stderr}")
-                return False
+            if source_is_mount:
+                real_mount = device_path
+            else:
+                # Create real mount point in a hidden directory
+                # Extract the parent directory and drive name
+                parent_dir = os.path.dirname(mount_point)
+                drive_name = os.path.basename(mount_point)
+                
+                # Create hidden backing directory in parent (e.g., /run/media/user/.usb-enforcer-backing)
+                hidden_base = os.path.join(parent_dir, '.usb-enforcer-backing')
+                os.makedirs(hidden_base, exist_ok=True)
+                
+                # Mount actual device to hidden location
+                real_mount = os.path.join(hidden_base, drive_name)
+                os.makedirs(real_mount, exist_ok=True)
+                
+                import subprocess
+                result = subprocess.run(
+                    ['mount', device_path, real_mount],
+                    capture_output=True,
+                    text=True
+                )
+                
+                if result.returncode != 0:
+                    logger.error(f"Failed to mount device: {result.stderr}")
+                    return False
             
             # Create FUSE mount point
             os.makedirs(mount_point, exist_ok=True)
@@ -589,7 +755,8 @@ class FuseManager:
             
             # Unmount FUSE
             import subprocess
-            subprocess.run(['fusermount', '-u', mount_point])
+            fusermount_cmd = shutil.which("fusermount3") or shutil.which("fusermount") or "fusermount"
+            subprocess.run([fusermount_cmd, '-u', mount_point])
             
             # Unmount real device
             subprocess.run(['umount', real_mount])

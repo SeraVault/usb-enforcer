@@ -136,6 +136,15 @@ if [ $1 -eq 1 ]; then
         xlrd>=2.0.0 olefile>=0.46 extract-msg>=0.41.0 striprtf>=0.0.26 >/dev/null 2>&1
 fi
 
+# Migrate config file on upgrade (add new options if missing)
+if [ $1 -eq 2 ]; then
+    # Upgrade - add new config options if they don't exist
+    if ! grep -q "allow_plaintext_write_with_scanning" %{_sysconfdir}/%{name}/config.toml 2>/dev/null; then
+        sed -i '/allow_luks1_readonly = true/a allow_plaintext_write_with_scanning = false  # Allow write to unencrypted drives if content scanning is enabled' \
+            %{_sysconfdir}/%{name}/config.toml 2>/dev/null || true
+    fi
+fi
+
 # Update icon cache
 if [ -x %{_bindir}/gtk-update-icon-cache ]; then
     %{_bindir}/gtk-update-icon-cache -f -t %{_datadir}/icons/hicolor >/dev/null 2>&1 || :

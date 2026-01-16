@@ -46,6 +46,9 @@ Add:
 enabled = true
 action = "block"
 enabled_categories = ["financial", "personal"]
+max_file_size_mb = 0                    # 0 = unlimited size
+streaming_threshold_mb = 16             # Spill to disk when writes exceed this size
+large_file_scan_mode = "full"           # full = scan entire file contents
 ```
 
 ### 2. Restart Daemon
@@ -88,7 +91,8 @@ cp clean.txt /media/$USER/usb-device/
                    ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  FUSE Overlay: Intercepts write()                           │
-│  - Buffers data in memory                                   │
+│  - Buffers small writes in memory                            │
+│  - Streams large writes to temp files                        │
 │  - On close(), triggers content scan                        │
 └──────────────────┬──────────────────────────────────────────┘
                    ▼

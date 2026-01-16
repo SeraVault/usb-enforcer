@@ -134,6 +134,13 @@ install_desktop_files() {
 install_config_rules() {
   if [[ ! -f "${CONFIG_DIR}/config.toml" ]]; then
     install -m 0644 "${REPO_ROOT}/deploy/config.toml.sample" "${CONFIG_DIR}/config.toml"
+  else
+    # Upgrade - add new config options if they don't exist
+    if ! grep -q "allow_plaintext_write_with_scanning" "${CONFIG_DIR}/config.toml" 2>/dev/null; then
+      log "Migrating config: adding allow_plaintext_write_with_scanning option"
+      sed -i '/allow_luks1_readonly = true/a allow_plaintext_write_with_scanning = false  # Allow write to unencrypted drives if content scanning is enabled' \
+        "${CONFIG_DIR}/config.toml" || true
+    fi
   fi
   install -m 0644 "${REPO_ROOT}/deploy/udev/49-usb-enforcer.rules" "${UDEV_DIR}/"
   install -m 0644 "${REPO_ROOT}/deploy/udev/80-udisks2-usb-enforcer.rules" "${UDEV_DIR}/"
