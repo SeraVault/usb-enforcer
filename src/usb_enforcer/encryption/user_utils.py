@@ -59,7 +59,7 @@ def get_active_users() -> Set[str]:
     Returns a set of usernames.
     """
     loginctl_users = _get_active_loginctl_users()
-    if loginctl_users is not None:
+    if loginctl_users is not None and loginctl_users:
         return loginctl_users
 
     users: Set[str] = set()

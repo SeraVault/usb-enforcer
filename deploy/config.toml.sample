@@ -26,7 +26,7 @@
 # ============================================================================
 enforce_on_usb_only = true              # Only enforce on USB devices
 allow_luks1_readonly = true             # Allow LUKS1 encrypted USB in read-only mode
-allow_plaintext_write_with_scanning = false  # Allow write to unencrypted drives if content scanning is enabled (recommended for "writable but safe")
+allow_plaintext_write_with_scanning = true   # Require content scanning for write access on unencrypted drives
 notification_enabled = true             # Show desktop notifications
 min_passphrase_length = 12              # Minimum password length for encryption
 exempted_groups = []                    # Groups exempt from enforcement (full bypass; prefer empty when using DLP scanning)
@@ -61,7 +61,7 @@ key_size = 512                          # Key size in bits
 # CONTENT SCANNING (Data Loss Prevention)
 # ============================================================================
 [content_scanning]
-enabled = false                         # Enable DLP scanning (scans files for sensitive data)
+enabled = true                          # Enable DLP scanning (scans files for sensitive data)
 enforce_on_encrypted_devices = true     # true: block everywhere | false: only block on unencrypted USB
 action = "block"                        # Options: "block", "warn", "log_only"
 

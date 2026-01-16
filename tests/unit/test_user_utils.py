@@ -14,8 +14,9 @@ from usb_enforcer import user_utils
 class TestActiveUsers:
     """Test active user detection."""
     
+    @patch('usb_enforcer.user_utils._get_active_loginctl_users', return_value=None)
     @patch('subprocess.run')
-    def test_get_active_users_from_who(self, mock_run):
+    def test_get_active_users_from_who(self, mock_run, _mock_loginctl):
         """Test getting active users from 'who' command."""
         mock_result = MagicMock()
         mock_result.stdout = "alice   tty1  2026-01-10 10:00\nbob     pts/0 2026-01-10 11:00\n"
@@ -27,8 +28,9 @@ class TestActiveUsers:
         assert "bob" in users
         assert "root" not in users
     
+    @patch('usb_enforcer.user_utils._get_active_loginctl_users', return_value=None)
     @patch('subprocess.run')
-    def test_get_active_users_excludes_root(self, mock_run):
+    def test_get_active_users_excludes_root(self, mock_run, _mock_loginctl):
         """Test that root is excluded from active users."""
         mock_result = MagicMock()
         mock_result.stdout = "root    tty1  2026-01-10 10:00\nalice   pts/0 2026-01-10 11:00\n"
@@ -39,21 +41,10 @@ class TestActiveUsers:
         assert "alice" in users
         assert "root" not in users
     
+    @patch('usb_enforcer.user_utils._get_active_loginctl_users', return_value={"alice", "bob"})
     @patch('subprocess.run')
-    def test_get_active_users_loginctl(self, mock_run):
+    def test_get_active_users_loginctl(self, mock_run, _mock_loginctl):
         """Test getting active users from loginctl."""
-        def side_effect(cmd, **kwargs):
-            mock_result = MagicMock()
-            if cmd[0] == "who":
-                mock_result.stdout = ""
-                mock_result.returncode = 0
-            elif cmd[0] == "loginctl":
-                mock_result.stdout = "1 1000 alice seat0\n2 1001 bob   seat0\n"
-                mock_result.returncode = 0
-            return mock_result
-        
-        mock_run.side_effect = side_effect
-        
         users = user_utils.get_active_users()
         assert "alice" in users
         assert "bob" in users

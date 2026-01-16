@@ -28,7 +28,7 @@ This tool has been tested and is supported on:
 - Fedora 38+
 - RHEL 9+ / AlmaLinux 9+ / Rocky Linux 9+
 - CentOS Stream 9+
-- openSUSE Leap 15.4+ / Tumbleweed
+- openSUSE Leap 16+ / Tumbleweed
 
 **DEB-based:**
 - Ubuntu 22.04 LTS (Jammy) and newer
@@ -122,14 +122,21 @@ Both package types install to `/usr/lib/usb-enforcer/` with a Python virtual env
 #### Option 2: Script Installation
 Manual installation using install scripts:
 
-**RHEL/Fedora/SUSE:**
+**RHEL/Fedora/SUSE (auto-detect):**
 ```bash
-sudo ./scripts/install-rhel.sh
+sudo ./scripts/install.sh
 ```
 
-**Debian/Ubuntu/Mint:**
+**Debian/Ubuntu/Mint (auto-detect):**
 ```bash
-sudo ./scripts/install-debian.sh
+sudo ./scripts/install.sh
+```
+
+**Explicit family override (if detection fails):**
+```bash
+sudo DISTRO_FAMILY=rhel ./scripts/install.sh
+sudo DISTRO_FAMILY=debian ./scripts/install.sh
+sudo DISTRO_FAMILY=suse ./scripts/install.sh
 ```
 
 Scripts copy Python code to `/usr/lib/usb-enforcer/`, install system integration files, create a virtual environment, and enable services.

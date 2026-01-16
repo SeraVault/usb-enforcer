@@ -15,6 +15,7 @@ import struct
 import subprocess
 import threading
 import time
+import shutil
 from typing import Dict, List, Optional, Set, Tuple
 
 import pyudev
@@ -165,6 +166,8 @@ class Daemon:
             if mount_point in self.fuse_manager.mounts:
                 self.logger.debug(f"FUSE overlay already active for {mount_point}")
                 return
+
+            self._cleanup_existing_mounts(mount_point, device_path=device_path)
             
             self.logger.info(f"Setting up FUSE overlay for {mount_point}")
             
@@ -218,12 +221,40 @@ class Daemon:
             try:
                 os.makedirs(hidden_base, exist_ok=True)
                 os.makedirs(real_mount, exist_ok=True)
-                move_result = subprocess.run(
-                    ["mount", "--move", mount_point, real_mount],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                )
+                def _move_mount() -> subprocess.CompletedProcess:
+                    return subprocess.run(
+                        ["mount", "--move", mount_point, real_mount],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                    )
+
+                def _make_private(path: str) -> None:
+                    subprocess.run(
+                        ["mount", "--make-rprivate", path],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                    )
+
+                # /run/media is commonly a shared mount; ensure this subtree is private.
+                _make_private(mount_point)
+                _make_private(parent_dir)
+                parent_parent = os.path.dirname(parent_dir)
+                if parent_parent:
+                    _make_private(parent_parent)
+                    # /run is typically the propagation root for /run/media.
+                    _make_private(os.path.dirname(parent_parent))
+
+                move_result = _move_mount()
+                if move_result.returncode != 0 and "shared mount" in move_result.stderr:
+                    # Retry after forcing the subtree to private.
+                    _make_private(mount_point)
+                    _make_private(parent_dir)
+                    if parent_parent:
+                        _make_private(parent_parent)
+                        _make_private(os.path.dirname(parent_parent))
+                    move_result = _move_mount()
                 if move_result.returncode != 0:
                     self.logger.error(
                         f"Failed to move mount for {mount_point}: {move_result.stderr.strip()}"
@@ -264,6 +295,51 @@ class Daemon:
             
         except Exception as e:
             self.logger.error(f"Failed to set up FUSE overlay: {e}", exc_info=True)
+
+    def _cleanup_existing_mounts(self, mount_point: str, device_path: Optional[str] = None) -> None:
+        """
+        Clean up any existing FUSE/backing mounts for this mount point.
+        """
+        try:
+            fuse_check = subprocess.run(
+                ["findmnt", "-rn", "-o", "FSTYPE", "-M", mount_point],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if fuse_check.returncode == 0 and "fuse" in fuse_check.stdout.strip():
+                fusermount_cmd = shutil.which("fusermount3") or shutil.which("fusermount") or "fusermount"
+                subprocess.run([fusermount_cmd, "-u", mount_point], check=False)
+        except Exception:
+            pass
+
+        try:
+            parent_dir = os.path.dirname(mount_point)
+            drive_name = os.path.basename(mount_point)
+            hidden_base = os.path.join(parent_dir, ".usb-enforcer-backing")
+            real_mount = os.path.join(hidden_base, drive_name)
+            real_check = subprocess.run(
+                ["findmnt", "-rn", "-o", "SOURCE", "-M", real_mount],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if real_check.returncode == 0 and real_check.stdout.strip():
+                source = real_check.stdout.strip()
+                if not device_path or source.startswith(device_path) or device_path in source:
+                    subprocess.run(["umount", "-l", real_mount], check=False)
+            if os.path.isdir(real_mount):
+                try:
+                    os.rmdir(real_mount)
+                except OSError:
+                    pass
+            if os.path.isdir(hidden_base):
+                try:
+                    os.rmdir(hidden_base)
+                except OSError:
+                    pass
+        except Exception:
+            pass
 
     def _plaintext_mount_options(self, readonly: bool) -> List[str]:
         """
@@ -489,6 +565,8 @@ class Daemon:
                     else:
                         self.logger.warning(f"Mount via udisksctl failed for {devnode}: {result.stderr.strip()}")
                 return
+            except Exception as e:
+                self.logger.debug(f"Failed to trigger read-only mount for {devnode}: {e}")
         
         # Run in background thread to avoid blocking udev processing
         threading.Thread(target=do_mount, daemon=True).start()
@@ -584,6 +662,7 @@ class Daemon:
         This handles cases where devices are unplugged without proper unmounting.
         """
         try:
+            self._cleanup_orphaned_fuse_mounts(devnode=devnode)
             # First, clean up any FUSE overlays that might be associated with this device
             if self.fuse_manager:
                 # Check all FUSE mounts to see if any are backed by this device
@@ -641,6 +720,60 @@ class Daemon:
                                 pass
         except Exception as e:
             self.logger.debug(f"Mount cleanup check failed: {e}")
+
+    def _cleanup_orphaned_fuse_mounts(self, devnode: Optional[str] = None) -> None:
+        """
+        Clean up FUSE/backing mounts even if the daemon has restarted.
+        """
+        try:
+            result = subprocess.run(
+                ["findmnt", "-rn", "-o", "TARGET,SOURCE,FSTYPE"],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if result.returncode != 0:
+                return
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                target, source, fstype = parts[0], parts[1], parts[2]
+                if "/.usb-enforcer-backing/" not in target:
+                    continue
+                if devnode and devnode not in source and not source.startswith(devnode):
+                    continue
+                hidden_base = os.path.dirname(target)
+                parent_dir = os.path.dirname(hidden_base)
+                drive_name = os.path.basename(target)
+                fuse_mount = os.path.join(parent_dir, drive_name)
+                # Try to unmount FUSE mount if present.
+                try:
+                    fuse_check = subprocess.run(
+                        ["findmnt", "-rn", "-o", "FSTYPE", "-M", fuse_mount],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    if fuse_check.returncode == 0 and "fuse" in fuse_check.stdout.strip():
+                        fusermount_cmd = shutil.which("fusermount3") or shutil.which("fusermount") or "fusermount"
+                        subprocess.run([fusermount_cmd, "-u", fuse_mount], check=False)
+                except Exception:
+                    pass
+                # Unmount backing mount and cleanup.
+                subprocess.run(["umount", "-l", target], check=False)
+                try:
+                    if os.path.isdir(target):
+                        os.rmdir(target)
+                except Exception:
+                    pass
+                try:
+                    if os.path.isdir(hidden_base):
+                        os.rmdir(hidden_base)
+                except Exception:
+                    pass
+        except Exception as e:
+            self.logger.debug(f"Orphaned FUSE cleanup failed: {e}")
 
     def _mapper_name_for(self, devnode: str) -> str:
         basename = devnode.split("/")[-1]
@@ -849,6 +982,7 @@ class Daemon:
             threading.Thread(target=_run_loop, daemon=True).start()
 
         self._start_secret_socket()
+        self._cleanup_orphaned_fuse_mounts()
         monitor_thread = threading.Thread(target=udev_monitor.start_monitor, args=(self.handle_device, self.logger), daemon=True)
         monitor_thread.start()
 

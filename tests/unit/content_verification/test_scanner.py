@@ -41,7 +41,7 @@ class TestContentScanner:
     def test_scan_content_with_credit_card(self):
         """Test scanning content with credit card"""
         scanner = ContentScanner()
-        content = b"Card: 4532-1488-0343-6467"
+        content = b"Card: 4111-1111-1111-1111"
         
         result = scanner.scan_content(content, "test.txt")
         

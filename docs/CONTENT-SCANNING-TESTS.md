@@ -255,6 +255,14 @@ pip3 install fusepy
 sudo modprobe fuse
 ```
 
+### "FUSE overlay not active" on /run/media (shared mount)
+```bash
+# Verify overlay mount is active (should show ContentScanningFuse or usb-enforcer)
+mount | rg -n "/run/media/|ContentScanningFuse|usb-enforcer"
+```
+If the overlay does not attach, the daemon now forces `/run/media` mounts to
+private before moving them. Replug the device after restarting `usb-enforcerd`.
+
 ### Tests skip with "Content verification not available"
 ```bash
 # Install content scanning dependencies

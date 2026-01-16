@@ -23,6 +23,8 @@ class TestDaemonInitialization:
         """Test daemon initialization with default config."""
         mock_config.return_value = Mock()
         mock_logging.return_value = Mock()
+        mock_config.return_value.default_plain_mount_opts = ["nodev", "nosuid", "ro"]
+        mock_config.return_value.require_noexec_on_plain = False
         
         d = daemon.Daemon()
         
@@ -39,6 +41,8 @@ class TestDaemonInitialization:
         """Test daemon initialization with custom config path."""
         mock_config.return_value = Mock()
         mock_logging.return_value = Mock()
+        mock_config.return_value.default_plain_mount_opts = ["nodev", "nosuid", "ro"]
+        mock_config.return_value.require_noexec_on_plain = False
         
         d = daemon.Daemon(config_path="/etc/custom.toml")
         
@@ -88,6 +92,63 @@ class TestDeviceHandling:
         
         # Should attempt to trigger mount for plaintext devices set RO
         mock_mount.assert_called_once_with("/dev/sdb")
+
+
+class TestFuseOverlaySetup:
+    """Test FUSE overlay setup behavior."""
+
+    @patch('usb_enforcer.daemon.time.sleep', return_value=None)
+    @patch('usb_enforcer.daemon.os.makedirs')
+    @patch('usb_enforcer.daemon.subprocess.run')
+    @patch('usb_enforcer.daemon.config_module.Config.load')
+    @patch('usb_enforcer.daemon.logging_utils.setup_logging')
+    @patch('usb_enforcer.daemon.pyudev.Context')
+    def test_setup_fuse_overlay_handles_shared_mount(
+        self,
+        mock_context,
+        mock_logging,
+        mock_config,
+        mock_run,
+        mock_makedirs,
+        _mock_sleep
+    ):
+        """Ensure shared mount propagation triggers make-rprivate before move."""
+        mock_config.return_value = Mock()
+        mock_logging.return_value = Mock()
+
+        d = daemon.Daemon()
+        d.fuse_manager = Mock()
+        d.fuse_manager.mounts = {}
+        d.fuse_manager.mount.return_value = True
+
+        d._cleanup_existing_mounts = Mock()
+
+        mount_point = "/run/media/user/test"
+        real_mount = "/run/media/user/.usb-enforcer-backing/test"
+        move_calls = {'count': 0}
+
+        def run_side_effect(args, **_kwargs):
+            if args[0] == "findmnt":
+                return Mock(returncode=0, stdout=mount_point, stderr="")
+            if args[0] == "mount" and args[1] == "--move":
+                move_calls['count'] += 1
+                if move_calls['count'] == 1:
+                    return Mock(returncode=32, stdout="", stderr="shared mount")
+                return Mock(returncode=0, stdout="", stderr="")
+            if args[0] == "mount" and args[1] == "--make-rprivate":
+                return Mock(returncode=0, stdout="", stderr="")
+            return Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = run_side_effect
+
+        mock_makedirs.return_value = None
+
+        d._setup_fuse_overlay("/dev/dm-0")
+
+        calls = [call_args[0][0] for call_args in mock_run.call_args_list]
+        assert ["mount", "--make-rprivate", "/run"] in calls
+        assert calls.count(["mount", "--move", mount_point, real_mount]) == 2
+        d.fuse_manager.mount.assert_called_once()
     
     @patch('usb_enforcer.daemon.config_module.Config.load')
     @patch('usb_enforcer.daemon.logging_utils.setup_logging')
@@ -314,8 +375,8 @@ class TestCleanupStaleMounts:
         d = daemon.Daemon()
         d._cleanup_stale_mounts("/dev/sdb1")
         
-        # Should only call findmnt, not umount
-        assert mock_run.call_count == 1
+        # Should only call findmnt checks, not umount
+        assert mock_run.call_count == 2
 
 
 class TestEventLogging:
@@ -386,8 +447,11 @@ class TestTriggerMountRO:
     @patch('usb_enforcer.daemon.config_module.Config.load')
     @patch('usb_enforcer.daemon.logging_utils.setup_logging')
     @patch('usb_enforcer.daemon.pyudev.Context')
+    @patch('usb_enforcer.daemon.time.sleep', return_value=None)
+    @patch('usb_enforcer.daemon.os.makedirs')
+    @patch('usb_enforcer.daemon.user_utils.get_active_session_user')
     @patch('threading.Thread')
-    @patch('subprocess.run')
+    @patch('usb_enforcer.daemon.subprocess.run')
     @patch('pwd.getpwnam')
     @patch('os.chown')
     def test_trigger_mount_ro_mounts_device(
@@ -396,6 +460,9 @@ class TestTriggerMountRO:
         mock_getpwnam,
         mock_run,
         mock_thread,
+        mock_get_active_user,
+        mock_makedirs,
+        _mock_sleep,
         mock_context,
         mock_logging,
         mock_config
@@ -403,12 +470,16 @@ class TestTriggerMountRO:
         """Test that _trigger_mount_ro attempts to mount device."""
         mock_config.return_value = Mock()
         mock_logging.return_value = Mock()
+        mock_config.return_value.default_plain_mount_opts = ["nodev", "nosuid", "ro"]
+        mock_config.return_value.require_noexec_on_plain = False
         
-        # Mock who command returning a user
-        mock_who = Mock(returncode=0, stdout="testuser tty1\n")
-        # Mock udisksctl mount success
-        mock_mount = Mock(returncode=0, stdout="Mounted /dev/sdb1 at /run/media/testuser/USB.\n")
-        mock_run.side_effect = [mock_who, mock_mount]
+        mock_get_active_user.return_value = "testuser"
+        mock_makedirs.return_value = None
+
+        # Mock blkid label lookup and mount success
+        mock_blkid = Mock(returncode=0, stdout="USB\n")
+        mock_mount = Mock(returncode=0, stdout="")
+        mock_run.side_effect = [mock_blkid, mock_mount]
         
         # Mock user info
         mock_pw = Mock(pw_uid=1000, pw_gid=1000)
@@ -423,19 +494,25 @@ class TestTriggerMountRO:
         d = daemon.Daemon()
         d._trigger_mount_ro("/dev/sdb1")
         
-        # Should have called udisksctl mount
-        mount_calls = [c for c in mock_run.call_args_list if "udisksctl" in str(c)]
+        # Should have called mount for the device
+        mount_calls = [c for c in mock_run.call_args_list if "mount" in str(c)]
         assert len(mount_calls) > 0
     
     @patch('usb_enforcer.daemon.config_module.Config.load')
     @patch('usb_enforcer.daemon.logging_utils.setup_logging')
     @patch('usb_enforcer.daemon.pyudev.Context')
+    @patch('usb_enforcer.daemon.time.sleep', return_value=None)
+    @patch('usb_enforcer.daemon.os.makedirs')
+    @patch('usb_enforcer.daemon.user_utils.get_active_session_user')
     @patch('threading.Thread')
-    @patch('subprocess.run')
+    @patch('usb_enforcer.daemon.subprocess.run')
     def test_trigger_mount_ro_handles_mount_failure(
         self,
         mock_run,
         mock_thread,
+        mock_get_active_user,
+        mock_makedirs,
+        _mock_sleep,
         mock_context,
         mock_logging,
         mock_config
@@ -443,12 +520,16 @@ class TestTriggerMountRO:
         """Test that mount failure is handled gracefully."""
         mock_config.return_value = Mock()
         mock_logging.return_value = Mock()
+        mock_config.return_value.default_plain_mount_opts = ["nodev", "nosuid", "ro"]
+        mock_config.return_value.require_noexec_on_plain = False
         
-        # Mock who command
-        mock_who = Mock(returncode=0, stdout="testuser tty1\n")
-        # Mock udisksctl mount failure
+        mock_get_active_user.return_value = "testuser"
+        mock_makedirs.return_value = None
+
+        # Mock blkid label lookup and mount failure
+        mock_blkid = Mock(returncode=0, stdout="USB\n")
         mock_mount = Mock(returncode=1, stderr="Device not found\n")
-        mock_run.side_effect = [mock_who, mock_mount]
+        mock_run.side_effect = [mock_blkid, mock_mount]
         
         # Mock threading to execute callback immediately
         def immediate_thread(target, *args, **kwargs):

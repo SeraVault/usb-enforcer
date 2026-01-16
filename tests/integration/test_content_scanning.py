@@ -218,7 +218,7 @@ class TestEncryptedDriveContentScanning:
         assert d.content_scanner is not None
         
         # Test sensitive content detection
-        sensitive_content = b"SSN: 123-45-6789\nCredit Card: 4532-1543-2154-3211"
+        sensitive_content = b"SSN: 123-45-6789\nCredit Card: 4111-1111-1111-1111"
         
         # Create a temporary file with sensitive content
         test_file = temp_dir / "sensitive.txt"
@@ -303,7 +303,7 @@ class TestUnencryptedDriveContentScanning:
         sensitive_content = b"""
         Patient Name: John Doe
         SSN: 123-45-6789
-        Credit Card: 4532-1543-2154-3211
+        Credit Card: 4111-1111-1111-1111
         API Key: sk_live_FAKE12345678901234567890
         """
         
@@ -362,7 +362,7 @@ class TestContentScannerPatterns:
         
         test_cases = [
             (b"SSN: 123-45-6789", True),
-            (b"Social Security Number: 987-65-4321", True),
+            (b"Social Security Number: 111-22-3333", True),
             (b"123-45-6789", True),
             (b"Random text without SSN", False),
             (b"123-456-7890", False),  # Phone number, not SSN
@@ -383,9 +383,9 @@ class TestContentScannerPatterns:
         scanner = d.content_scanner
         
         test_cases = [
-            (b"Card: 4532-1543-2154-3211", True),  # Valid Visa with dashes
-            (b"4343434343434345", True),  # Valid Visa without dashes
-            (b"Credit Card Number: 5425-2334-3010-9903", True),  # Valid Mastercard
+            (b"Card: 4111-1111-1111-1111", True),  # Valid Visa with dashes
+            (b"4012888888881881", True),  # Valid Visa without dashes
+            (b"Credit Card Number: 5555-5555-5555-4444", True),  # Valid Mastercard
             (b"Random numbers: 1234-5678-9012-3456", False),  # Invalid Luhn check digit
         ]
         

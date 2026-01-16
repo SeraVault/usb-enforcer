@@ -25,4 +25,16 @@ def setup_logging(level: int = logging.INFO) -> logging.Logger:
 
 def log_structured(logger: logging.Logger, message: str, extra_fields: Dict[str, Any]) -> None:
     # systemd.journal.JournalHandler accepts dict in extra; fallback to plain logging otherwise.
-    logger.info(message, extra=extra_fields)
+    handlers = getattr(logger, "handlers", [])
+    try:
+        iter(handlers)
+    except TypeError:
+        handlers = []
+    if JournalHandler and any(isinstance(h, JournalHandler) for h in handlers):
+        logger.info(message, extra=extra_fields)
+        return
+    if extra_fields:
+        fields = " ".join(f"{key}={value}" for key, value in extra_fields.items())
+        logger.info(f"{message} {fields}")
+        return
+    logger.info(message)

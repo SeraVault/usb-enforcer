@@ -54,19 +54,19 @@ class TestCreditCardValidator:
     
     def test_valid_visa(self):
         """Test valid Visa card"""
-        assert CreditCardValidator.validate('4532-1488-0343-6467')
+        assert CreditCardValidator.validate('4111-1111-1111-1111')
     
     def test_valid_visa_no_dashes(self):
         """Test valid Visa without dashes"""
-        assert CreditCardValidator.validate('4532148803436467')
+        assert CreditCardValidator.validate('4111111111111111')
     
     def test_valid_mastercard(self):
         """Test valid Mastercard"""
-        assert CreditCardValidator.validate('5425-2334-3010-9903')
+        assert CreditCardValidator.validate('5555-5555-5555-4444')
     
     def test_invalid_luhn(self):
         """Test invalid Luhn checksum"""
-        assert not CreditCardValidator.validate('4532-1488-0343-6468')
+        assert not CreditCardValidator.validate('4111-1111-1111-1112')
     
     def test_too_short(self):
         """Test number too short"""
@@ -130,7 +130,7 @@ class TestPatternLibrary:
     def test_scan_text_with_credit_card(self):
         """Test scanning text containing credit card"""
         lib = PatternLibrary()
-        text = "My card number is 4532-1488-0343-6467"
+        text = "My card number is 4111-1111-1111-1111"
         
         matches = lib.scan_text(text)
         assert len(matches) > 0
@@ -139,7 +139,7 @@ class TestPatternLibrary:
     def test_scan_text_with_multiple_patterns(self):
         """Test scanning text with multiple sensitive data"""
         lib = PatternLibrary()
-        text = "SSN: 123-45-6789, Card: 4532-1488-0343-6467, Email: user@example.com"
+        text = "SSN: 123-45-6789, Card: 4111-1111-1111-1111, Email: user@example.com"
         
         matches = lib.scan_text(text)
         assert len(matches) >= 3
