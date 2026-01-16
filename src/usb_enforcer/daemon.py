@@ -527,6 +527,39 @@ class Daemon:
         This handles cases where devices are unplugged without proper unmounting.
         """
         try:
+            # First, clean up any FUSE overlays that might be associated with this device
+            if self.fuse_manager:
+                # Check all FUSE mounts to see if any are backed by this device
+                mounts_to_cleanup = []
+                for mount_point in list(self.fuse_manager.mounts.keys()):
+                    try:
+                        _, _, real_mount = self.fuse_manager.mounts[mount_point]
+                        # Check if the backing device is the one being removed
+                        # Check both the hidden backing directory and direct mount
+                        result = subprocess.run(
+                            ["findmnt", "-n", "-o", "SOURCE", "-M", real_mount],
+                            capture_output=True,
+                            text=True,
+                            check=False
+                        )
+                        if result.returncode == 0:
+                            source = result.stdout.strip()
+                            if devnode in source or source.startswith(devnode):
+                                mounts_to_cleanup.append(mount_point)
+                        else:
+                            # Backing mount doesn't exist - orphaned FUSE
+                            mounts_to_cleanup.append(mount_point)
+                    except Exception as e:
+                        self.logger.debug(f"Error checking FUSE mount {mount_point}: {e}")
+                
+                # Clean up identified FUSE mounts
+                for mount_point in mounts_to_cleanup:
+                    try:
+                        self.logger.info(f"Cleaning up FUSE overlay: {mount_point}")
+                        self.fuse_manager.unmount(mount_point)
+                    except Exception as e:
+                        self.logger.warning(f"Failed to cleanly unmount FUSE overlay {mount_point}: {e}")
+            
             # Get list of mount points in /run/media
             result = subprocess.run(
                 ["findmnt", "-n", "-o", "TARGET,SOURCE", "-t", "exfat,vfat,ext4,ext3,ext2"],
