@@ -121,11 +121,13 @@ class TestVeraCryptVersion:
     
     def test_veracrypt_version_detects_volume(self):
         """Test VeraCrypt volume detection."""
-        with patch('usb_enforcer.crypto_engine._run') as mock_run, \
-             patch('shutil.which', return_value='/usr/bin/veracrypt'):
-            mock_run.return_value.stdout = b"Success"
+        devnode = "/dev/test"
+        with patch('shutil.which', return_value='/usr/bin/veracrypt'), \
+             patch('subprocess.run') as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = f"{devnode}\n".encode()
             
-            version = crypto_engine.veracrypt_version("/dev/test")
+            version = crypto_engine.veracrypt_version(devnode)
             
             assert version == "veracrypt"
             mock_run.assert_called_once()
@@ -139,9 +141,8 @@ class TestVeraCryptVersion:
     
     def test_veracrypt_version_returns_none_on_error(self):
         """Test that non-VeraCrypt devices return None."""
-        with patch('usb_enforcer.crypto_engine._run') as mock_run, \
-             patch('shutil.which', return_value='/usr/bin/veracrypt'):
-            mock_run.side_effect = crypto_engine.CryptoError("not a VeraCrypt volume")
+        with patch('shutil.which', return_value='/usr/bin/veracrypt'), \
+             patch('subprocess.run', side_effect=crypto_engine.CryptoError("not a VeraCrypt volume")):
             
             version = crypto_engine.veracrypt_version("/dev/plaintext")
             
@@ -157,7 +158,8 @@ class TestUnlockVeraCrypt:
              patch('os.makedirs') as mock_makedirs, \
              patch('os.path.getmtime', return_value=1000), \
              patch('glob.glob', return_value=['/dev/mapper/veracrypt1']), \
-             patch('time.sleep'):
+             patch('time.sleep'), \
+             patch.dict('os.environ', {'SUDO_USER': 'testuser'}, clear=False):
             
             result = crypto_engine.unlock_veracrypt(
                 "/dev/sdb1",
@@ -165,9 +167,9 @@ class TestUnlockVeraCrypt:
                 "secret123"
             )
             
-            mock_makedirs.assert_called_once_with("/media/veracrypt-my-mapper", exist_ok=True)
+            mock_makedirs.assert_called_once_with("/media/testuser", exist_ok=True)
             mock_run.assert_called_once_with(
-                ["veracrypt", "--text", "--non-interactive", "--stdin", "/dev/sdb1", "/media/veracrypt-my-mapper"],
+                ["veracrypt", "--text", "--non-interactive", "--stdin", "/dev/sdb1", "/media/testuser/my-mapper"],
                 input_data=b"secret123"
             )
             assert result == "/dev/mapper/veracrypt1"
@@ -177,7 +179,8 @@ class TestUnlockVeraCrypt:
         with patch('usb_enforcer.crypto_engine._run') as mock_run, \
              patch('os.makedirs'), \
              patch('glob.glob', return_value=[]), \
-             patch('time.sleep'):
+             patch('time.sleep'), \
+             patch.dict('os.environ', {'SUDO_USER': 'testuser'}, clear=False):
             
             result = crypto_engine.unlock_veracrypt(
                 "/dev/sdb1",
@@ -185,7 +188,7 @@ class TestUnlockVeraCrypt:
                 "secret123"
             )
             
-            assert result == "/media/veracrypt-my-mapper"
+            assert result == "/media/testuser/my-mapper"
 
 
 class TestCreateFilesystem:
@@ -518,7 +521,7 @@ class TestEncryptDevice:
             )
         
         # Should have attempted cleanup
-        mock_close.assert_called_once_with("test-mapper")
+        mock_close.assert_called_once_with("test-mapper", "luks")
     
     @patch('usb_enforcer.crypto_engine._run')
     @patch('usb_enforcer.crypto_engine._get_device_partitions')

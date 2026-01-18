@@ -126,14 +126,71 @@ class ContentScanningConfig:
         Returns:
             ContentScanningConfig instance
         """
-        # Extract sub-configurations
-        patterns_dict = config_dict.get('patterns', {})
-        archives_dict = config_dict.get('archives', {})
-        documents_dict = config_dict.get('documents', {})
-        ngrams_dict = config_dict.get('ngrams', {})
-        entropy_dict = config_dict.get('entropy', {})
-        policy_dict = config_dict.get('policy', {})
-        logging_dict = config_dict.get('logging', {})
+        # Extract sub-configurations (support nested or flat keys)
+        def _copy_section(name: str) -> Dict[str, Any]:
+            section = config_dict.get(name, {})
+            return dict(section) if isinstance(section, dict) else {}
+
+        patterns_dict = _copy_section('patterns')
+        archives_dict = _copy_section('archives')
+        documents_dict = _copy_section('documents')
+        ngrams_dict = _copy_section('ngrams')
+        entropy_dict = _copy_section('entropy')
+        policy_dict = _copy_section('policy')
+        logging_dict = _copy_section('logging')
+
+        if 'enabled_categories' in config_dict:
+            patterns_dict.setdefault('enabled_categories', config_dict.get('enabled_categories'))
+        if 'disabled_patterns' in config_dict:
+            patterns_dict.setdefault('disabled_patterns', config_dict.get('disabled_patterns'))
+        if 'custom_patterns' in config_dict:
+            patterns_dict.setdefault('custom_patterns', config_dict.get('custom_patterns'))
+        if 'custom' in config_dict:
+            patterns_dict.setdefault('custom', config_dict.get('custom'))
+
+        if 'action' in config_dict:
+            policy_dict.setdefault('action', config_dict.get('action'))
+
+        if 'archive_scanning_enabled' in config_dict:
+            archives_dict.setdefault('scan_archives', config_dict.get('archive_scanning_enabled'))
+        if 'max_archive_depth' in config_dict:
+            archives_dict.setdefault('max_depth', config_dict.get('max_archive_depth'))
+        if 'max_archive_members' in config_dict:
+            archives_dict.setdefault('max_members', config_dict.get('max_archive_members'))
+        if 'max_extract_size_mb' in config_dict:
+            archives_dict.setdefault('max_extract_size_mb', config_dict.get('max_extract_size_mb'))
+        if 'scan_timeout_seconds' in config_dict:
+            archives_dict.setdefault('scan_timeout_seconds', config_dict.get('scan_timeout_seconds'))
+
+        if 'document_scanning_enabled' in config_dict:
+            documents_dict.setdefault('scan_documents', config_dict.get('document_scanning_enabled'))
+
+        if 'ngram_analysis_enabled' in config_dict:
+            ngrams_dict.setdefault('enabled', config_dict.get('ngram_analysis_enabled'))
+
+        if 'cache_enabled' in config_dict:
+            config_dict = dict(config_dict)
+            config_dict.setdefault('enable_cache', config_dict.get('cache_enabled'))
+        if 'cache_max_size_mb' in config_dict:
+            config_dict = dict(config_dict)
+            config_dict.setdefault('cache_size_mb', config_dict.get('cache_max_size_mb'))
+
+        if 'scan_timeout_seconds' in config_dict:
+            config_dict = dict(config_dict)
+            config_dict.setdefault('max_scan_time_seconds', config_dict.get('scan_timeout_seconds'))
+
+        def _normalize_categories(categories: List[str]) -> List[str]:
+            if not categories:
+                return categories
+            normalized = []
+            for category in categories:
+                if category == 'personal':
+                    normalized.append('pii')
+                elif category == 'authentication':
+                    normalized.append('corporate')
+                else:
+                    normalized.append(category)
+            return normalized
         
         return cls(
             enabled=config_dict.get('enabled', True),
@@ -151,15 +208,18 @@ class ContentScanningConfig:
             cache_ttl_hours=config_dict.get('cache_ttl_hours', 24),
             block_on_error=config_dict.get('block_on_error', True),
             patterns=PatternConfig(
-                enabled_categories=patterns_dict.get('enabled_categories', ['pii', 'financial', 'corporate']),
+                enabled_categories=_normalize_categories(
+                    patterns_dict.get('enabled_categories', ['pii', 'financial', 'corporate'])
+                ),
                 disabled_patterns=patterns_dict.get('disabled_patterns', []),
-                custom_patterns=patterns_dict.get('custom', [])
+                custom_patterns=patterns_dict.get('custom', patterns_dict.get('custom_patterns', []))
             ),
             archives=ArchiveConfig(
                 scan_archives=archives_dict.get('scan_archives', True),
                 max_depth=archives_dict.get('max_depth', 5),
                 max_members=archives_dict.get('max_members', 1000),
                 max_extract_size_mb=archives_dict.get('max_extract_size_mb', 100),
+                scan_timeout_seconds=archives_dict.get('scan_timeout_seconds', 30),
                 block_encrypted_archives=archives_dict.get('block_encrypted_archives', True),
                 supported_formats=archives_dict.get('supported_formats', 
                                                    ['zip', 'tar', 'tar.gz', 'tar.bz2', 'tar.xz', '7z'])
@@ -229,9 +289,15 @@ class ContentScanningConfig:
             'custom_patterns': self.patterns.custom_patterns,
             'enable_cache': self.enable_cache,
             'cache_size_mb': self.cache_size_mb,
+            'cache_ttl_hours': self.cache_ttl_hours,
             'max_file_size_mb': self.max_file_size_mb,
             'max_scan_time_seconds': self.max_scan_time_seconds,
+            'large_file_scan_mode': self.large_file_scan_mode,
             'block_threshold': self.ngrams.block_threshold,
+            'warn_threshold': self.ngrams.warn_threshold,
+            'ngram_enabled': self.ngrams.enabled,
+            'ngram_character_size': self.ngrams.character_ngram_size,
+            'ngram_word_size': self.ngrams.word_ngram_size,
             'action': self.policy.action,
             'block_on_error': self.block_on_error,
         }

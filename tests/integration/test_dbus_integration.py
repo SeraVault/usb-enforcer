@@ -38,10 +38,10 @@ def create_test_dbus_service():
     def mock_get_status(devnode):
         return {"devnode": devnode, "status": "unknown"}
     
-    def mock_unlock(devnode, mapper_name, passphrase):
+    def mock_unlock(devnode, mapper_name, token):
         return "success"
     
-    def mock_encrypt(devnode, mapper_name, passphrase, fs_type, label):
+    def mock_encrypt(devnode, mapper_name, token, fs_type, label):
         return "success"
     
     service = dbus_api.UsbEnforcerDBus(
@@ -132,7 +132,7 @@ class TestDBusMethodCalls:
     def test_request_encryption_method(self):
         """Test RequestEncrypt D-Bus method."""
         # Create service with mock encrypt function that returns token
-        def mock_encrypt(devnode, mapper_name, passphrase, fs_type, label):
+        def mock_encrypt(devnode, mapper_name, token, fs_type, label):
             return f"token-{devnode}-{mapper_name}"
         
         logger = logging.getLogger("test-dbus")
@@ -148,7 +148,7 @@ class TestDBusMethodCalls:
         result = service.RequestEncrypt(
             devnode="/dev/sdb1",
             mapper_name="test-mapper",
-            passphrase="TestPass123!@#",
+            token="TestToken123!@#",
             fs_type="exfat",
             label="TestLabel"
         )
@@ -249,7 +249,7 @@ class TestDBusServiceLifecycle:
         )
         
         # Use RequestEncrypt which calls the callback
-        result = service.RequestEncrypt("/dev/sdb1", "mapper", "TestPass123!@#", "exfat", "label")
+        result = service.RequestEncrypt("/dev/sdb1", "mapper", "TestToken123!@#", "exfat", "label")
         
         assert result == "token-12345"
         callback.assert_called_once()
@@ -304,7 +304,7 @@ class TestDBusRealWorldScenarios:
     def test_encryption_request_workflow(self):
         """Test complete encryption request workflow."""
         # Setup encryption callback
-        def mock_encrypt(devnode: str, mapper_name: str, passphrase: str, fs_type: str, label: str) -> str:
+        def mock_encrypt(devnode: str, mapper_name: str, token: str, fs_type: str, label: str) -> str:
             # Simulate encryption
             return f"token-{devnode}-{mapper_name}"
         
@@ -318,7 +318,7 @@ class TestDBusRealWorldScenarios:
         )
         
         # Request encryption
-        token = service.RequestEncrypt("/dev/sdb1", "test-mapper", "SecurePass123!@#", "exfat", "MyUSB")
+        token = service.RequestEncrypt("/dev/sdb1", "test-mapper", "SecureToken123!@#", "exfat", "MyUSB")
         
         # Should get a token
         assert token.startswith("token-/dev/sdb1")
@@ -389,7 +389,7 @@ class TestDBusErrorHandling:
     
     def test_encryption_without_callback(self):
         """Test encryption request when encrypt function raises error."""
-        def mock_encrypt_error(devnode, mapper_name, passphrase, fs_type, label):
+        def mock_encrypt_error(devnode, mapper_name, token, fs_type, label):
             raise RuntimeError("Encryption not available")
         
         logger = logging.getLogger("test-dbus")
@@ -403,7 +403,7 @@ class TestDBusErrorHandling:
         
         # Should raise error
         with pytest.raises(RuntimeError):
-            service.RequestEncrypt("/dev/sdb1", "mapper", "TestPass123!@#", "exfat", "label")
+            service.RequestEncrypt("/dev/sdb1", "mapper", "TestToken123!@#", "exfat", "label")
 
 
 @pytest.mark.skipif(not DBUS_AVAILABLE, reason="D-Bus not available")

@@ -50,7 +50,7 @@ pkexec usb-enforcer-admin
 2. **Configure Content Scanning**
    - Go to "Content Scanning" section
    - Enable scanning for sensitive data
-   - Select categories to scan (financial, personal, etc.)
+   - Select categories to scan (financial, pii/personal, corporate/authentication, etc.)
    - Set file size limits
 
 3. **Adjust Security Settings**

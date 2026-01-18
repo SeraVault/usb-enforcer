@@ -249,6 +249,8 @@ class AdminWindow(Gtk.ApplicationWindow):
         return {
             "enforce_on_usb_only": True,
             "allow_luks1_readonly": True,
+            "allow_luks2": True,
+            "allow_veracrypt": True,
             "allow_plaintext_write_with_scanning": True,
             "notification_enabled": True,
             "min_passphrase_length": 12,
@@ -327,6 +329,18 @@ class AdminWindow(Gtk.ApplicationWindow):
                        _("Allow older LUKS1 encrypted devices in read-only mode. "
                        "LUKS2 is recommended for better security."),
                        "ADMINISTRATION.md#luks-versions")
+        
+        self.add_switch(page, "allow_luks2", 
+                       _("Allow LUKS2"),
+                       _("Allow LUKS2 encrypted devices to be unlocked. "
+                       "LUKS2 is the modern Linux encryption standard."),
+                       "ADMINISTRATION.md#luks-versions")
+        
+        self.add_switch(page, "allow_veracrypt", 
+                       _("Allow VeraCrypt"),
+                       _("Allow VeraCrypt encrypted devices to be unlocked. "
+                       "VeraCrypt is cross-platform (Windows/Mac/Linux)."),
+                       "ADMINISTRATION.md#veracrypt")
         
         self.add_switch(page, "allow_plaintext_write_with_scanning", 
                        _("Allow Write with Content Scanning"),
@@ -1669,6 +1683,8 @@ class AdminWindow(Gtk.ApplicationWindow):
         help_texts = {
             "enforce_on_usb_only": _("When enabled, only USB devices are enforced. Other storage types (SATA, NVMe, etc.) are not affected. Useful for workstations where internal drives should not be restricted."),
             "allow_luks1_readonly": _("LUKS1 is an older encryption format. If enabled, LUKS1 devices are allowed but only in read-only mode. LUKS2 is more secure and should be preferred."),
+            "allow_luks2": _("When enabled, LUKS2 encrypted devices can be unlocked and used. LUKS2 is the modern Linux encryption standard with improved security. Disable to restrict only to VeraCrypt or other formats."),
+            "allow_veracrypt": _("When enabled, VeraCrypt encrypted devices can be unlocked and used. VeraCrypt is cross-platform (Windows/Mac/Linux). Disable to restrict only to LUKS encryption."),
             "allow_plaintext_write_with_scanning": _("Allows writing to unencrypted USB drives if content scanning is enabled. Files are scanned for sensitive patterns before being written. Requires content_scanning_enabled=true."),
             "allow_group_exemption": _("Users in the configured exemption group can bypass enforcement. Useful for IT administrators or trusted users who need unrestricted access."),
             "exemption_group": _("Name of the system group whose members are exempt from enforcement. Default is 'usb-exempt'. Create this group and add trusted users to it."),

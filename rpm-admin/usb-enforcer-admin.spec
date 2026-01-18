@@ -15,6 +15,8 @@ Requires:       gtk4
 Requires:       libadwaita
 Requires:       python3-gobject
 Requires:       polkit
+# toml module (built-in for Python >= 3.11, separate package for older versions)
+Requires:       (python3-toml if python3 < 3.11)
 
 Recommends:     usb-enforcer
 
@@ -37,25 +39,14 @@ where the enforcement daemon is not running.
 %autosetup -n usb-enforcer-%{version}
 
 %build
-# Python package build handled by setup.py
-%py3_build
+# Nothing to build - admin GUI is standalone
 
 %install
-%py3_install
-
-# Create admin directory with dedicated venv
+# Copy admin module (no venv needed - uses system Python)
 mkdir -p %{buildroot}%{_prefix}/lib/usb-enforcer-admin
-python3 -m venv --system-site-packages %{buildroot}%{_prefix}/lib/usb-enforcer-admin/.venv
-
-# Install minimal dependencies in venv
-%{buildroot}%{_prefix}/lib/usb-enforcer-admin/.venv/bin/pip install --upgrade pip
-# Only install toml if Python < 3.11
-%{buildroot}%{_prefix}/lib/usb-enforcer-admin/.venv/bin/python3 -c 'import sys; exit(0 if sys.version_info >= (3,11) else 1)' || \
-    %{buildroot}%{_prefix}/lib/usb-enforcer-admin/.venv/bin/pip install toml
-
-# Copy admin module
 mkdir -p %{buildroot}%{_prefix}/lib/usb-enforcer-admin/usb_enforcer/ui
 cp src/usb_enforcer/ui/admin.py %{buildroot}%{_prefix}/lib/usb-enforcer-admin/usb_enforcer/ui/
+cp src/usb_enforcer/i18n.py %{buildroot}%{_prefix}/lib/usb-enforcer-admin/usb_enforcer/
 touch %{buildroot}%{_prefix}/lib/usb-enforcer-admin/usb_enforcer/__init__.py
 touch %{buildroot}%{_prefix}/lib/usb-enforcer-admin/usb_enforcer/ui/__init__.py
 
@@ -64,11 +55,27 @@ install -D -m 755 scripts/usb-enforcer-admin %{buildroot}%{_bindir}/usb-enforcer
 
 # Install desktop file
 install -D -m 644 deploy/desktop/usb-enforcer-admin.desktop %{buildroot}%{_datadir}/applications/usb-enforcer-admin.desktop
-prefix}/lib/usb-enforcer-admin/
-%{_datadir}/applications/usb-enforcer-admin.desktop
-%{_datadir}/polkit-1/actions/49-usb-enforcer-admin.policy
-%{_datadir}/usb-enforcer/config.toml.sample
-%{_docdir}/usb-enforcer/*enforcer/config.toml.sample
+
+# Install locale files (translations)
+for po in locale/*/LC_MESSAGES/*.po; do
+    # Check if glob expanded (if not, po will be the pattern itself)
+    [ -e "$po" ] || continue
+    mo="${po%.po}.mo"
+    if [ ! -f "$mo" ] || [ "$po" -nt "$mo" ]; then
+        msgfmt "$po" -o "$mo" 2>/dev/null || true
+    fi
+    if [ -f "$mo" ]; then
+        locale_code=$(echo "$po" | cut -d/ -f2)
+        install -d "%{buildroot}%{_datadir}/locale/${locale_code}/LC_MESSAGES"
+        install -m 0644 "$mo" "%{buildroot}%{_datadir}/locale/${locale_code}/LC_MESSAGES/usb-enforcer.mo"
+    fi
+done
+
+# Install polkit policy
+install -D -m 644 deploy/polkit/49-usb-enforcer-admin.policy %{buildroot}%{_datadir}/polkit-1/actions/49-usb-enforcer-admin.policy
+
+# Install sample config
+install -D -m 644 deploy/config.toml.sample %{buildroot}%{_datadir}/usb-enforcer/config.toml.sample
 
 # Install documentation
 mkdir -p %{buildroot}%{_docdir}/usb-enforcer
@@ -79,12 +86,13 @@ cp README.md %{buildroot}%{_docdir}/usb-enforcer/
 %license LICENSE
 %doc README.md
 %{_bindir}/usb-enforcer-admin
+%{_prefix}/lib/usb-enforcer-admin/
 %{_datadir}/applications/usb-enforcer-admin.desktop
 %{_datadir}/polkit-1/actions/49-usb-enforcer-admin.policy
 %{_datadir}/usb-enforcer/config.toml.sample
 %{_docdir}/usb-enforcer/*
-%{python3_sitelib}/usb_enforcer/ui/admin.py
-%{python3_sitelib}/usb_enforcer-%{version}-py%{python3_version}.egg-info
+%{_datadir}/locale/es/LC_MESSAGES/usb-enforcer.mo
+%{_datadir}/locale/fr/LC_MESSAGES/usb-enforcer.mo
 
 %changelog
 * Thu Jan 16 2025 Donnie Guedry <dguedry@gmail.com> - 1.0.0-1

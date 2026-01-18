@@ -58,7 +58,7 @@ USB Enforcer provides endpoint DLP (Data Loss Prevention) control for Linux syst
 - Logging: structured journald entries for insert, classification, mount decision, blocked actions, wizard start/complete/fail, unlock success/fail (no secrets).
 
 ## 5) Configuration (/etc/usb-enforcer/config.toml)
-- `enforce_on_usb_only` (bool, default true)
+- `enforce_on_usb_only` (bool, default true). When false, enforcement applies to non-USB block devices too.
 - `allow_luks1_readonly` (bool, default true; if false, block mounts)
 - `default_plain_mount_opts` (e.g., `nodev,nosuid,noexec,ro`)
 - `default_encrypted_mount_opts` (e.g., `nodev,nosuid,rw[,noexec]`)

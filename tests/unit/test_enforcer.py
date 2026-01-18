@@ -197,3 +197,28 @@ class TestEnforcePolicy:
         result = enforcer.enforce_policy(device_props, "/dev/sda", logger, config)
         
         assert result[constants.LOG_KEY_ACTION] == "noop"
+
+    @patch('usb_enforcer.user_utils.any_active_user_in_groups')
+    @patch('usb_enforcer.enforcer.set_block_read_only')
+    def test_non_usb_device_enforced_when_disabled(self, mock_setro, mock_exempted, mock_config_file):
+        """Test non-USB devices are enforced when enforce_on_usb_only is False."""
+        from usb_enforcer import config as config_module
+        
+        mock_exempted.return_value = (False, "")
+        mock_setro.return_value = True
+        config = config_module.Config.load(mock_config_file)
+        config.enforce_on_usb_only = False
+        logger = MagicMock()
+        
+        device_props = {
+            "ID_BUS": "ata",
+            "ID_TYPE": "partition",
+            "DEVTYPE": "partition",
+            "ID_FS_TYPE": "ext4",
+            "ID_FS_USAGE": "filesystem",
+        }
+        
+        result = enforcer.enforce_policy(device_props, "/dev/sda1", logger, config)
+        
+        assert result[constants.LOG_KEY_ACTION] == "block_rw"
+        mock_setro.assert_called_once_with("/dev/sda1", logger)

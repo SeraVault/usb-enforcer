@@ -20,6 +20,8 @@ except ImportError:
 class Config:
     enforce_on_usb_only: bool = True
     allow_luks1_readonly: bool = True
+    allow_luks2: bool = True  # Allow LUKS2 encrypted devices
+    allow_veracrypt: bool = True  # Allow VeraCrypt encrypted devices
     allow_plaintext_write_with_scanning: bool = False  # Allow write to plaintext drives if content scanning is enabled
     default_plain_mount_opts: List[str] = field(default_factory=lambda: ["nodev", "nosuid", "noexec", "ro"])
     default_encrypted_mount_opts: List[str] = field(default_factory=lambda: ["nodev", "nosuid", "rw"])
@@ -58,6 +60,8 @@ class Config:
         return cls(
             enforce_on_usb_only=parsed.get("enforce_on_usb_only", True),
             allow_luks1_readonly=parsed.get("allow_luks1_readonly", True),
+            allow_luks2=parsed.get("allow_luks2", True),
+            allow_veracrypt=parsed.get("allow_veracrypt", True),
             allow_plaintext_write_with_scanning=parsed.get("allow_plaintext_write_with_scanning", False),
             default_plain_mount_opts=parsed.get("default_plain_mount_opts", ["nodev", "nosuid", "noexec", "ro"]),
             default_encrypted_mount_opts=parsed.get("default_encrypted_mount_opts", ["nodev", "nosuid", "rw"]),

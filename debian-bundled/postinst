@@ -38,7 +38,13 @@ case "$1" in
         
         # Enable and start daemon
         systemctl enable usb-enforcerd.service || true
-        systemctl start usb-enforcerd.service || true
+        
+        # Restart daemon if already running (upgrade), otherwise start it (new install)
+        if systemctl is-active --quiet usb-enforcerd.service; then
+            systemctl restart usb-enforcerd.service || true
+        else
+            systemctl start usb-enforcerd.service || true
+        fi
         
         # Enable user service for all users (graphical-session.target)
         mkdir -p /etc/systemd/user/graphical-session.target.wants

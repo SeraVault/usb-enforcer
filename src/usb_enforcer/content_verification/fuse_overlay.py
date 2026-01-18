@@ -112,6 +112,10 @@ class ContentScanningFuse(Operations):
                 self.stream_threshold_bytes = 0
             else:
                 self.stream_threshold_bytes = int(threshold_mb * 1024 * 1024)
+        self.scan_semaphore = None
+        if self.config and getattr(self.config, "max_concurrent_scans", None):
+            max_scans = max(1, int(self.config.max_concurrent_scans))
+            self.scan_semaphore = threading.Semaphore(max_scans)
         
         logger.info(f"FUSE overlay initialized: {root}")
     
@@ -377,46 +381,60 @@ class ContentScanningFuse(Operations):
                     progress.update(len(buffer))
                     self._notify_progress(progress)
                 
-                # Determine scan method based on file type
-                filename = os.path.basename(path)
-                filepath_obj = Path(filename)
-                scan_path = Path(temp_path) if temp_path else None
-                
-                # Check if it's an archive
-                if self.archive_scanner.is_archive(filepath_obj):
-                    logger.debug(f"Scanning as archive: {filename}")
-                    if scan_path:
-                        result = self.archive_scanner.scan_archive(scan_path)
+                scan_token = None
+                if self.scan_semaphore:
+                    scan_token = self.scan_semaphore
+                    scan_token.acquire()
+                try:
+                    # Determine scan method based on file type
+                    filename = os.path.basename(path)
+                    filepath_obj = Path(filename)
+                    scan_path = Path(temp_path) if temp_path else None
+                    scan_archives = True
+                    scan_documents = True
+                    if self.config and getattr(self.config, "archives", None):
+                        scan_archives = self.config.archives.scan_archives
+                    if self.config and getattr(self.config, "documents", None):
+                        scan_documents = self.config.documents.scan_documents
+                    
+                    # Check if it's an archive
+                    if scan_archives and self.archive_scanner.is_archive(filepath_obj):
+                        logger.debug(f"Scanning as archive: {filename}")
+                        if scan_path:
+                            result = self.archive_scanner.scan_archive(scan_path)
+                        else:
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=filepath_obj.suffix) as tmp:
+                                tmp.write(bytes(buffer))
+                                tmp_path = Path(tmp.name)
+                            try:
+                                result = self.archive_scanner.scan_archive(tmp_path)
+                            finally:
+                                tmp_path.unlink()
+                    
+                    # Check if it's a document
+                    elif scan_documents and self.document_scanner.is_document(filepath_obj):
+                        logger.debug(f"Scanning as document: {filename}")
+                        if scan_path:
+                            result = self.document_scanner.scan_document(scan_path)
+                        else:
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=filepath_obj.suffix) as tmp:
+                                tmp.write(bytes(buffer))
+                                tmp_path = Path(tmp.name)
+                            try:
+                                result = self.document_scanner.scan_document(tmp_path)
+                            finally:
+                                tmp_path.unlink()
+                    
+                    # Regular content scan
                     else:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=filepath_obj.suffix) as tmp:
-                            tmp.write(bytes(buffer))
-                            tmp_path = Path(tmp.name)
-                        try:
-                            result = self.archive_scanner.scan_archive(tmp_path)
-                        finally:
-                            tmp_path.unlink()
-                
-                # Check if it's a document
-                elif self.document_scanner.is_document(filepath_obj):
-                    logger.debug(f"Scanning as document: {filename}")
-                    if scan_path:
-                        result = self.document_scanner.scan_document(scan_path)
-                    else:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=filepath_obj.suffix) as tmp:
-                            tmp.write(bytes(buffer))
-                            tmp_path = Path(tmp.name)
-                        try:
-                            result = self.document_scanner.scan_document(tmp_path)
-                        finally:
-                            tmp_path.unlink()
-                
-                # Regular content scan
-                else:
-                    logger.debug(f"Scanning as content: {filename}")
-                    if scan_path:
-                        result = self.scanner.scan_file(scan_path)
-                    else:
-                        result = self.scanner.scan_content(bytes(buffer), filename)
+                        logger.debug(f"Scanning as content: {filename}")
+                        if scan_path:
+                            result = self.scanner.scan_file(scan_path)
+                        else:
+                            result = self.scanner.scan_content(bytes(buffer), filename)
+                finally:
+                    if scan_token:
+                        scan_token.release()
                 
                 # Update statistics
                 self.stats['files_scanned'] += 1

@@ -33,6 +33,7 @@ RUN_UNIT=true
 RUN_INTEGRATION=false
 RUN_COVERAGE=false
 RUN_LINT=false
+COVERAGE_DIR="htmlcov"
 
 if [ $# -eq 0 ]; then
     # Default: run unit tests
@@ -91,9 +92,13 @@ if [ "$RUN_UNIT" = true ]; then
     echo
     
     if [ "$RUN_COVERAGE" = true ]; then
-        $PYTEST tests/unit/ -v --cov=src/usb_enforcer --cov-report=html --cov-report=term || FAILED=1
+        if [ -e "$COVERAGE_DIR" ] && [ ! -w "$COVERAGE_DIR" ]; then
+            COVERAGE_DIR="htmlcov-${USER}"
+            echo -e "${YELLOW}Coverage output not writable; using ${COVERAGE_DIR}${NC}"
+        fi
+        $PYTEST tests/unit/ -v --cov=src/usb_enforcer --cov-report=html:"${COVERAGE_DIR}" --cov-report=term || FAILED=1
         echo
-        echo -e "${GREEN}Coverage report generated: htmlcov/index.html${NC}"
+        echo -e "${GREEN}Coverage report generated: ${COVERAGE_DIR}/index.html${NC}"
     else
         $PYTEST tests/unit/ -v || FAILED=1
     fi
@@ -103,35 +108,36 @@ fi
 # Run integration tests
 if [ "$RUN_INTEGRATION" = true ]; then
     if [ "$IS_ROOT" = false ]; then
-        echo -e "${RED}Error: Integration tests require root privileges${NC}"
-        echo "Run with: sudo $0 integration"
-        exit 1
+        echo -e "${YELLOW}Integration tests require root; skipping${NC}"
+        echo -e "${YELLOW}Run with: sudo $0 integration${NC}"
+        RUN_INTEGRATION=false
     fi
-    
-    echo "=================================================="
-    echo "  Running Integration Tests"
-    echo "=================================================="
-    echo
-    
-    # Check for required commands
-    MISSING_DEPS=false
-    for cmd in cryptsetup parted mkfs.ext4 losetup; do
-        if ! command -v $cmd &> /dev/null; then
-            echo -e "${RED}Error: Required command '$cmd' not found${NC}"
-            MISSING_DEPS=true
-        fi
-    done
-    
-    if [ "$MISSING_DEPS" = true ]; then
+    if [ "$RUN_INTEGRATION" = true ]; then
+        echo "=================================================="
+        echo "  Running Integration Tests"
+        echo "=================================================="
         echo
-        echo "Install system dependencies:"
-        echo "  Debian/Ubuntu: sudo apt-get install cryptsetup parted e2fsprogs"
-        echo "  Fedora/RHEL:   sudo dnf install cryptsetup parted e2fsprogs"
-        exit 1
+        
+        # Check for required commands
+        MISSING_DEPS=false
+        for cmd in cryptsetup parted mkfs.ext4 losetup; do
+            if ! command -v $cmd &> /dev/null; then
+                echo -e "${RED}Error: Required command '$cmd' not found${NC}"
+                MISSING_DEPS=true
+            fi
+        done
+        
+        if [ "$MISSING_DEPS" = true ]; then
+            echo
+            echo "Install system dependencies:"
+            echo "  Debian/Ubuntu: sudo apt-get install cryptsetup parted e2fsprogs"
+            echo "  Fedora/RHEL:   sudo dnf install cryptsetup parted e2fsprogs"
+            exit 1
+        fi
+        
+        $PYTEST tests/integration/ -v -m integration || FAILED=1
+        echo
     fi
-    
-    $PYTEST tests/integration/ -v -m integration || FAILED=1
-    echo
 fi
 
 # Run linting

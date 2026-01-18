@@ -83,11 +83,12 @@ cache_enabled = true
 cache_max_size_mb = 100
 
 enabled_categories = [
-    "financial",      # Credit cards, bank accounts
-    "personal",       # SSN, passports, licenses
-    "authentication", # API keys, passwords, tokens
-    "medical"        # Medical records, insurance IDs
+    "financial",  # Credit cards, bank accounts
+    "pii",        # SSN, passports, licenses
+    "corporate",  # API keys, passwords, tokens
+    "medical"     # Medical records, insurance IDs
 ]
+# Aliases: personal -> pii, authentication -> corporate
 
 # Archive scanning
 archive_scanning_enabled = true
@@ -122,13 +123,13 @@ Add custom detection patterns:
 [[content_scanning.custom_patterns]]
 name = "internal_employee_id"
 description = "Internal employee ID format"
-category = "personal"
+category = "pii"
 regex = "EMP-\\d{6}"
 
 [[content_scanning.custom_patterns]]
 name = "project_code"
 description = "Confidential project code"
-category = "authentication"
+category = "corporate"
 regex = "PROJ-[A-Z]{3}-\\d{4}"
 validator = "validate_project_code"  # Optional custom validator
 ```

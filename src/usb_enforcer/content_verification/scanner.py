@@ -16,6 +16,7 @@ from enum import Enum
 from collections import OrderedDict
 
 from .patterns import PatternLibrary, PatternMatch
+from .ngram_analyzer import NgramAnalyzer
 
 
 logger = logging.getLogger(__name__)
@@ -103,7 +104,7 @@ class ScanCache:
     unchanged files.
     """
     
-    def __init__(self, max_size_mb: int = 100):
+    def __init__(self, max_size_mb: int = 100, ttl_hours: Optional[int] = None):
         """
         Initialize cache.
         
@@ -112,10 +113,13 @@ class ScanCache:
         """
         self.cache: Dict[str, ScanResult] = {}
         self.lru: OrderedDict = OrderedDict()
+        self.entry_sizes: Dict[str, int] = {}
+        self.entry_times: Dict[str, float] = {}
         self.max_size = max_size_mb * 1024 * 1024
         self.current_size = 0
         self.hits = 0
         self.misses = 0
+        self.ttl_seconds = None if ttl_hours is None else ttl_hours * 3600
     
     def get(self, file_hash: str) -> Optional[ScanResult]:
         """
@@ -128,6 +132,12 @@ class ScanCache:
             Cached ScanResult if found, None otherwise
         """
         if file_hash in self.cache:
+            if self.ttl_seconds is not None:
+                entry_time = self.entry_times.get(file_hash, 0)
+                if time.time() - entry_time > self.ttl_seconds:
+                    self._evict(file_hash)
+                    self.misses += 1
+                    return None
             # Update LRU order
             self.lru.move_to_end(file_hash)
             self.hits += 1
@@ -149,12 +159,12 @@ class ScanCache:
         # Evict entries if needed
         while self.current_size + file_size > self.max_size and self.lru:
             oldest_hash = next(iter(self.lru))
-            del self.cache[oldest_hash]
-            del self.lru[oldest_hash]
-            self.current_size -= file_size
-        
+            self._evict(oldest_hash)
+
         self.cache[file_hash] = result
         self.lru[file_hash] = True
+        self.entry_sizes[file_hash] = file_size
+        self.entry_times[file_hash] = time.time()
         self.current_size += file_size
         logger.debug(f"Cached result for {file_hash[:16]}... (cache size: {self.current_size / 1024 / 1024:.1f} MB)")
     
@@ -162,6 +172,8 @@ class ScanCache:
         """Clear all cached entries"""
         self.cache.clear()
         self.lru.clear()
+        self.entry_sizes.clear()
+        self.entry_times.clear()
         self.current_size = 0
         self.hits = 0
         self.misses = 0
@@ -178,6 +190,13 @@ class ScanCache:
             'misses': self.misses,
             'hit_rate': hit_rate,
         }
+
+    def _evict(self, file_hash: str) -> None:
+        size = self.entry_sizes.pop(file_hash, 0)
+        self.entry_times.pop(file_hash, None)
+        self.cache.pop(file_hash, None)
+        self.lru.pop(file_hash, None)
+        self.current_size -= size
 
 
 class ContentScanner:
@@ -237,7 +256,8 @@ class ContentScanner:
         # Initialize cache
         cache_enabled = self.config.get('enable_cache', True)
         cache_size_mb = self.config.get('cache_size_mb', 100)
-        self.cache = ScanCache(cache_size_mb) if cache_enabled else None
+        cache_ttl_hours = self.config.get('cache_ttl_hours')
+        self.cache = ScanCache(cache_size_mb, cache_ttl_hours) if cache_enabled else None
         
         # Configuration
         max_file_size_mb = self.config.get('max_file_size_mb', 500)
@@ -245,7 +265,15 @@ class ContentScanner:
         self.max_scan_time = self.config.get('max_scan_time_seconds', 30)
         self.block_threshold = self.config.get('block_threshold', 0.65)
         self.action_mode = self.config.get('action', 'block')
+        if self.action_mode == "log_only":
+            self.action_mode = "allow"
         self.large_file_scan_mode = self.config.get('large_file_scan_mode', 'sampled')
+        self.warn_threshold = self.config.get('warn_threshold', 0.45)
+        self.ngram_enabled = self.config.get('ngram_enabled', True)
+        self.ngram_analyzer = NgramAnalyzer(
+            char_ngram_size=self.config.get('ngram_character_size', 3),
+            word_ngram_size=self.config.get('ngram_word_size', 2),
+        )
         
         logger.info(f"Content scanner initialized with {len(self.pattern_library.get_all_patterns())} patterns")
     
@@ -328,6 +356,8 @@ class ContentScanner:
                 result = self._scan_medium_file(filepath, file_hash)
             else:
                 result = self._scan_large_file(filepath, file_hash)
+            if time.time() - start_time > self.max_scan_time:
+                return self._timeout_result(start_time)
             
             # Set metadata
             result.file_path = str(filepath)
@@ -384,6 +414,9 @@ class ContentScanner:
             
             # Scan for patterns
             matches = self.pattern_library.scan_text(text)
+            suspicious_score = 0.0
+            if self.ngram_enabled:
+                suspicious_score = self.ngram_analyzer.score_content(text)
             
             # Determine action
             if matches:
@@ -403,7 +436,22 @@ class ContentScanner:
                     reason=reason,
                     matches=matches,
                     file_size=len(content),
-                    scan_duration=time.time() - start_time
+                    scan_duration=time.time() - start_time,
+                    suspicious_score=suspicious_score
+                )
+            if self.ngram_enabled and suspicious_score >= self.warn_threshold:
+                action = ScanAction.WARN
+                blocked = False
+                if suspicious_score >= self.block_threshold:
+                    action = ScanAction.BLOCK
+                    blocked = True
+                return ScanResult(
+                    blocked=blocked,
+                    action=action,
+                    reason="Suspicious content detected by n-gram analysis",
+                    file_size=len(content),
+                    scan_duration=time.time() - start_time,
+                    suspicious_score=suspicious_score
                 )
             else:
                 return ScanResult(
@@ -411,26 +459,45 @@ class ContentScanner:
                     action=ScanAction.ALLOW,
                     reason="No sensitive data detected",
                     file_size=len(content),
-                    scan_duration=time.time() - start_time
+                    scan_duration=time.time() - start_time,
+                    suspicious_score=suspicious_score
                 )
                 
         except Exception as e:
             logger.error(f"Error scanning content: {e}", exc_info=True)
             
-            if self.config.get('block_on_error', True):
-                return ScanResult(
-                    blocked=True,
-                    action=ScanAction.BLOCK,
-                    reason=f"Scan error: {str(e)}",
-                    scan_duration=time.time() - start_time
-                )
-            else:
-                return ScanResult(
-                    blocked=False,
-                    action=ScanAction.ALLOW,
-                    reason=f"Scan error (allowed): {str(e)}",
-                    scan_duration=time.time() - start_time
-                )
+            return self._error_result(str(e), start_time)
+
+    def _timeout_result(self, start_time: float) -> ScanResult:
+        reason = f"Scan timeout exceeded ({self.max_scan_time}s)"
+        if self.config.get('block_on_error', True):
+            return ScanResult(
+                blocked=True,
+                action=ScanAction.BLOCK,
+                reason=reason,
+                scan_duration=time.time() - start_time
+            )
+        return ScanResult(
+            blocked=False,
+            action=ScanAction.ALLOW,
+            reason=reason,
+            scan_duration=time.time() - start_time
+        )
+
+    def _error_result(self, error: str, start_time: float) -> ScanResult:
+        if self.config.get('block_on_error', True):
+            return ScanResult(
+                blocked=True,
+                action=ScanAction.BLOCK,
+                reason=f"Scan error: {error}",
+                scan_duration=time.time() - start_time
+            )
+        return ScanResult(
+            blocked=False,
+            action=ScanAction.ALLOW,
+            reason=f"Scan error (allowed): {error}",
+            scan_duration=time.time() - start_time
+        )
     
     def _scan_small_file(self, filepath: Path, file_hash: str) -> ScanResult:
         """Scan small file completely in memory"""

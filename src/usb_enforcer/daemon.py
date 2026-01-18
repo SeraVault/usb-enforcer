@@ -65,7 +65,7 @@ class Daemon:
         self._init_content_scanner()
 
     def _emit_event(self, fields: Dict[str, str]) -> None:
-        if self.dbus_service:
+        if self.dbus_service and self.config.notification_enabled:
             self.dbus_service.emit_event(fields)
 
     def _log_event(self, message: str, fields: Dict[str, str]) -> None:
@@ -205,7 +205,7 @@ class Daemon:
                 )
                 
                 # Emit event for GUI notifications (if DBus service is running)
-                if self.dbus_service:
+                if self.dbus_service and self.config.notification_enabled:
                     try:
                         self.dbus_service.emit_scan_progress(
                             filepath, progress, status, total_size, scanned_size
@@ -221,7 +221,7 @@ class Daemon:
                 )
                 
                 # Emit notification (if DBus service is running)
-                if self.dbus_service:
+                if self.dbus_service and self.config.notification_enabled:
                     self.logger.info(f"Emitting ContentBlocked signal for {filepath}")
                     try:
                         self.dbus_service.emit_content_blocked(
@@ -854,8 +854,14 @@ class Daemon:
             veracrypt_ver = crypto_engine.veracrypt_version(devnode)
             
             if veracrypt_ver:
+                if not self.config.allow_veracrypt:
+                    raise ValueError(f"VeraCrypt encrypted devices are not allowed by policy")
                 mapper_path = crypto_engine.unlock_veracrypt(devnode, mapper, passphrase)
             elif luks_ver:
+                if luks_ver == "1" and not self.config.allow_luks1_readonly:
+                    raise ValueError(f"LUKS1 encrypted devices are not allowed by policy")
+                elif luks_ver == "2" and not self.config.allow_luks2:
+                    raise ValueError(f"LUKS2 encrypted devices are not allowed by policy")
                 mapper_path = crypto_engine.unlock_luks(devnode, mapper, passphrase)
             else:
                 raise ValueError(f"Unknown encryption type for {devnode}")
@@ -1070,7 +1076,7 @@ class Daemon:
         # Check USB bus
         # Cache uses lowercase keys, pyudev uses uppercase
         id_bus = props.get("ID_BUS") or props.get("id_bus")
-        if id_bus != "usb":
+        if self.config.enforce_on_usb_only and id_bus != "usb":
             raise ValueError(f"{devnode} is not a USB device (ID_BUS={id_bus})")
         
         # Check device type - accept disk, partition, or if DEVTYPE is disk

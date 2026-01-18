@@ -42,6 +42,43 @@ class TestConfigLoading:
         assert cfg.kdf["type"] == "argon2id"
         assert cfg.cipher["type"] == "aes-xts-plain64"
         assert cfg.cipher["key_size"] == 512
+        assert cfg.content_scanning is None
+
+    def test_load_content_scanning_flat_keys(self, temp_dir):
+        """Test flat content_scanning keys map into nested config."""
+        config_path = temp_dir / "config.toml"
+        config_path.write_text('''
+[content_scanning]
+enabled = true
+action = "warn"
+enabled_categories = ["financial", "personal", "authentication"]
+max_file_size_mb = 42
+scan_timeout_seconds = 25
+large_file_scan_mode = "full"
+archive_scanning_enabled = false
+document_scanning_enabled = true
+ngram_analysis_enabled = false
+cache_enabled = true
+cache_max_size_mb = 5
+cache_ttl_hours = 1
+''')
+        
+        cfg = config_module.Config.load(config_path)
+        cs = cfg.content_scanning
+        
+        assert cs is not None
+        assert cs.enabled is True
+        assert cs.policy.action == "warn"
+        assert cs.patterns.enabled_categories == ["financial", "pii", "corporate"]
+        assert cs.max_file_size_mb == 42
+        assert cs.max_scan_time_seconds == 25
+        assert cs.large_file_scan_mode == "full"
+        assert cs.archives.scan_archives is False
+        assert cs.documents.scan_documents is True
+        assert cs.ngrams.enabled is False
+        assert cs.enable_cache is True
+        assert cs.cache_size_mb == 5
+        assert cs.cache_ttl_hours == 1
     
     def test_load_empty_config(self, mock_empty_config):
         """Test loading empty configuration file uses defaults."""

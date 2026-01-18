@@ -58,8 +58,8 @@ dist:
 	@echo "Creating source tarball $(TARBALL)..."
 	@rm -rf $(NAME)-$(VERSION)
 	@mkdir -p $(NAME)-$(VERSION)
-	@cp -r src/ scripts/ deploy/ docs/ rpm/ rpm-bundled/ rpm-admin/ debian/ debian-bundled/ debian-admin/ $(NAME)-$(VERSION)/
-	@cp README.md requirements.txt VERSION $(NAME)-$(VERSION)/
+	@cp -r src/ scripts/ deploy/ docs/ locale/ rpm/ rpm-bundled/ rpm-admin/ debian/ debian-bundled/ debian-admin/ $(NAME)-$(VERSION)/
+	@cp README.md requirements.txt VERSION LICENSE $(NAME)-$(VERSION)/
 	@./scripts/prepare-build-dir.sh $(NAME)-$(VERSION) $(VERSION)
 	@tar czf $(TARBALL) $(NAME)-$(VERSION)
 	@rm -rf $(NAME)-$(VERSION)

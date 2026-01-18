@@ -265,12 +265,10 @@ msgid "Security"
 msgstr "Seguridad"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:405
-#, fuzzy
 msgid "Encryption Settings"
 msgstr "Cifrado fallido"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:407
-#, fuzzy
 msgid "Encryption Defaults"
 msgstr "Cifrado fallido"
 
@@ -279,7 +277,6 @@ msgid "Default settings for USB device encryption"
 msgstr "Configuraciones predeterminadas para cifrado de dispositivos USB"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:411
-#, fuzzy
 msgid "Default Encryption Type"
 msgstr "Cifrado fallido"
 
@@ -291,7 +288,6 @@ msgid ""
 msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:419
-#, fuzzy
 msgid "Encryption Target"
 msgstr "Cifrado fallido"
 
@@ -360,7 +356,6 @@ msgid ""
 msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:462
-#, fuzzy
 msgid "Encryption"
 msgstr "Cifrado fallido"
 
@@ -933,23 +928,23 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1690
 msgid "Detect US Social Security Numbers (XXX-XX-XXXX format)."
-msgstr ""
+msgstr "Detectar números de Seguro Social de EE. UU. (formato XXX-XX-XXXX)."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1691
 msgid "Detect credit card numbers using Luhn algorithm validation."
-msgstr ""
+msgstr "Detectar números de tarjetas de crédito usando validación de algoritmo Luhn."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1692
 msgid "Detect email addresses."
-msgstr ""
+msgstr "Detectar direcciones de correo electrónico."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1693
 msgid "Detect US phone numbers in various formats."
-msgstr ""
+msgstr "Detectar números de teléfono de EE. UU. en varios formatos."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1694
 msgid "Use custom regex patterns defined in the configuration."
-msgstr ""
+msgstr "Usar patrones regex personalizados definidos en la configuración."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1695
 msgid ""

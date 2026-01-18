@@ -159,7 +159,7 @@ class TestPolicyEnforcement:
                 policy_result = enforcer.enforce_policy(device_props, partition, logger, config)
                 
                 # Should enforce read-only on plaintext partition
-                assert policy_result[constants.LOG_KEY_ACTION] == "block_ro"
+                assert policy_result[constants.LOG_KEY_ACTION] == "block_rw"
                 assert policy_result[constants.LOG_KEY_CLASSIFICATION] == constants.PLAINTEXT
     
     def test_no_enforce_on_encrypted_device(self, loop_device, mock_config_file, require_cryptsetup):

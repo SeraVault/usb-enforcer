@@ -26,6 +26,8 @@
 # ============================================================================
 enforce_on_usb_only = true              # Only enforce on USB devices
 allow_luks1_readonly = true             # Allow LUKS1 encrypted USB in read-only mode
+allow_luks2 = true                      # Allow LUKS2 encrypted devices (modern Linux standard)
+allow_veracrypt = true                  # Allow VeraCrypt encrypted devices (cross-platform)
 allow_plaintext_write_with_scanning = true   # Require content scanning for write access on unencrypted drives
 notification_enabled = true             # Show desktop notifications
 min_passphrase_length = 12              # Minimum password length for encryption
@@ -67,11 +69,12 @@ enforce_on_encrypted_devices = true     # true: block everywhere | false: only b
 action = "block"                        # Options: "block", "warn", "log_only"
 
 # What to scan for (remove items to disable specific categories)
-enabled_categories = ["financial", "personal", "authentication", "medical"]
-    # financial:      Credit cards, bank accounts, SWIFT codes, IBANs
-    # personal:       SSN, passport numbers, driver licenses, phone numbers
-    # authentication: API keys, passwords, tokens, private keys
-    # medical:        Medical record numbers, insurance IDs
+# Aliases: "personal" maps to "pii", "authentication" maps to "corporate"
+enabled_categories = ["financial", "pii", "corporate", "medical"]
+    # financial:  Credit cards, bank accounts, SWIFT codes, IBANs
+    # pii:        SSN, passport numbers, driver licenses, phone numbers
+    # corporate:  API keys, passwords, tokens, private keys
+    # medical:    Medical record numbers, insurance IDs
 
 # Performance limits
 max_file_size_mb = 100                  # Max size to scan; set 0 for unlimited
@@ -95,5 +98,5 @@ cache_max_size_mb = 100                 # Cache size limit
 # [[content_scanning.custom_patterns]]
 # name = "internal_employee_id"
 # description = "Company employee ID format"
-# category = "personal"
+# category = "pii"
 # regex = "EMP-\\d{6}"

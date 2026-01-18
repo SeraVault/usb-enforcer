@@ -151,7 +151,7 @@ Notification Window
 ### ✅ Configurable
 - Enable/disable per device or globally
 - Action modes: block, warn, log_only
-- Pattern categories (financial, personal, auth, medical)
+- Pattern categories (financial, pii/personal, corporate/auth, medical)
 - Performance tuning (timeouts, file size limits, cache)
 - Custom patterns with validators
 
@@ -173,7 +173,7 @@ enabled = true
 action = "block"
 cache_enabled = true
 cache_max_size_mb = 100
-enabled_categories = ["financial", "personal", "authentication", "medical"]
+enabled_categories = ["financial", "pii", "corporate", "medical"]
 archive_scanning_enabled = true
 document_scanning_enabled = true
 max_file_size_mb = 100
@@ -232,7 +232,7 @@ cp clean.txt /media/user/usb-device/
 [content_scanning]
 enabled = true
 action = "log_only"  # Don't block, just log
-enabled_categories = ["financial", "personal"]
+enabled_categories = ["financial", "pii"]
 ```
 
 ### High Security (Block Everything)
@@ -241,7 +241,7 @@ enabled_categories = ["financial", "personal"]
 [content_scanning]
 enabled = true
 action = "block"
-enabled_categories = ["financial", "personal", "authentication", "medical"]
+enabled_categories = ["financial", "pii", "corporate", "medical"]
 archive_scanning_enabled = true
 document_scanning_enabled = true
 ngram_analysis_enabled = true

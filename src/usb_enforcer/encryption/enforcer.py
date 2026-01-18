@@ -67,6 +67,8 @@ def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.L
         logger.info(f"Exempting {devnode}: {exemption_reason}")
         return result
 
+    enforce_scope = classify.is_usb_storage(device_props) or not config.enforce_on_usb_only
+
     # Apply block-level RO to partitions with filesystems OR whole disks with filesystems
     # Leave unformatted whole disks writable to allow partitioning
     devtype = device_props.get("DEVTYPE", "")
@@ -85,7 +87,8 @@ def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.L
     # Apply RO to: partitions with filesystems, OR whole disks with filesystems (but not unformatted disks)
     # Skip RO when plaintext writes are allowed with content scanning.
     should_enforce_ro = (
-        classification == constants.PLAINTEXT
+        enforce_scope
+        and classification in (constants.PLAINTEXT, constants.UNKNOWN)
         and has_filesystem
         and (devtype == "partition" or (devtype == "disk" and has_filesystem))
         and not allow_plaintext_with_scanning

@@ -16,6 +16,7 @@ BuildRequires:  systemd-rpm-macros
 BuildRequires:  pkgconfig
 BuildRequires:  cairo-devel
 BuildRequires:  gobject-introspection-devel
+BuildRequires:  gettext
 
 # System dependencies (can't bundle these)
 Requires:       python3 >= 3.8
@@ -114,6 +115,8 @@ install -m 0755 scripts/usb-enforcerd %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-helper %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-ui %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-wizard %{buildroot}%{_libexecdir}/
+install -m 0755 scripts/usb-enforcer-cli %{buildroot}%{_libexecdir}/
+install -m 0755 scripts/usb-enforcer-notifications %{buildroot}%{_libexecdir}/
 
 # Install configuration
 install -m 0644 deploy/config.toml.sample %{buildroot}%{_sysconfdir}/usb-enforcer/config.toml
@@ -138,6 +141,22 @@ install -m 0644 deploy/desktop/usb-enforcer-wizard.desktop %{buildroot}%{_datadi
 
 # Install AppStream metadata for package managers
 install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml %{buildroot}%{_datadir}/metainfo/
+
+# Install locale files (translations)
+for po in locale/*/LC_MESSAGES/*.po; do
+    # Check if glob expanded (if not, po will be the pattern itself)
+    [ -e "$po" ] || continue
+    mo="${po%.po}.mo"
+    # Compile .po to .mo if not already compiled
+    if [ ! -f "$mo" ] || [ "$po" -nt "$mo" ]; then
+        msgfmt "$po" -o "$mo" 2>/dev/null || true
+    fi
+    if [ -f "$mo" ]; then
+        locale_code=$(echo "$po" | cut -d/ -f2)
+        install -d "%{buildroot}%{_datadir}/locale/${locale_code}/LC_MESSAGES"
+        install -m 0644 "$mo" "%{buildroot}%{_datadir}/locale/${locale_code}/LC_MESSAGES/usb-enforcer.mo"
+    fi
+done
 
 # Create systemd drop-in files
 cat > %{buildroot}%{_unitdir}/usb-enforcerd.service.d/env.conf <<'EOF'
@@ -231,6 +250,14 @@ fi
 %{_libexecdir}/usb-enforcer-helper
 %{_libexecdir}/usb-enforcer-ui
 %{_libexecdir}/usb-enforcer-wizard
+%{_libexecdir}/usb-enforcer-cli
+%{_libexecdir}/usb-enforcer-notifications
+%dir %{_datadir}/locale/es/
+%dir %{_datadir}/locale/es/LC_MESSAGES/
+%{_datadir}/locale/es/LC_MESSAGES/usb-enforcer.mo
+%dir %{_datadir}/locale/fr/
+%dir %{_datadir}/locale/fr/LC_MESSAGES/
+%{_datadir}/locale/fr/LC_MESSAGES/usb-enforcer.mo
 %{_udevrulesdir}/49-usb-enforcer.rules
 %{_udevrulesdir}/80-udisks2-usb-enforcer.rules
 %{_sysconfdir}/polkit-1/rules.d/49-usb-enforcer.rules

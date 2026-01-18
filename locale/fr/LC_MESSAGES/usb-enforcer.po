@@ -16,101 +16,101 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:54
 msgid "Minimum passphrase length should be at least 8 characters"
-msgstr ""
+msgstr "La longueur minimale de la phrase secrète doit être d'au moins 8 caractères"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:56
 msgid "Maximum passphrase length should not exceed 128 characters"
-msgstr ""
+msgstr "La longueur maximale de la phrase secrète ne doit pas dépasser 128 caractères"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:62
 msgid "TTL should be at least 60 seconds"
-msgstr ""
+msgstr "Le TTL doit être d'au moins 60 secondes"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:64
 msgid "TTL should not exceed 3600 seconds (1 hour)"
-msgstr ""
+msgstr "Le TTL ne doit pas dépasser 3600 secondes (1 heure)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:70
 msgid "Max tokens should be at least 16"
-msgstr ""
+msgstr "Les jetons maximum doivent être au moins 16"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:72
 msgid "Max tokens should not exceed 1024"
-msgstr ""
+msgstr "Les jetons maximum ne doivent pas dépasser 1024"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:78
 msgid "File size cannot be negative (use 0 for unlimited)"
-msgstr ""
+msgstr "La taille du fichier ne peut pas être négative (utilisez 0 pour illimité)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:80
 msgid "File size limit should not exceed 10240 MB (10 GB)"
-msgstr ""
+msgstr "La limite de taille de fichier ne doit pas dépasser 10240 Mo (10 Go)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:86
 msgid "Timeout should be at least 5 seconds"
-msgstr ""
+msgstr "Le délai d'attente doit être d'au moins 5 secondes"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:88
 msgid "Timeout should not exceed 300 seconds"
-msgstr ""
+msgstr "Le délai d'attente ne doit pas dépasser 300 secondes"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:119
 msgid "Close"
-msgstr ""
+msgstr "Fermer"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:130
 msgid "USB Enforcer Administration"
-msgstr ""
+msgstr "Administration d'USB Enforcer"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:139
 msgid "USB Enforcer Configuration"
-msgstr ""
+msgstr "Configuration d'USB Enforcer"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:141
 msgid "Save Configuration"
-msgstr ""
+msgstr "Enregistrer la Configuration"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:147
 msgid "Restart Daemon"
-msgstr ""
+msgstr "Redémarrer le Démon"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:148
 msgid "Restart usb-enforcerd to reload configuration"
-msgstr ""
+msgstr "Redémarrer usb-enforcerd pour recharger la configuration"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:155
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1389
 msgid "Documentation"
-msgstr ""
+msgstr "Documentation"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:159
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1380
 msgid "Administration Guide"
-msgstr ""
+msgstr "Guide d'Administration"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:160
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:466
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:551
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1381
 msgid "Content Scanning"
-msgstr ""
+msgstr "Analyse de Contenu"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:161
 msgid "Anti-Evasion"
-msgstr ""
+msgstr "Anti-Évasion"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:162
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1383
 msgid "Group Exemptions"
-msgstr ""
+msgstr "Exemptions de Groupe"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:163
 msgid "Architecture Overview"
-msgstr ""
+msgstr "Aperçu de l'Architecture"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:164
 msgid "Testing Guide"
-msgstr ""
+msgstr "Guide de Test"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:244
 msgid ""
@@ -120,19 +120,19 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:314
 msgid "Basic Enforcement"
-msgstr ""
+msgstr "Application de Base"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:316
 msgid "Basic Settings"
-msgstr ""
+msgstr "Paramètres de Base"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:317
 msgid "Core enforcement policies for USB devices"
-msgstr ""
+msgstr "Politiques d'application de base pour les périphériques USB"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:320
 msgid "Only Enforce on USB Devices"
-msgstr ""
+msgstr "Appliquer Uniquement aux Périphériques USB"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:321
 msgid ""
@@ -142,7 +142,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:326
 msgid "Allow LUKS1 (Read-Only)"
-msgstr ""
+msgstr "Autoriser LUKS1 (Lecture Seule)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:327
 msgid ""
@@ -152,7 +152,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:332
 msgid "Allow Write with Content Scanning"
-msgstr ""
+msgstr "Autoriser l'Écriture avec Analyse de Contenu"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:333
 msgid ""
@@ -162,7 +162,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:338
 msgid "Desktop Notifications"
-msgstr ""
+msgstr "Notifications de Bureau"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:339
 msgid "Show desktop notifications when USB devices are connected or blocked."
@@ -170,7 +170,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:344
 msgid "Minimum Passphrase Length"
-msgstr ""
+msgstr "Longueur Minimale de Phrase Secrète"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:345
 msgid ""
@@ -180,7 +180,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:351
 msgid "Exempted Groups"
-msgstr ""
+msgstr "Groupes Exemptés"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:352
 msgid ""
@@ -190,23 +190,23 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:357
 msgid "Basic"
-msgstr ""
+msgstr "Base"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:361
 msgid "Security Settings"
-msgstr ""
+msgstr "Paramètres de Sécurité"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:363
 msgid "Access Control"
-msgstr ""
+msgstr "Contrôle d'Accès"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:364
 msgid "Secret token and socket security settings"
-msgstr ""
+msgstr "Paramètres de sécurité des jetons secrets et des sockets"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:367
 msgid "Token TTL (seconds)"
-msgstr ""
+msgstr "TTL du Jeton (secondes)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:368
 msgid ""
@@ -216,7 +216,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:374
 msgid "Maximum Outstanding Tokens"
-msgstr ""
+msgstr "Jetons Maximums en Attente"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:375
 msgid ""
@@ -226,15 +226,15 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:380
 msgid "Mount Options"
-msgstr ""
+msgstr "Options de Montage"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:381
 msgid "Security flags for mounting USB devices"
-msgstr ""
+msgstr "Drapeaux de sécurité pour le montage de périphériques USB"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:384
 msgid "Plaintext Mount Options"
-msgstr ""
+msgstr "Options de Montage en Texte Clair"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:385
 msgid ""
@@ -244,7 +244,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:390
 msgid "Encrypted Mount Options"
-msgstr ""
+msgstr "Options de Montage Chiffré"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:391
 msgid "Mount options for encrypted USB devices. Recommended: nodev, nosuid, rw"
@@ -252,7 +252,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:396
 msgid "Require No-Execute on Plaintext"
-msgstr ""
+msgstr "Exiger Non-Exécution sur Texte Clair"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:397
 msgid ""
@@ -262,24 +262,21 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:401
 msgid "Security"
-msgstr ""
+msgstr "Sécurité"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:405
-#, fuzzy
 msgid "Encryption Settings"
 msgstr "Échec du chiffrement"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:407
-#, fuzzy
 msgid "Encryption Defaults"
 msgstr "Échec du chiffrement"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:408
 msgid "Default settings for USB device encryption"
-msgstr ""
+msgstr "Paramètres par défaut pour le chiffrement de périphériques USB"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:411
-#, fuzzy
 msgid "Default Encryption Type"
 msgstr "Échec du chiffrement"
 
@@ -291,7 +288,6 @@ msgid ""
 msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:419
-#, fuzzy
 msgid "Encryption Target"
 msgstr "Échec du chiffrement"
 
@@ -303,7 +299,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:426
 msgid "Filesystem Type"
-msgstr ""
+msgstr "Type de Système de Fichiers"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:427
 msgid ""
@@ -315,15 +311,15 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:434
 msgid "Key Derivation"
-msgstr ""
+msgstr "Dérivation de Clé"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:435
 msgid "KDF (Key Derivation Function) settings"
-msgstr ""
+msgstr "Paramètres KDF (Fonction de Dérivation de Clé)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:439
 msgid "KDF Algorithm"
-msgstr ""
+msgstr "Algorithme KDF"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:440
 msgid ""
@@ -333,15 +329,15 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:445
 msgid "Cipher Settings"
-msgstr ""
+msgstr "Paramètres de Chiffrement"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:446
 msgid "Encryption algorithm configuration"
-msgstr ""
+msgstr "Configuration de l'algorithme de chiffrement"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:449
 msgid "Cipher Algorithm"
-msgstr ""
+msgstr "Algorithme de Chiffrement"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:450
 msgid ""
@@ -351,7 +347,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:456
 msgid "Key Size (bits)"
-msgstr ""
+msgstr "Taille de Clé (bits)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:457
 msgid ""
@@ -360,21 +356,20 @@ msgid ""
 msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:462
-#, fuzzy
 msgid "Encryption"
 msgstr "Échec du chiffrement"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:468
 msgid "Content Scanning (DLP)"
-msgstr ""
+msgstr "Analyse de Contenu (DLP)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:469
 msgid "Data Loss Prevention through real-time content scanning"
-msgstr ""
+msgstr "Prévention de Perte de Données par analyse de contenu en temps réel"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:474
 msgid "Enable Content Scanning"
-msgstr ""
+msgstr "Activer l'Analyse de Contenu"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:475
 msgid ""
@@ -384,7 +379,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:480
 msgid "Scan Encrypted Devices"
-msgstr ""
+msgstr "Analyser les Périphériques Chiffrés"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:481
 msgid ""
@@ -394,7 +389,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:486
 msgid "Action on Detection"
-msgstr ""
+msgstr "Action lors de la Détection"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:487
 msgid ""
@@ -405,43 +400,43 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:493
 msgid "Scan Categories"
-msgstr ""
+msgstr "Catégories d'Analyse"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:494
 msgid "Types of sensitive data to detect"
-msgstr ""
+msgstr "Types de données sensibles à détecter"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:498
 msgid "Enabled Categories"
-msgstr ""
+msgstr "Catégories Activées"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:500
 msgid "Financial (credit cards, bank accounts, SWIFT, IBAN)"
-msgstr ""
+msgstr "Financier (cartes de crédit, comptes bancaires, SWIFT, IBAN)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:501
 msgid "Personal (SSN, passport, driver license, phone)"
-msgstr ""
+msgstr "Personnel (SSN, passeport, permis de conduire, téléphone)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:502
 msgid "Authentication (API keys, passwords, tokens)"
-msgstr ""
+msgstr "Authentification (clés API, mots de passe, jetons)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:503
 msgid "Medical (medical records, insurance IDs)"
-msgstr ""
+msgstr "Médical (dossiers médicaux, IDs d'assurance)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:508
 msgid "Performance Settings"
-msgstr ""
+msgstr "Paramètres de Performance"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:509
 msgid "Scanning performance and limits"
-msgstr ""
+msgstr "Performance et limites d'analyse"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:512
 msgid "Max File Size (MB)"
-msgstr ""
+msgstr "Taille Maximale de Fichier (Mo)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:513
 msgid ""
@@ -451,7 +446,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:519
 msgid "Oversize File Action"
-msgstr ""
+msgstr "Action Fichier Surdimensionné"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:520
 msgid ""
@@ -461,7 +456,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:526
 msgid "Streaming Threshold (MB)"
-msgstr ""
+msgstr "Seuil de Diffusion (Mo)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:527
 msgid ""
@@ -471,7 +466,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:533
 msgid "Large File Scan Mode"
-msgstr ""
+msgstr "Mode d'Analyse de Fichiers Volumineux"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:534
 msgid ""
@@ -481,35 +476,35 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:540
 msgid "Scan Timeout (seconds)"
-msgstr ""
+msgstr "Délai d'Analyse (secondes)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:541
 msgid "Maximum time to spend scanning a single file."
-msgstr ""
+msgstr "Temps maximum pour analyser un seul fichier."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:546
 msgid "Max Concurrent Scans"
-msgstr ""
+msgstr "Analyses Concurrentes Maximales"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:547
 msgid "Number of parallel scanning threads."
-msgstr ""
+msgstr "Nombre de threads d'analyse parallèles."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:555
 msgid "Advanced Scanning"
-msgstr ""
+msgstr "Analyse Avancée"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:559
 msgid "Archive Scanning"
-msgstr ""
+msgstr "Analyse d'Archives"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:560
 msgid "Scanning files inside archives (ZIP, TAR, 7Z, RAR)"
-msgstr ""
+msgstr "Analyse de fichiers dans les archives (ZIP, TAR, 7Z, RAR)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:563
 msgid "Scan Archive Contents"
-msgstr ""
+msgstr "Analyser le Contenu des Archives"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:564
 msgid ""
@@ -519,7 +514,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:569
 msgid "Max Archive Depth"
-msgstr ""
+msgstr "Profondeur Maximale d'Archive"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:570
 msgid ""
@@ -529,31 +524,31 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:575
 msgid "Document Scanning"
-msgstr ""
+msgstr "Analyse de Documents"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:576
 msgid "Scanning Office and PDF documents"
-msgstr ""
+msgstr "Analyse de documents Office et PDF"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:579
 msgid "Scan Documents"
-msgstr ""
+msgstr "Analyser les Documents"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:580
 msgid "Extract and scan text from PDF, DOCX, XLSX, PPTX, ODT files."
-msgstr ""
+msgstr "Extraire et analyser le texte des fichiers PDF, DOCX, XLSX, PPTX, ODT."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:583
 msgid "Machine Learning"
-msgstr ""
+msgstr "Apprentissage Automatique"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:584
 msgid "Advanced pattern detection"
-msgstr ""
+msgstr "Détection avancée de motifs"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:587
 msgid "N-gram Analysis"
-msgstr ""
+msgstr "Analyse N-gramme"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:588
 msgid ""
@@ -563,15 +558,15 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:592
 msgid "Caching"
-msgstr ""
+msgstr "Mise en Cache"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:593
 msgid "Scan result caching for performance"
-msgstr ""
+msgstr "Mise en cache des résultats d'analyse pour la performance"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:596
 msgid "Enable Scan Cache"
-msgstr ""
+msgstr "Activer le Cache d'Analyse"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:597
 msgid ""
@@ -581,87 +576,87 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:602
 msgid "Cache Size (MB)"
-msgstr ""
+msgstr "Taille du Cache (Mo)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:603
 msgid "Maximum size of scan result cache."
-msgstr ""
+msgstr "Taille maximale du cache de résultats d'analyse."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:607
 msgid "Custom Patterns"
-msgstr ""
+msgstr "Motifs Personnalisés"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:608
 msgid "Define enterprise-specific sensitive data patterns"
-msgstr ""
+msgstr "Définir des motifs de données sensibles spécifiques à l'entreprise"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:611
 msgid "Manage Custom Patterns"
-msgstr ""
+msgstr "Gérer les Motifs Personnalisés"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:618
 msgid "{} custom pattern(s) defined"
-msgstr ""
+msgstr "{} motif(s) personnalisé(s) défini(s)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:624
 msgid "Advanced"
-msgstr ""
+msgstr "Avancé"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:989
 msgid "Configuration saved to {}"
-msgstr ""
+msgstr "Configuration enregistrée dans {}"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:994
 msgid "Configuration saved. Restart usb-enforcerd to apply changes."
-msgstr ""
+msgstr "Configuration enregistrée. Redémarrez usb-enforcerd pour appliquer les changements."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:997
 msgid "Failed to save configuration: {}"
-msgstr ""
+msgstr "Échec de l'enregistrement de la configuration : {}"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1008
 msgid "usb-enforcerd restarted."
-msgstr ""
+msgstr "usb-enforcerd redémarré."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1010
 msgid "systemctl not found; cannot restart service."
-msgstr ""
+msgstr "systemctl introuvable ; impossible de redémarrer le service."
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1013
 msgid "Failed to restart usb-enforcerd: {}"
-msgstr ""
+msgstr "Échec du redémarrage d'usb-enforcerd : {}"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1018
 msgid "Custom Content Patterns"
-msgstr ""
+msgstr "Motifs de Contenu Personnalisés"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1027
 msgid "Add Pattern"
-msgstr ""
+msgstr "Ajouter un Motif"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1069
 msgid "Name:"
-msgstr ""
+msgstr "Nom :"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1072
 msgid "e.g., employee_id"
-msgstr ""
+msgstr "par ex., id_employé"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1082
 msgid "Description:"
-msgstr ""
+msgstr "Description :"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1085
 msgid "e.g., Company employee ID"
-msgstr ""
+msgstr "par ex., ID d'employé de l'entreprise"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1095
 msgid "Category:"
-msgstr ""
+msgstr "Catégorie :"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1111
 msgid "Regex:"
-msgstr ""
+msgstr "Regex :"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1114
 #, python-brace-format
@@ -674,7 +669,7 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1143
 msgid "Test Pattern:"
-msgstr ""
+msgstr "Tester le Motif :"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1148
 msgid "Enter sample text to test the pattern..."
@@ -682,11 +677,11 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1155
 msgid "Test Pattern"
-msgstr ""
+msgstr "Tester le Motif"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1171
 msgid "Delete Pattern"
-msgstr ""
+msgstr "Supprimer le Motif"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1224
 msgid "<span foreground='green'>✓ Valid regex pattern</span>"
@@ -726,47 +721,47 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1286
 msgid "Employee ID"
-msgstr ""
+msgstr "ID d'Employé"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1287
 msgid "Project Code"
-msgstr ""
+msgstr "Code de Projet"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1288
 msgid "Account Number"
-msgstr ""
+msgstr "Numéro de Compte"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1289
 msgid "Internal IP"
-msgstr ""
+msgstr "IP Interne"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1290
 msgid "Document ID"
-msgstr ""
+msgstr "ID de Document"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1291
 msgid "Serial Number"
-msgstr ""
+msgstr "Numéro de Série"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1292
 msgid "Phone (US)"
-msgstr ""
+msgstr "Téléphone (US)"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1293
 msgid "Email Domain"
-msgstr ""
+msgstr "Domaine Email"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1294
 msgid "API Key Format"
-msgstr ""
+msgstr "Format de Clé API"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1295
 msgid "UUID"
-msgstr ""
+msgstr "UUID"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1299
 msgid "Common Pattern Templates"
-msgstr ""
+msgstr "Modèles de Motifs Communs"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1321
 msgid "Pattern: {}"
@@ -778,27 +773,27 @@ msgstr ""
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1382
 msgid "File Type Support"
-msgstr ""
+msgstr "Support de Types de Fichiers"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1384
 msgid "Notifications"
-msgstr ""
+msgstr "Notifications"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1385
 msgid "Main Documentation"
-msgstr ""
+msgstr "Documentation Principale"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1400
 msgid "Available Documentation"
-msgstr ""
+msgstr "Documentation Disponible"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1428
 msgid "Documentation file not found: {}"
-msgstr ""
+msgstr "Fichier de documentation introuvable : {}"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1438
 msgid "Error loading documentation: {}"
-msgstr ""
+msgstr "Erreur de chargement de la documentation : {}"
 
 #: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1670
 msgid ""

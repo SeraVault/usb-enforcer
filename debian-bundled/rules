@@ -25,6 +25,8 @@ override_dh_auto_install:
 	install -m 0755 scripts/usb-enforcer-helper $(CURDIR)/debian/usb-enforcer-bundled/usr/libexec/
 	install -m 0755 scripts/usb-enforcer-ui $(CURDIR)/debian/usb-enforcer-bundled/usr/libexec/
 	install -m 0755 scripts/usb-enforcer-wizard $(CURDIR)/debian/usb-enforcer-bundled/usr/libexec/
+	install -m 0755 scripts/usb-enforcer-cli $(CURDIR)/debian/usb-enforcer-bundled/usr/libexec/
+	install -m 0755 scripts/usb-enforcer-notifications $(CURDIR)/debian/usb-enforcer-bundled/usr/libexec/
 	
 	# Install configuration
 	install -d $(CURDIR)/debian/usb-enforcer-bundled/etc/usb-enforcer
@@ -58,6 +60,20 @@ override_dh_auto_install:
 	# Install AppStream metadata for package managers
 	install -d $(CURDIR)/debian/usb-enforcer-bundled/usr/share/metainfo
 	install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml $(CURDIR)/debian/usb-enforcer-bundled/usr/share/metainfo/
+	
+	# Install locale files (translations)
+	for po in locale/*/LC_MESSAGES/*.po; do \
+		[ -e "$$po" ] || continue; \
+		mo="$${po%.po}.mo"; \
+		if [ ! -f "$$mo" ] || [ "$$po" -nt "$$mo" ]; then \
+			msgfmt "$$po" -o "$$mo" 2>/dev/null || true; \
+		fi; \
+		if [ -f "$$mo" ]; then \
+			locale_code=$$(echo "$$po" | cut -d/ -f2); \
+			install -d "$(CURDIR)/debian/usb-enforcer-bundled/usr/share/locale/$${locale_code}/LC_MESSAGES"; \
+			install -m 0644 "$$mo" "$(CURDIR)/debian/usb-enforcer-bundled/usr/share/locale/$${locale_code}/LC_MESSAGES/usb-enforcer.mo"; \
+		fi; \
+	done
 
 override_dh_auto_test:
 	# Skip tests

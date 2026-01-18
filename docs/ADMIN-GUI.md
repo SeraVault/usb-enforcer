@@ -41,7 +41,7 @@ The USB Enforcer Administration GUI provides an intuitive, user-friendly interfa
 - Enable/disable scanning
 - Enforcement scope
 - Action on detection (block/warn/log)
-- Scan categories (financial, personal, authentication, medical)
+- Scan categories (financial, pii/personal, corporate/authentication, medical)
 - Performance limits
 - File size and timeout settings
 

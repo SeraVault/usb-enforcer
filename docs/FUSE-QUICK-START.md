@@ -45,11 +45,12 @@ Add:
 [content_scanning]
 enabled = true
 action = "block"
-enabled_categories = ["financial", "personal"]
+enabled_categories = ["financial", "pii"]
 max_file_size_mb = 0                    # 0 = unlimited size
 streaming_threshold_mb = 16             # Spill to disk when writes exceed this size
 large_file_scan_mode = "full"           # full = scan entire file contents
 ```
+Category aliases: `personal` = `pii`, `authentication` = `corporate`.
 
 ### 2. Restart Daemon
 
@@ -147,7 +148,7 @@ enabled = true
 action = "block"
 cache_enabled = true
 cache_max_size_mb = 100
-enabled_categories = ["financial", "personal", "authentication"]
+enabled_categories = ["financial", "pii", "corporate"]
 archive_scanning_enabled = true
 document_scanning_enabled = true
 max_file_size_mb = 100
@@ -159,7 +160,7 @@ max_file_size_mb = 100
 [content_scanning]
 enabled = true
 action = "log_only"  # Log but don't block
-enabled_categories = ["financial", "personal", "authentication", "medical"]
+enabled_categories = ["financial", "pii", "corporate", "medical"]
 ```
 
 ### High Security
@@ -168,7 +169,7 @@ enabled_categories = ["financial", "personal", "authentication", "medical"]
 [content_scanning]
 enabled = true
 action = "block"
-enabled_categories = ["financial", "personal", "authentication", "medical"]
+enabled_categories = ["financial", "pii", "corporate", "medical"]
 archive_scanning_enabled = true
 document_scanning_enabled = true
 ngram_analysis_enabled = true
