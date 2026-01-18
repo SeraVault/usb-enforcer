@@ -76,9 +76,19 @@ def enforce_policy(device_props: Dict[str, str], devnode: str, logger: logging.L
     
     logger.debug(f"enforce_policy: {devnode} devtype={devtype} fs_usage={fs_usage} fs_type={fs_type} has_filesystem={has_filesystem}")
     
+    content_scanning = getattr(config, "content_scanning", None)
+    content_scanning_enabled = bool(content_scanning and getattr(content_scanning, "enabled", False))
+    allow_plaintext_with_scanning = (
+        config.allow_plaintext_write_with_scanning and content_scanning_enabled
+    )
+
     # Apply RO to: partitions with filesystems, OR whole disks with filesystems (but not unformatted disks)
-    should_enforce_ro = classification == constants.PLAINTEXT and has_filesystem and (
-        devtype == "partition" or (devtype == "disk" and has_filesystem)
+    # Skip RO when plaintext writes are allowed with content scanning.
+    should_enforce_ro = (
+        classification == constants.PLAINTEXT
+        and has_filesystem
+        and (devtype == "partition" or (devtype == "disk" and has_filesystem))
+        and not allow_plaintext_with_scanning
     )
     
     if should_enforce_ro:

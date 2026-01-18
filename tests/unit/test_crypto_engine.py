@@ -107,6 +107,85 @@ class TestCloseMapper:
             crypto_engine.close_mapper("my-mapper")
             
             mock_run.assert_called_once_with(["cryptsetup", "close", "my-mapper"])
+    
+    def test_close_mapper_veracrypt_calls_dismount(self):
+        """Test that close_mapper calls veracrypt dismount for VeraCrypt volumes."""
+        with patch('usb_enforcer.crypto_engine._run') as mock_run:
+            crypto_engine.close_mapper("my-mapper", "veracrypt")
+            
+            mock_run.assert_called_once_with(["veracrypt", "--text", "--dismount", "my-mapper"])
+
+
+class TestVeraCryptVersion:
+    """Test VeraCrypt version detection logic."""
+    
+    def test_veracrypt_version_detects_volume(self):
+        """Test VeraCrypt volume detection."""
+        with patch('usb_enforcer.crypto_engine._run') as mock_run, \
+             patch('shutil.which', return_value='/usr/bin/veracrypt'):
+            mock_run.return_value.stdout = b"Success"
+            
+            version = crypto_engine.veracrypt_version("/dev/test")
+            
+            assert version == "veracrypt"
+            mock_run.assert_called_once()
+    
+    def test_veracrypt_version_returns_none_when_not_installed(self):
+        """Test that None is returned when veracrypt is not installed."""
+        with patch('shutil.which', return_value=None):
+            version = crypto_engine.veracrypt_version("/dev/test")
+            
+            assert version is None
+    
+    def test_veracrypt_version_returns_none_on_error(self):
+        """Test that non-VeraCrypt devices return None."""
+        with patch('usb_enforcer.crypto_engine._run') as mock_run, \
+             patch('shutil.which', return_value='/usr/bin/veracrypt'):
+            mock_run.side_effect = crypto_engine.CryptoError("not a VeraCrypt volume")
+            
+            version = crypto_engine.veracrypt_version("/dev/plaintext")
+            
+            assert version is None
+
+
+class TestUnlockVeraCrypt:
+    """Test VeraCrypt unlocking logic."""
+    
+    def test_unlock_veracrypt_creates_mount_point(self):
+        """Test that unlock_veracrypt creates mount point and calls veracrypt."""
+        with patch('usb_enforcer.crypto_engine._run') as mock_run, \
+             patch('os.makedirs') as mock_makedirs, \
+             patch('os.path.getmtime', return_value=1000), \
+             patch('glob.glob', return_value=['/dev/mapper/veracrypt1']), \
+             patch('time.sleep'):
+            
+            result = crypto_engine.unlock_veracrypt(
+                "/dev/sdb1",
+                "my-mapper",
+                "secret123"
+            )
+            
+            mock_makedirs.assert_called_once_with("/media/veracrypt-my-mapper", exist_ok=True)
+            mock_run.assert_called_once_with(
+                ["veracrypt", "--text", "--non-interactive", "--stdin", "/dev/sdb1", "/media/veracrypt-my-mapper"],
+                input_data=b"secret123"
+            )
+            assert result == "/dev/mapper/veracrypt1"
+    
+    def test_unlock_veracrypt_returns_mount_point_as_fallback(self):
+        """Test that unlock_veracrypt returns mount point if no mapper found."""
+        with patch('usb_enforcer.crypto_engine._run') as mock_run, \
+             patch('os.makedirs'), \
+             patch('glob.glob', return_value=[]), \
+             patch('time.sleep'):
+            
+            result = crypto_engine.unlock_veracrypt(
+                "/dev/sdb1",
+                "my-mapper",
+                "secret123"
+            )
+            
+            assert result == "/media/veracrypt-my-mapper"
 
 
 class TestCreateFilesystem:
@@ -482,6 +561,73 @@ class TestEncryptDevice:
         assert "pbkdf2" in luks_format_call
         assert "--cipher" in luks_format_call
         assert "aes-xts-plain64" in luks_format_call
+    
+    @patch('usb_enforcer.crypto_engine._run')
+    @patch('usb_enforcer.crypto_engine._get_device_partitions')
+    @patch('usb_enforcer.crypto_engine._get_mounted_devices')
+    @patch('usb_enforcer.crypto_engine.unlock_veracrypt')
+    @patch('usb_enforcer.crypto_engine.create_filesystem')
+    @patch('shutil.which', return_value='/usr/bin/veracrypt')
+    @patch('glob.glob', return_value=['/dev/mapper/veracrypt1'])
+    @patch('os.path.getmtime', return_value=1000)
+    def test_encrypt_device_veracrypt_workflow(
+        self,
+        mock_getmtime,
+        mock_glob,
+        mock_which,
+        mock_create_fs,
+        mock_unlock,
+        mock_get_mounted,
+        mock_get_partitions,
+        mock_run
+    ):
+        """Test encrypt_device workflow with VeraCrypt."""
+        mock_get_partitions.return_value = []
+        mock_get_mounted.return_value = {}
+        mock_unlock.return_value = "/media/veracrypt-test-mapper"
+        
+        result = crypto_engine.encrypt_device(
+            "/dev/sdb",
+            "test-mapper",
+            "password123",
+            fs_type="exfat",
+            mount_opts=[],
+            encryption_type="veracrypt"
+        )
+        
+        # Should return mount point
+        assert result == "/media/veracrypt-test-mapper"
+        
+        # Should call veracrypt --create
+        veracrypt_calls = [str(call) for call in mock_run.call_args_list if "veracrypt" in str(call)]
+        assert len(veracrypt_calls) > 0
+        assert any("--create" in str(call) for call in veracrypt_calls)
+        
+        # Should unlock VeraCrypt volume
+        mock_unlock.assert_called_once()
+        
+        # Should create filesystem on mapper device
+        mock_create_fs.assert_called_once()
+    
+    @patch('shutil.which', return_value=None)
+    def test_encrypt_device_veracrypt_not_installed(
+        self,
+        mock_which
+    ):
+        """Test that encrypt_device raises error when VeraCrypt not installed."""
+        with patch('usb_enforcer.crypto_engine._get_device_partitions', return_value=[]), \
+             patch('usb_enforcer.crypto_engine._get_mounted_devices', return_value={}), \
+             patch('usb_enforcer.crypto_engine._run'):
+            
+            with pytest.raises(crypto_engine.CryptoError, match="VeraCrypt is not installed"):
+                crypto_engine.encrypt_device(
+                    "/dev/sdb",
+                    "test-mapper",
+                    "password123",
+                    fs_type="exfat",
+                    mount_opts=[],
+                    encryption_type="veracrypt"
+                )
 
 
 class TestRunCommand:

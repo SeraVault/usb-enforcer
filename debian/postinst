@@ -58,6 +58,14 @@ case "$1" in
         mkdir -p /etc/systemd/user/graphical-session.target.wants
         ln -sf /usr/lib/systemd/user/usb-enforcer-ui.service \
             /etc/systemd/user/graphical-session.target.wants/usb-enforcer-ui.service || true
+
+        # Refresh desktop entries and icon cache for menu integration
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+        fi
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+        fi
         
         # Reload user systemd daemon for all logged-in users
         for uid in $(loginctl list-users --no-legend | awk '{print $1}'); do

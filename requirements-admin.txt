@@ -1,0 +1,7 @@
+# Minimal dependencies for USB Enforcer Admin GUI
+# This is separate from the main usb-enforcer to keep the admin lightweight
+
+# TOML parsing - only one of these is needed
+# Python 3.11+ has tomllib built-in
+# For older Python, use:
+toml>=0.10.2; python_version < "3.11"

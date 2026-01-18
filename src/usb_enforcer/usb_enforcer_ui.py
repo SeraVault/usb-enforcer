@@ -14,7 +14,7 @@ except Exception:
     print("pydbus / pygobject not installed; UI bridge inactive")
     raise SystemExit(0)
 
-from .i18n import _, ngettext
+from usb_enforcer.i18n import _, ngettext
 
 BUS_NAME = "org.seravault.UsbEnforcer"
 BUS_PATH = "/org/seravault/UsbEnforcer"
@@ -204,15 +204,43 @@ def handle_event(fields: Dict[str, str], notifier: NotificationManager) -> None:
         )
 
 
+def _subscribe_signals(proxy, on_event, on_content_blocked):
+    proxy.Event.connect(on_event)
+    print("✓ Subscribed to Event signal", flush=True)
+    try:
+        proxy.ContentBlocked.connect(on_content_blocked)
+        print("✓ Subscribed to ContentBlocked signal for content scanning notifications", flush=True)
+    except Exception as e:
+        print(f"✗ Failed to subscribe to ContentBlocked signal: {e}", flush=True)
+
+
+def _ensure_proxy(bus, dbus, state, on_event, on_content_blocked):
+    try:
+        has_owner = dbus.NameHasOwner(BUS_NAME)
+    except Exception as e:
+        print(f"DBus NameHasOwner check failed: {e}", flush=True)
+        has_owner = False
+
+    if not has_owner:
+        state["proxy"] = None
+        return True
+
+    if state["proxy"] is None:
+        try:
+            proxy = bus.get(BUS_NAME, BUS_PATH)
+            state["proxy"] = proxy
+            print("✓ Connected to daemon DBus service", flush=True)
+            _subscribe_signals(proxy, on_event, on_content_blocked)
+        except Exception as e:
+            print(f"Daemon DBus service not available: {e}", flush=True)
+    return True
+
+
 def main():
     bus = pydbus.SystemBus()
-    try:
-        proxy = bus.get(BUS_NAME, BUS_PATH)
-        print("✓ Connected to daemon DBus service", flush=True)
-    except Exception as e:
-        print(f"Daemon DBus service not available: {e}", flush=True)
-        return
     notifier = NotificationManager()
+    dbus = bus.get("org.freedesktop.DBus", "/org/freedesktop/DBus")
+    state = {"proxy": None}
 
     def on_event(fields):
         handle_event(fields, notifier)
@@ -234,17 +262,11 @@ def main():
             )
         )
 
-    # Subscribe to Event signal using pydbus subscription pattern
-    proxy.Event.connect(on_event)
-    print("✓ Subscribed to Event signal", flush=True)
-    
-    # Subscribe to ContentBlocked signal for DLP notifications
-    try:
-        proxy.ContentBlocked.connect(on_content_blocked)
-        print("✓ Subscribed to ContentBlocked signal for content scanning notifications", flush=True)
-    except Exception as e:
-        print(f"✗ Failed to subscribe to ContentBlocked signal: {e}", flush=True)
-    
+    def _poll():
+        return _ensure_proxy(bus, dbus, state, on_event, on_content_blocked)
+
+    _poll()
+    GLib.timeout_add_seconds(3, _poll)
     print("🎧 USB Enforcer UI listening for events...", flush=True)
     loop = GLib.MainLoop()
     loop.run()

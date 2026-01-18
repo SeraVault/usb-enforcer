@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=USB Enforcer Admin
+GenericName=USB Security Configuration
+Comment=Configure USB Enforcer security policies and content scanning
+Icon=system-config-users
+Exec=pkexec /usr/bin/usb-enforcer-admin
+Terminal=false
+Categories=System;Settings;Security;Administration;
+Keywords=usb;security;encryption;dlp;admin;configuration;settings;
+StartupNotify=true
+X-GNOME-Autostart-enabled=false

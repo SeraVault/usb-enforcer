@@ -110,14 +110,174 @@ def luks_version(devnode: str) -> Optional[str]:
     return None
 
 
+def veracrypt_version(devnode: str) -> Optional[str]:
+    """Check if device is VeraCrypt encrypted and return version info.
+    
+    VeraCrypt volumes have encrypted headers with no magic number, making
+    detection challenging. This function uses heuristics:
+    1. Check if device is currently mounted as VeraCrypt
+    2. Conservatively check for encrypted header (exclude known formats)
+    """
+    try:
+        # Check if veracrypt command is available
+        import shutil
+        if not shutil.which("veracrypt"):
+            return None
+        
+        # First, check if volume is currently mounted
+        result = subprocess.run(
+            ["veracrypt", "--text", "--list"],
+            capture_output=True,
+            check=False,
+            timeout=2
+        )
+        
+        if result.returncode == 0:
+            output = result.stdout.decode()
+            # Check if our device is in the mounted list
+            if devnode in output:
+                return "veracrypt"
+        
+        # For unmounted volumes, check header characteristics
+        # Be CONSERVATIVE - only detect as VeraCrypt if we're very confident
+        try:
+            with open(devnode, 'rb') as f:
+                header = f.read(4096)  # Read more data for better analysis
+                
+            if len(header) < 512:
+                return None
+                
+            # Check for known non-VeraCrypt signatures first
+            # LUKS has "LUKS" magic at offset 0
+            if header[:4] == b'LUKS' or header[:6] == b'LUKS\xba\xbe':
+                return None
+            
+            # Check for common filesystem signatures
+            # ext2/3/4 has 0x53EF at offset 0x438 (1080)
+            if len(header) >= 1082:
+                if header[1080:1082] == b'\x53\xEF':
+                    return None
+                # Also check little-endian
+                if header[1080:1082] == b'\xEF\x53':
+                    return None
+            
+            # FAT has specific boot signature
+            if len(header) >= 512:
+                if header[510:512] == b'\x55\xAA':
+                    # Check for FAT signatures
+                    if b'FAT12' in header[:512] or b'FAT16' in header[:512] or b'FAT32' in header[:512]:
+                        return None
+                    # Check for other boot sector patterns
+                    if b'NTFS' in header[:512] or b'EXFAT' in header[:512]:
+                        return None
+            
+            # If first 512 bytes are all zeros, definitely not VeraCrypt
+            if header[:512] == b'\x00' * 512:
+                return None
+            
+            # Check if it looks like a typical filesystem superblock
+            # Most filesystems have readable strings or patterns
+            # VeraCrypt headers are completely random-looking
+            printable_count = sum(1 for b in header[:512] if 32 <= b < 127)
+            if printable_count > 50:  # Too many printable characters for encrypted data
+                return None
+            
+            # Check for very low entropy (indicates not encrypted)
+            unique_bytes = len(set(header[:512]))
+            if unique_bytes < 200:  # Very conservative threshold
+                return None
+            
+            # Additional check: VeraCrypt volumes should have uniform byte distribution
+            # Calculate standard deviation of byte frequencies
+            byte_counts = [0] * 256
+            for b in header[:512]:
+                byte_counts[b] += 1
+            
+            # If any byte appears too frequently, it's probably not encrypted
+            max_count = max(byte_counts)
+            if max_count > 10:  # Any single byte appears more than 10 times in 512 bytes
+                return None
+            
+            # At this point, it looks like encrypted data
+            # Return "veracrypt" tentatively
+            # Real verification happens during unlock attempt
+            return "veracrypt"
+            
+        except (IOError, OSError, PermissionError):
+            return None
+        
+    except (subprocess.TimeoutExpired, Exception):
+        return None
+
+
 def unlock_luks(devnode: str, mapper_name: str, passphrase: str) -> str:
     cmd = ["cryptsetup", "open", devnode, mapper_name]
     _run(cmd, input_data=passphrase.encode())
     return f"/dev/mapper/{mapper_name}"
 
 
-def close_mapper(mapper_name: str) -> None:
-    _run(["cryptsetup", "close", mapper_name])
+def unlock_veracrypt(devnode: str, mapper_name: str, passphrase: str) -> str:
+    """Unlock a VeraCrypt encrypted device."""
+    # VeraCrypt mounts volumes directly, not via /dev/mapper
+    # Mount under /media/$USER/ for proper file browser integration
+    # Get the actual user (not root when running via sudo)
+    username = os.environ.get('SUDO_USER') or os.environ.get('USER') or 'root'
+    mount_point = f"/media/{username}/{mapper_name}"
+    
+    # Clean up mount point if it exists from previous runs
+    if os.path.exists(mount_point):
+        try:
+            os.rmdir(mount_point)
+        except OSError:
+            pass  # Directory not empty or in use
+    else:
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(mount_point), exist_ok=True)
+    
+    cmd = [
+        "veracrypt",
+        "--text",
+        "--non-interactive",
+        "--stdin",  # Read password from stdin
+        devnode,
+        mount_point
+    ]
+    _run(cmd, input_data=passphrase.encode())
+    
+    # VeraCrypt creates a virtual device mapper, find it
+    # The actual device will be like /dev/mapper/veracrypt1
+    import time
+    time.sleep(0.5)  # Give VeraCrypt time to create the mapper
+    
+    # List /dev/mapper to find the VeraCrypt device
+    try:
+        import glob
+        mappers = glob.glob("/dev/mapper/veracrypt*")
+        if mappers:
+            # Return the most recently created one
+            return sorted(mappers, key=lambda x: os.path.getmtime(x))[-1]
+    except Exception:
+        pass
+    
+    # Fallback: return mount point (filesystem operations will use this)
+    return mount_point
+
+
+def close_mapper(mapper_name: str, encryption_type: str = "luks") -> None:
+    """Close an encrypted mapper device (LUKS or VeraCrypt)."""
+    if encryption_type == "veracrypt":
+        # For VeraCrypt, mapper_name might be a mount point or device
+        # Try to dismount by device/mount point
+        try:
+            _run(["veracrypt", "--text", "--dismount", mapper_name])
+        except CryptoError:
+            # Try with /media prefix if it's just a name
+            try:
+                _run(["veracrypt", "--text", "--dismount", f"/media/veracrypt-{mapper_name}"])
+            except CryptoError:
+                pass  # Already dismounted or not found
+    else:
+        _run(["cryptsetup", "close", mapper_name])
 
 
 def create_filesystem(devnode: str, fs_type: str = "ext4", label: Optional[str] = None, uid: Optional[int] = None, gid: Optional[int] = None) -> None:
@@ -172,6 +332,7 @@ def encrypt_device(
     uid: Optional[int] = None,
     gid: Optional[int] = None,
     username: Optional[str] = None,
+    encryption_type: str = "luks2",
 ) -> str:
     def emit(stage: str, pct: int):
         if progress_cb:
@@ -249,65 +410,138 @@ def encrypt_device(
         pass
 
     emit("luks_format", 10)
-    pbkdf_type = (kdf_opts or {}).get("type", "argon2id")
-    luks_type = (kdf_opts or {}).get("luks_version") or (kdf_opts or {}).get("luks_type") or "luks2"
-    if str(luks_type) in ("1", "luks1"):
-        luks_type = "luks1"
+    
+    # Determine encryption format
+    is_veracrypt = encryption_type.lower() == "veracrypt"
+    
+    if is_veracrypt:
+        # VeraCrypt encryption
+        emit("veracrypt_format", 10)
+        
+        # Check if veracrypt is installed
+        import shutil
+        if not shutil.which("veracrypt"):
+            raise CryptoError("VeraCrypt is not installed. Install from https://www.veracrypt.fr or use LUKS2 encryption instead.")
+        
+        # Ensure device is RW right before formatting
+        try:
+            _run(["blockdev", "--setrw", devnode])
+        except CryptoError:
+            pass
+        
+        # Create VeraCrypt volume
+        # VeraCrypt uses --create to format a volume
+        veracrypt_cmd = [
+            "veracrypt",
+            "--text",
+            "--create",
+            devnode,
+            "--volume-type=normal",
+            "--encryption=AES",
+            "--hash=SHA-512",
+            "--filesystem=none",  # We'll create filesystem after
+            "--stdin",  # Read password from stdin
+            "--pim=0",  # Use default PIM
+            "--keyfiles=",
+            "--random-source=/dev/urandom",
+            "--non-interactive"
+        ]
+        
+        mapper = None
+        try:
+            _run(veracrypt_cmd, input_data=passphrase.encode())
+            
+            emit("unlock", 40)
+            mapper = unlock_veracrypt(devnode, mapper_name, passphrase)
+            emit("mkfs", 60)
+            
+            # For VeraCrypt, mapper might be the mount point
+            # We need to find the actual device mapper to format
+            if mapper.startswith("/media/"):
+                # Find the actual /dev/mapper device
+                import glob
+                veracrypt_mappers = glob.glob("/dev/mapper/veracrypt*")
+                if veracrypt_mappers:
+                    # Format the actual mapper device
+                    actual_mapper = sorted(veracrypt_mappers, key=lambda x: os.path.getmtime(x))[-1]
+                    create_filesystem(actual_mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
+                else:
+                    raise CryptoError("Could not find VeraCrypt mapper device")
+            else:
+                create_filesystem(mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
+            
+            # Let the system automount handle encrypted devices
+            emit("done", 100)
+            print(f"VeraCrypt encryption complete. Mounted at: {mapper}")
+            return mapper
+        except Exception:
+            if mapper:
+                try:
+                    close_mapper(mapper, "veracrypt")
+                except Exception:
+                    pass
+            raise
     else:
-        luks_type = "luks2"
-    cipher_type = (cipher_opts or {}).get("type", "aes-xts-plain64")
-    key_size = str((cipher_opts or {}).get("key_size", 512))
+        # LUKS encryption (existing code)
+        pbkdf_type = (kdf_opts or {}).get("type", "argon2id")
+        luks_type = (kdf_opts or {}).get("luks_version") or (kdf_opts or {}).get("luks_type") or "luks2"
+        if str(luks_type) in ("1", "luks1"):
+            luks_type = "luks1"
+        else:
+            luks_type = "luks2"
+        cipher_type = (cipher_opts or {}).get("type", "aes-xts-plain64")
+        key_size = str((cipher_opts or {}).get("key_size", 512))
 
-    # Ensure device is RW right before formatting (udev monitor may have set it RO again)
-    try:
-        _run(["blockdev", "--setrw", devnode])
-    except CryptoError:
-        pass
+        # Ensure device is RW right before formatting (udev monitor may have set it RO again)
+        try:
+            _run(["blockdev", "--setrw", devnode])
+        except CryptoError:
+            pass
 
-    luks_format_cmd = [
-        "cryptsetup",
-        "luksFormat",
-        "--batch-mode",  # Don't ask for confirmation
-        "--type",
-        luks_type,
-        "--hash",
-        "sha256",
-    ]
-    if luks_type == "luks2":
-        luks_format_cmd += ["--pbkdf", pbkdf_type]
-    luks_format_cmd += [
-        "--cipher",
-        cipher_type,
-        "--key-size",
-        key_size,
-        devnode,
-    ]
-    mapper = None
-    try:
-        _run(luks_format_cmd, input_data=passphrase.encode())
-        
-        # Set LUKS2 label if provided
-        if label:
-            try:
-                _run(["cryptsetup", "config", devnode, "--label", label])
-            except CryptoError:
-                pass  # Continue even if label setting fails
-        
-        emit("unlock", 40)
-        mapper = unlock_luks(devnode, mapper_name, passphrase)
-        emit("mkfs", 60)
-        create_filesystem(mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
-        
-        # Let the system automount handle encrypted devices
-        # The udev rules have UDISKS_AUTO=1 for mapper devices
-        emit("done", 100)
-        mapper_path = f"/dev/mapper/{mapper_name}"
-        print(f"Encryption complete. Device will be auto-mounted by the system: {mapper_path}")
-        return mapper_path
-    except Exception:
-        if mapper:
-            try:
-                close_mapper(mapper_name)
-            except Exception:
-                pass
-        raise
+        luks_format_cmd = [
+            "cryptsetup",
+            "luksFormat",
+            "--batch-mode",  # Don't ask for confirmation
+            "--type",
+            luks_type,
+            "--hash",
+            "sha256",
+        ]
+        if luks_type == "luks2":
+            luks_format_cmd += ["--pbkdf", pbkdf_type]
+        luks_format_cmd += [
+            "--cipher",
+            cipher_type,
+            "--key-size",
+            key_size,
+            devnode,
+        ]
+        mapper = None
+        try:
+            _run(luks_format_cmd, input_data=passphrase.encode())
+            
+            # Set LUKS2 label if provided
+            if label:
+                try:
+                    _run(["cryptsetup", "config", devnode, "--label", label])
+                except CryptoError:
+                    pass  # Continue even if label setting fails
+            
+            emit("unlock", 40)
+            mapper = unlock_luks(devnode, mapper_name, passphrase)
+            emit("mkfs", 60)
+            create_filesystem(mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
+            
+            # Let the system automount handle encrypted devices
+            # The udev rules have UDISKS_AUTO=1 for mapper devices
+            emit("done", 100)
+            mapper_path = f"/dev/mapper/{mapper_name}"
+            print(f"Encryption complete. Device will be auto-mounted by the system: {mapper_path}")
+            return mapper_path
+        except Exception:
+            if mapper:
+                try:
+                    close_mapper(mapper_name, "luks")
+                except Exception:
+                    pass
+            raise

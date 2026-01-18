@@ -31,13 +31,13 @@ class UsbEnforcerDBus:
         <method name='RequestUnlock'>
           <arg type='s' name='devnode' direction='in'/>
           <arg type='s' name='mapper_name' direction='in'/>
-          <arg type='s' name='passphrase' direction='in'/>
+          <arg type='s' name='token' direction='in'/>
           <arg type='s' name='result' direction='out'/>
         </method>
         <method name='RequestEncrypt'>
           <arg type='s' name='devnode' direction='in'/>
           <arg type='s' name='mapper_name' direction='in'/>
-          <arg type='s' name='passphrase' direction='in'/>
+          <arg type='s' name='token' direction='in'/>
           <arg type='s' name='fs_type' direction='in'/>
           <arg type='s' name='label' direction='in'/>
           <arg type='s' name='result' direction='out'/>
@@ -113,11 +113,11 @@ class UsbEnforcerDBus:
     def GetDeviceStatus(self, devnode: str) -> Dict[str, str]:  # noqa: N802
         return self.get_status_func(devnode)
 
-    def RequestUnlock(self, devnode: str, mapper_name: str, passphrase: str) -> str:  # noqa: N802
-        return self.unlock_func(devnode, mapper_name, passphrase)
+    def RequestUnlock(self, devnode: str, mapper_name: str, token: str) -> str:  # noqa: N802
+        return self.unlock_func(devnode, mapper_name, token)
 
-    def RequestEncrypt(self, devnode: str, mapper_name: str, passphrase: str, fs_type: str, label: str) -> str:  # noqa: N802
-        return self.encrypt_func(devnode, mapper_name, passphrase, fs_type, label or None)
+    def RequestEncrypt(self, devnode: str, mapper_name: str, token: str, fs_type: str, label: str) -> str:  # noqa: N802
+        return self.encrypt_func(devnode, mapper_name, token, fs_type, label or None)
     
     def GetScannerStatistics(self) -> Dict[str, str]:  # noqa: N802
         """Get content scanner statistics"""

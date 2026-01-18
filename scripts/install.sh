@@ -131,6 +131,11 @@ check_dependencies_debian() {
   if ! command -v udisksctl >/dev/null 2>&1; then
     missing+=("udisks2")
   fi
+  
+  # Check for optional VeraCrypt (not in standard repos)
+  if ! command -v veracrypt >/dev/null 2>&1; then
+    log "Note: VeraCrypt not found (optional). Install from https://www.veracrypt.fr for cross-platform encryption support."
+  fi
   if ! command -v notify-send >/dev/null 2>&1; then
     missing+=("libnotify-bin")
   fi
@@ -270,23 +275,50 @@ setup_venv() {
 }
 
 reload_services() {
+  local restart_user_service
+  restart_user_service() {
+    local user="$1"
+    local uid
+    uid="$(id -u "$user" 2>/dev/null || true)"
+    if [[ -z "${uid}" ]]; then
+      return
+    fi
+    if [[ -d "/run/user/${uid}" ]]; then
+      sudo -u "$user" XDG_RUNTIME_DIR="/run/user/${uid}" \
+        systemctl --user daemon-reload
+      sudo -u "$user" XDG_RUNTIME_DIR="/run/user/${uid}" \
+        systemctl --user enable --now usb-enforcer-ui
+      sudo -u "$user" XDG_RUNTIME_DIR="/run/user/${uid}" \
+        systemctl --user restart usb-enforcer-ui
+    fi
+  }
+
   log "Reloading systemd and udev"
   systemctl daemon-reload
   udevadm control --reload
-  log "Enable and start daemon: systemctl enable --now usb-enforcerd"
+  log "Restarting polkit"
+  systemctl restart polkit
+  log "Enable and restart daemon: systemctl enable --now usb-enforcerd"
   systemctl enable --now usb-enforcerd
+  systemctl restart usb-enforcerd
   log "Enabling user notification bridge for all users via default.target.wants"
   install -d "${SYSTEMD_USER_DIR}/default.target.wants"
   ln -sf "${SYSTEMD_USER_DIR}/usb-enforcer-ui.service" "${SYSTEMD_USER_DIR}/default.target.wants/usb-enforcer-ui.service"
 
   if [[ -n "$SUDO_USER" ]] && [[ "$SUDO_USER" != "root" ]]; then
     log "Starting user service for $SUDO_USER"
-    sudo -u "$SUDO_USER" XDG_RUNTIME_DIR="/run/user/$(id -u "$SUDO_USER")" \
-      systemctl --user daemon-reload
-    sudo -u "$SUDO_USER" XDG_RUNTIME_DIR="/run/user/$(id -u "$SUDO_USER")" \
-      systemctl --user enable --now usb-enforcer-ui
+    restart_user_service "$SUDO_USER"
   else
-    log "Per-user start occurs on next login; to start immediately, run: systemctl --user daemon-reload && systemctl --user enable --now usb-enforcer-ui"
+    if command -v loginctl >/dev/null 2>&1; then
+      while read -r user; do
+        if [[ -n "${user}" ]] && [[ "${user}" != "root" ]]; then
+          log "Starting user service for ${user}"
+          restart_user_service "$user"
+        fi
+      done < <(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $3}' | sort -u)
+    else
+      log "Per-user start occurs on next login; to start immediately, run: systemctl --user daemon-reload && systemctl --user enable --now usb-enforcer-ui && systemctl --user restart usb-enforcer-ui"
+    fi
   fi
 }
 

@@ -47,6 +47,7 @@ require_noexec_on_plain = true                                     # Block execu
 # ============================================================================
 # ENCRYPTION DEFAULTS
 # ============================================================================
+default_encryption_type = "luks2"       # Default encryption: "luks2" (Linux), "veracrypt" (cross-platform)
 encryption_target_mode = "whole_disk"   # Options: "whole_disk", "partition"
 filesystem_type = "exfat"               # Filesystem after encryption: "exfat", "ext4", "ntfs"
 

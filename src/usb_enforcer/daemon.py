@@ -48,6 +48,7 @@ class Daemon:
         self._stop_event = threading.Event()
         self.dbus_service = None
         self._dbus_loop = None
+        self._dbus_export_thread = None
         self._bypass_enforcement: Set[str] = set()
         self._udev_context = pyudev.Context()
         self._secret_socket_path = "/run/usb-enforcer.sock"
@@ -121,6 +122,31 @@ class Daemon:
             if devnode.startswith(bypass) or bypass.startswith(devnode):
                 return True
         return False
+
+    def _is_encrypted_device_path(self, device_path: str) -> bool:
+        """
+        Detect whether a device path refers to an encrypted (dm-crypt/LUKS/VeraCrypt) mapper.
+        """
+        if "/mapper/" in device_path:
+            return True
+
+        def _is_crypt_dm(devname: str) -> bool:
+            if not devname.startswith("dm-"):
+                return False
+            dm_uuid_path = f"/sys/block/{devname}/dm/uuid"
+            try:
+                with open(dm_uuid_path, "r") as f:
+                    dm_uuid = f.read().strip()
+                return dm_uuid.startswith("CRYPT-")
+            except Exception:
+                return False
+
+        base = os.path.basename(device_path)
+        if _is_crypt_dm(base):
+            return True
+
+        real_base = os.path.basename(os.path.realpath(device_path))
+        return _is_crypt_dm(real_base)
     
     def _setup_fuse_overlay(self, device_path: str, base_mount: Optional[str] = None) -> None:
         """
@@ -267,8 +293,8 @@ class Daemon:
             # Create FUSE mount point with same path
             fuse_mount = mount_point
             
-            # Determine if device is encrypted (mapper devices are LUKS encrypted)
-            is_encrypted = '/mapper/' in device_path
+            # Determine if device is encrypted (dm-crypt mapper or /dev/mapper path)
+            is_encrypted = self._is_encrypted_device_path(device_path)
             self.logger.debug(f"Device {device_path} - is_encrypted: {is_encrypted}")
             
             # Mount FUSE overlay on top of the moved mount to preserve ownership/options
@@ -775,6 +801,19 @@ class Daemon:
         except Exception as e:
             self.logger.debug(f"Orphaned FUSE cleanup failed: {e}")
 
+    def _export_dbus_with_retry(self, dbus_service: dbus_api.UsbEnforcerDBus) -> None:
+        if dbus_service.Export():
+            return
+
+        def retry_loop():
+            while not self._stop_event.is_set():
+                time.sleep(5)
+                if dbus_service.Export():
+                    return
+
+        self._dbus_export_thread = threading.Thread(target=retry_loop, daemon=True)
+        self._dbus_export_thread.start()
+
     def _mapper_name_for(self, devnode: str) -> str:
         basename = devnode.split("/")[-1]
         return f"usbenc-{basename}"
@@ -810,7 +849,16 @@ class Daemon:
                     pass
         
         try:
-            mapper_path = crypto_engine.unlock_luks(devnode, mapper, passphrase)
+            # Detect encryption type
+            luks_ver = crypto_engine.luks_version(devnode)
+            veracrypt_ver = crypto_engine.veracrypt_version(devnode)
+            
+            if veracrypt_ver:
+                mapper_path = crypto_engine.unlock_veracrypt(devnode, mapper, passphrase)
+            elif luks_ver:
+                mapper_path = crypto_engine.unlock_luks(devnode, mapper, passphrase)
+            else:
+                raise ValueError(f"Unknown encryption type for {devnode}")
             
             # If content scanning is enabled, wait for mount and overlay with FUSE
             self.logger.debug(f"After unlock: fuse_manager={self.fuse_manager is not None}, content_scanner={self.content_scanner is not None}")
@@ -851,6 +899,15 @@ class Daemon:
         mapper = mapper_name or self._mapper_name_for(devnode)
         if len(passphrase) < self.config.min_passphrase_length:
             raise ValueError(f"Passphrase too short (min {self.config.min_passphrase_length})")
+        
+        # Parse label to extract encryption type if present (format: "label|encryption_type")
+        encryption_type = "luks2"  # default
+        actual_label = label
+        if label and "|" in label:
+            parts = label.split("|", 1)
+            actual_label = parts[0] if parts[0] else None
+            encryption_type = parts[1] if len(parts) > 1 else "luks2"
+        
         self._log_event("encrypt_start", {constants.LOG_KEY_EVENT: constants.EVENT_ENCRYPT, constants.LOG_KEY_DEVNODE: devnode, constants.LOG_KEY_ACTION: "encrypt_start"})
 
         def progress(stage: str, pct: int):
@@ -919,13 +976,14 @@ class Daemon:
                 passphrase,
                 fs_type or self.config.filesystem_type,
                 self.config.default_encrypted_mount_opts,
-                label,
+                actual_label,
                 progress_cb=progress,
                 kdf_opts=self.config.kdf,
                 cipher_opts=self.config.cipher,
                 uid=uid,
                 gid=gid,
                 username=username,
+                encryption_type=encryption_type,
             )
             self._log_event(
                 "encrypt_done",
@@ -970,8 +1028,8 @@ class Daemon:
             self.request_encrypt,
             self.get_scanner_statistics,
         )
-        dbus_service.Export()
         self.dbus_service = dbus_service
+        self._export_dbus_with_retry(dbus_service)
 
         if GLib:
             def _run_loop():

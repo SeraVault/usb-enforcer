@@ -3,8 +3,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: USB Enforcer 1.0.0\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-14 18:00+0000\n"
+"Report-Msgid-Bugs-To: https://github.com/yourusername/usb-enforcer/issues\n"
+"POT-Creation-Date: 2026-01-18 09:39-0600\n"
 "PO-Revision-Date: 2026-01-14 18:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: Spanish\n"
@@ -14,72 +14,1058 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:54
+msgid "Minimum passphrase length should be at least 8 characters"
+msgstr "La longitud mínima de la contraseña debe ser de al menos 8 caracteres"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:56
+msgid "Maximum passphrase length should not exceed 128 characters"
+msgstr "La longitud máxima de la contraseña no debe exceder los 128 caracteres"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:62
+msgid "TTL should be at least 60 seconds"
+msgstr "El TTL debe ser de al menos 60 segundos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:64
+msgid "TTL should not exceed 3600 seconds (1 hour)"
+msgstr "El TTL no debe exceder los 3600 segundos (1 hora)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:70
+msgid "Max tokens should be at least 16"
+msgstr "Los tokens máximos deben ser al menos 16"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:72
+msgid "Max tokens should not exceed 1024"
+msgstr "Los tokens máximos no deben exceder 1024"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:78
+msgid "File size cannot be negative (use 0 for unlimited)"
+msgstr "El tamaño del archivo no puede ser negativo (use 0 para ilimitado)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:80
+msgid "File size limit should not exceed 10240 MB (10 GB)"
+msgstr "El límite de tamaño de archivo no debe exceder 10240 MB (10 GB)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:86
+msgid "Timeout should be at least 5 seconds"
+msgstr "El tiempo de espera debe ser de al menos 5 segundos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:88
+msgid "Timeout should not exceed 300 seconds"
+msgstr "El tiempo de espera no debe exceder los 300 segundos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:119
+msgid "Close"
+msgstr "Cerrar"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:130
+msgid "USB Enforcer Administration"
+msgstr "Administración de USB Enforcer"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:139
+msgid "USB Enforcer Configuration"
+msgstr "Configuración de USB Enforcer"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:141
+msgid "Save Configuration"
+msgstr "Guardar Configuración"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:147
+msgid "Restart Daemon"
+msgstr "Reiniciar Demonio"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:148
+msgid "Restart usb-enforcerd to reload configuration"
+msgstr "Reiniciar usb-enforcerd para recargar la configuración"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:155
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1389
+msgid "Documentation"
+msgstr "Documentación"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:159
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1380
+msgid "Administration Guide"
+msgstr "Guía de Administración"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:160
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:466
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:551
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1381
+msgid "Content Scanning"
+msgstr "Escaneo de Contenido"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:161
+msgid "Anti-Evasion"
+msgstr "Anti-Evasión"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:162
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1383
+msgid "Group Exemptions"
+msgstr "Exenciones de Grupo"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:163
+msgid "Architecture Overview"
+msgstr "Descripción de la Arquitectura"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:164
+msgid "Testing Guide"
+msgstr "Guía de Pruebas"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:244
+msgid ""
+"Error loading configuration: {}\n"
+"Using default configuration."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:314
+msgid "Basic Enforcement"
+msgstr "Aplicación Básica"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:316
+msgid "Basic Settings"
+msgstr "Configuraciones Básicas"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:317
+msgid "Core enforcement policies for USB devices"
+msgstr "Políticas básicas de aplicación para dispositivos USB"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:320
+msgid "Only Enforce on USB Devices"
+msgstr "Solo Aplicar en Dispositivos USB"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:321
+msgid ""
+"When enabled, only USB devices are subject to enforcement. Other storage "
+"devices (SATA, NVMe) are not affected."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:326
+msgid "Allow LUKS1 (Read-Only)"
+msgstr "Permitir LUKS1 (Solo Lectura)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:327
+msgid ""
+"Allow older LUKS1 encrypted devices in read-only mode. LUKS2 is recommended "
+"for better security."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:332
+msgid "Allow Write with Content Scanning"
+msgstr "Permitir Escritura con Escaneo de Contenido"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:333
+msgid ""
+"Allow write access to unencrypted USB drives when content scanning is "
+"enabled. Files are scanned for sensitive data before writing."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:338
+msgid "Desktop Notifications"
+msgstr "Notificaciones de Escritorio"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:339
+msgid "Show desktop notifications when USB devices are connected or blocked."
+msgstr "Mostrar notificaciones de escritorio cuando se conectan o bloquean dispositivos USB."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:344
+msgid "Minimum Passphrase Length"
+msgstr "Longitud Mínima de Contraseña"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:345
+msgid ""
+"Minimum number of characters required for encryption passphrases. "
+"Recommended: 12 or higher."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:351
+msgid "Exempted Groups"
+msgstr "Grupos Exentos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:352
+msgid ""
+"Linux groups that are exempt from USB enforcement. Users in these groups can "
+"use any USB devices without restrictions. Enter one group name per line."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:357
+msgid "Basic"
+msgstr "Básico"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:361
+msgid "Security Settings"
+msgstr "Configuraciones de Seguridad"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:363
+msgid "Access Control"
+msgstr "Control de Acceso"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:364
+msgid "Secret token and socket security settings"
+msgstr "Configuraciones de seguridad de tokens secretos y sockets"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:367
+msgid "Token TTL (seconds)"
+msgstr "TTL de Token (segundos)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:368
+msgid ""
+"Time-to-live for one-time tokens used in passphrase handoff. After this "
+"time, tokens expire and cannot be used."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:374
+msgid "Maximum Outstanding Tokens"
+msgstr "Tokens Máximos Pendientes"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:375
+msgid ""
+"Maximum number of tokens kept in memory at once. Prevents memory exhaustion "
+"from token spam."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:380
+msgid "Mount Options"
+msgstr "Opciones de Montaje"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:381
+msgid "Security flags for mounting USB devices"
+msgstr "Banderas de seguridad para montar dispositivos USB"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:384
+msgid "Plaintext Mount Options"
+msgstr "Opciones de Montaje Sin Cifrar"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:385
+msgid ""
+"Mount options for unencrypted USB devices. Recommended: nodev, nosuid, "
+"noexec, ro"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:390
+msgid "Encrypted Mount Options"
+msgstr "Opciones de Montaje Cifrado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:391
+msgid "Mount options for encrypted USB devices. Recommended: nodev, nosuid, rw"
+msgstr "Opciones de montaje para dispositivos USB cifrados. Recomendado: nodev, nosuid, rw"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:396
+msgid "Require No-Execute on Plaintext"
+msgstr "Requerir No-Ejecución en Texto Plano"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:397
+msgid ""
+"Prevent execution of binaries from unencrypted USB devices. Recommended for "
+"security."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:401
+msgid "Security"
+msgstr "Seguridad"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:405
+#, fuzzy
+msgid "Encryption Settings"
+msgstr "Cifrado fallido"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:407
+#, fuzzy
+msgid "Encryption Defaults"
+msgstr "Cifrado fallido"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:408
+msgid "Default settings for USB device encryption"
+msgstr "Configuraciones predeterminadas para cifrado de dispositivos USB"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:411
+#, fuzzy
+msgid "Default Encryption Type"
+msgstr "Cifrado fallido"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:412
+msgid ""
+"luks2: Linux Unified Key Setup (Linux only)\n"
+"veracrypt: VeraCrypt (Cross-platform: Windows/Mac/Linux)\n"
+"Note: VeraCrypt must be installed separately"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:419
+#, fuzzy
+msgid "Encryption Target"
+msgstr "Cifrado fallido"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:420
+msgid ""
+"whole_disk: Encrypt entire disk\n"
+"partition: Encrypt specific partition only"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:426
+msgid "Filesystem Type"
+msgstr "Tipo de Sistema de Archivos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:427
+msgid ""
+"Filesystem to use after encryption:\n"
+"exfat: Cross-platform (Windows/Mac/Linux)\n"
+"ext4: Linux native, journaling\n"
+"ntfs: Windows-focused"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:434
+msgid "Key Derivation"
+msgstr "Derivación de Clave"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:435
+msgid "KDF (Key Derivation Function) settings"
+msgstr "Configuraciones de KDF (Función de Derivación de Clave)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:439
+msgid "KDF Algorithm"
+msgstr "Algoritmo KDF"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:440
+msgid ""
+"argon2id: Recommended, resistant to GPU attacks\n"
+"pbkdf2: Older, less secure"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:445
+msgid "Cipher Settings"
+msgstr "Configuraciones de Cifrado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:446
+msgid "Encryption algorithm configuration"
+msgstr "Configuración del algoritmo de cifrado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:449
+msgid "Cipher Algorithm"
+msgstr "Algoritmo de Cifrado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:450
+msgid ""
+"aes-xts-plain64: Recommended for disk encryption\n"
+"aes-cbc-essiv:sha256: Older algorithm"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:456
+msgid "Key Size (bits)"
+msgstr "Tamaño de Clave (bits)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:457
+msgid ""
+"512: Maximum security (recommended)\n"
+"256: Standard security"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:462
+#, fuzzy
+msgid "Encryption"
+msgstr "Cifrado fallido"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:468
+msgid "Content Scanning (DLP)"
+msgstr "Escaneo de Contenido (DLP)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:469
+msgid "Data Loss Prevention through real-time content scanning"
+msgstr "Prevención de Pérdida de Datos mediante escaneo de contenido en tiempo real"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:474
+msgid "Enable Content Scanning"
+msgstr "Habilitar Escaneo de Contenido"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:475
+msgid ""
+"Enable real-time scanning of files for sensitive data. Prevents writing "
+"credit cards, SSNs, API keys, etc. to USB devices."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:480
+msgid "Scan Encrypted Devices"
+msgstr "Escanear Dispositivos Cifrados"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:481
+msgid ""
+"When enabled, scanning applies to both encrypted and unencrypted devices. "
+"When disabled, scanning only applies to unencrypted devices."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:486
+msgid "Action on Detection"
+msgstr "Acción al Detectar"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:487
+msgid ""
+"block: Prevent writing files with sensitive data\n"
+"warn: Allow write but show warning\n"
+"log_only: Allow write and log to journal"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:493
+msgid "Scan Categories"
+msgstr "Categorías de Escaneo"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:494
+msgid "Types of sensitive data to detect"
+msgstr "Tipos de datos sensibles a detectar"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:498
+msgid "Enabled Categories"
+msgstr "Categorías Habilitadas"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:500
+msgid "Financial (credit cards, bank accounts, SWIFT, IBAN)"
+msgstr "Financiero (tarjetas de crédito, cuentas bancarias, SWIFT, IBAN)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:501
+msgid "Personal (SSN, passport, driver license, phone)"
+msgstr "Personal (SSN, pasaporte, licencia de conducir, teléfono)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:502
+msgid "Authentication (API keys, passwords, tokens)"
+msgstr "Autenticación (claves API, contraseñas, tokens)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:503
+msgid "Medical (medical records, insurance IDs)"
+msgstr "Médico (registros médicos, IDs de seguro)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:508
+msgid "Performance Settings"
+msgstr "Configuraciones de Rendimiento"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:509
+msgid "Scanning performance and limits"
+msgstr "Rendimiento y límites de escaneo"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:512
+msgid "Max File Size (MB)"
+msgstr "Tamaño Máximo de Archivo (MB)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:513
+msgid ""
+"Maximum file size to scan (0 = unlimited). Larger files may be skipped or "
+"sampled based on oversize_action."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:519
+msgid "Oversize File Action"
+msgstr "Acción de Archivo Sobredimensionado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:520
+msgid ""
+"block: Block files exceeding max size\n"
+"allow_unscanned: Allow without scanning"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:526
+msgid "Streaming Threshold (MB)"
+msgstr "Umbral de Transmisión (MB)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:527
+msgid ""
+"Files larger than this are written to temp disk before scanning. 0 = always "
+"stream to disk."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:533
+msgid "Large File Scan Mode"
+msgstr "Modo de Escaneo de Archivos Grandes"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:534
+msgid ""
+"full: Scan entire file contents\n"
+"sampled: Sample portions of large files"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:540
+msgid "Scan Timeout (seconds)"
+msgstr "Tiempo de Espera de Escaneo (segundos)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:541
+msgid "Maximum time to spend scanning a single file."
+msgstr "Tiempo máximo para escanear un solo archivo."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:546
+msgid "Max Concurrent Scans"
+msgstr "Escaneos Concurrentes Máximos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:547
+msgid "Number of parallel scanning threads."
+msgstr "Número de hilos de escaneo paralelos."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:555
+msgid "Advanced Scanning"
+msgstr "Escaneo Avanzado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:559
+msgid "Archive Scanning"
+msgstr "Escaneo de Archivos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:560
+msgid "Scanning files inside archives (ZIP, TAR, 7Z, RAR)"
+msgstr "Escaneo de archivos dentro de archivos comprimidos (ZIP, TAR, 7Z, RAR)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:563
+msgid "Scan Archive Contents"
+msgstr "Escanear Contenido de Archivos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:564
+msgid ""
+"Extract and scan files inside archive files. Prevents hiding sensitive data "
+"in compressed files."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:569
+msgid "Max Archive Depth"
+msgstr "Profundidad Máxima de Archivo"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:570
+msgid ""
+"Maximum nesting level for archives (e.g., ZIP inside ZIP). Prevents zip bomb "
+"attacks."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:575
+msgid "Document Scanning"
+msgstr "Escaneo de Documentos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:576
+msgid "Scanning Office and PDF documents"
+msgstr "Escaneo de documentos de Office y PDF"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:579
+msgid "Scan Documents"
+msgstr "Escanear Documentos"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:580
+msgid "Extract and scan text from PDF, DOCX, XLSX, PPTX, ODT files."
+msgstr "Extraer y escanear texto de archivos PDF, DOCX, XLSX, PPTX, ODT."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:583
+msgid "Machine Learning"
+msgstr "Aprendizaje Automático"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:584
+msgid "Advanced pattern detection"
+msgstr "Detección avanzada de patrones"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:587
+msgid "N-gram Analysis"
+msgstr "Análisis de N-gramas"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:588
+msgid ""
+"Use machine learning for pattern detection in unstructured text. Helps "
+"detect obfuscated or formatted sensitive data."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:592
+msgid "Caching"
+msgstr "Almacenamiento en Caché"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:593
+msgid "Scan result caching for performance"
+msgstr "Almacenamiento en caché de resultados de escaneo para rendimiento"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:596
+msgid "Enable Scan Cache"
+msgstr "Habilitar Caché de Escaneo"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:597
+msgid ""
+"Cache scan results based on file hash. Improves performance for repeated "
+"scans of same files."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:602
+msgid "Cache Size (MB)"
+msgstr "Tamaño de Caché (MB)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:603
+msgid "Maximum size of scan result cache."
+msgstr "Tamaño máximo del caché de resultados de escaneo."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:607
+msgid "Custom Patterns"
+msgstr "Patrones Personalizados"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:608
+msgid "Define enterprise-specific sensitive data patterns"
+msgstr "Definir patrones de datos sensibles específicos de la empresa"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:611
+msgid "Manage Custom Patterns"
+msgstr "Administrar Patrones Personalizados"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:618
+msgid "{} custom pattern(s) defined"
+msgstr "{} patrón(es) personalizado(s) definido(s)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:624
+msgid "Advanced"
+msgstr "Avanzado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:989
+msgid "Configuration saved to {}"
+msgstr "Configuración guardada en {}"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:994
+msgid "Configuration saved. Restart usb-enforcerd to apply changes."
+msgstr "Configuración guardada. Reinicie usb-enforcerd para aplicar los cambios."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:997
+msgid "Failed to save configuration: {}"
+msgstr "Error al guardar la configuración: {}"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1008
+msgid "usb-enforcerd restarted."
+msgstr "usb-enforcerd reiniciado."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1010
+msgid "systemctl not found; cannot restart service."
+msgstr "systemctl no encontrado; no se puede reiniciar el servicio."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1013
+msgid "Failed to restart usb-enforcerd: {}"
+msgstr "Error al reiniciar usb-enforcerd: {}"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1018
+msgid "Custom Content Patterns"
+msgstr "Patrones de Contenido Personalizados"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1027
+msgid "Add Pattern"
+msgstr "Agregar Patrón"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1069
+msgid "Name:"
+msgstr "Nombre:"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1072
+msgid "e.g., employee_id"
+msgstr "p. ej., id_empleado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1082
+msgid "Description:"
+msgstr "Descripción:"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1085
+msgid "e.g., Company employee ID"
+msgstr "p. ej., ID de empleado de la empresa"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1095
+msgid "Category:"
+msgstr "Categoría:"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1111
+msgid "Regex:"
+msgstr "Regex:"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1114
+#, python-brace-format
+msgid "e.g., EMP-\\\\d{6}"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1129
+msgid "Common Patterns ▾"
+msgstr "Patrones Comunes ▾"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1143
+msgid "Test Pattern:"
+msgstr "Probar Patrón:"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1148
+msgid "Enter sample text to test the pattern..."
+msgstr "Ingrese texto de muestra para probar el patrón..."
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1155
+msgid "Test Pattern"
+msgstr "Probar Patrón"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1171
+msgid "Delete Pattern"
+msgstr "Eliminar Patrón"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1224
+msgid "<span foreground='green'>✓ Valid regex pattern</span>"
+msgstr "<span foreground='green'>✓ Patrón regex válido</span>"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1227
+msgid "<span foreground='red'>✗ Invalid: {}</span>"
+msgstr "<span foreground='red'>✗ Inválido: {}</span>"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1236
+msgid "<span foreground='orange'>Enter a regex pattern first</span>"
+msgstr "<span foreground='orange'>Ingrese primero un patrón regex</span>"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1240
+msgid "<span foreground='orange'>Enter sample text to test</span>"
+msgstr "<span foreground='orange'>Ingrese texto de muestra para probar</span>"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1245
+msgid "<span foreground='red'>Fix regex errors first</span>"
+msgstr "<span foreground='red'>Corrija primero los errores de regex</span>"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1255
+msgid " ... ({} total)"
+msgstr " ... ({} total)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1257
+msgid "<span foreground='green'>✓ Found {} match(es): {}</span>"
+msgstr "<span foreground='green'>✓ Se encontraron {} coincidencia(s): {}</span>"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1261
+msgid "<span foreground='orange'>No matches found in test text</span>"
+msgstr "<span foreground='orange'>No se encontraron coincidencias en el texto de prueba</span>"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1264
+msgid "<span foreground='red'>Test error: {}</span>"
+msgstr "<span foreground='red'>Error de prueba: {}</span>"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1286
+msgid "Employee ID"
+msgstr "ID de Empleado"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1287
+msgid "Project Code"
+msgstr "Código de Proyecto"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1288
+msgid "Account Number"
+msgstr "Número de Cuenta"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1289
+msgid "Internal IP"
+msgstr "IP Interna"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1290
+msgid "Document ID"
+msgstr "ID de Documento"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1291
+msgid "Serial Number"
+msgstr "Número de Serie"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1292
+msgid "Phone (US)"
+msgstr "Teléfono (EE.UU.)"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1293
+msgid "Email Domain"
+msgstr "Dominio de Correo"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1294
+msgid "API Key Format"
+msgstr "Formato de Clave API"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1295
+msgid "UUID"
+msgstr "UUID"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1299
+msgid "Common Pattern Templates"
+msgstr "Plantillas de Patrones Comunes"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1321
+msgid "Pattern: {}"
+msgstr "Patrón: {}"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1328
+msgid "Example: {}"
+msgstr "Ejemplo: {}"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1382
+msgid "File Type Support"
+msgstr "Soporte de Tipos de Archivo"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1384
+msgid "Notifications"
+msgstr "Notificaciones"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1385
+msgid "Main Documentation"
+msgstr "Documentación Principal"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1400
+msgid "Available Documentation"
+msgstr "Documentación Disponible"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1428
+msgid "Documentation file not found: {}"
+msgstr "Archivo de documentación no encontrado: {}"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1438
+msgid "Error loading documentation: {}"
+msgstr "Error al cargar la documentación: {}"
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1670
+msgid ""
+"When enabled, only USB devices are enforced. Other storage types (SATA, "
+"NVMe, etc.) are not affected. Useful for workstations where internal drives "
+"should not be restricted."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1671
+msgid ""
+"LUKS1 is an older encryption format. If enabled, LUKS1 devices are allowed "
+"but only in read-only mode. LUKS2 is more secure and should be preferred."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1672
+msgid ""
+"Allows writing to unencrypted USB drives if content scanning is enabled. "
+"Files are scanned for sensitive patterns before being written. Requires "
+"content_scanning_enabled=true."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1673
+msgid ""
+"Users in the configured exemption group can bypass enforcement. Useful for "
+"IT administrators or trusted users who need unrestricted access."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1674
+msgid ""
+"Name of the system group whose members are exempt from enforcement. Default "
+"is 'usb-exempt'. Create this group and add trusted users to it."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1675
+msgid ""
+"Mount options for unencrypted USB devices, one per line. Common options:\n"
+"• nodev - No device files\n"
+"• nosuid - Ignore setuid bits\n"
+"• noexec - Prevent execution\n"
+"• ro - Read-only\n"
+"Recommended: nodev, nosuid, noexec, ro"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1676
+msgid ""
+"Mount options for encrypted USB devices, one per line. Common options:\n"
+"• nodev - No device files\n"
+"• nosuid - Ignore setuid bits\n"
+"• rw - Read-write access\n"
+"Recommended: nodev, nosuid, rw"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1677
+msgid ""
+"Enforce noexec flag on unencrypted USB drives. Prevents running executables "
+"from plaintext USB devices. Strongly recommended for security."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1678
+msgid ""
+"Forces all allowed devices to be mounted read-only. Prevents any writes even "
+"if the device would normally allow them. Highest security option."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1679
+msgid ""
+"Additional mount options passed to the kernel. Common options include "
+"'noexec' (prevent execution), 'nosuid' (ignore setuid), 'nodev' (no device "
+"files)."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1680
+msgid ""
+"Default encryption format for new USB devices. LUKS2 is Linux-only and "
+"recommended for Linux environments. VeraCrypt is cross-platform (Windows/Mac/"
+"Linux) but requires separate installation from https://www.veracrypt.fr"
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1681
+msgid ""
+"Determines what gets encrypted. 'whole_disk' encrypts the entire device "
+"(recommended). 'partition' only encrypts a specific partition."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1682
+msgid ""
+"Filesystem created on encrypted devices. exfat is cross-platform. ext4 is "
+"Linux-native with journaling. ntfs is Windows-focused."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1683
+msgid ""
+"Cipher algorithm for LUKS2 encryption. aes-xts-plain64 is recommended for "
+"modern systems. Options: aes-xts-plain64, aes-cbc-essiv, serpent-xts-plain64."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1684
+msgid ""
+"Encryption key size in bits. 512 = 256-bit effective (XTS mode uses half for "
+"tweak). Larger is more secure but may be slightly slower."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1685
+msgid ""
+"Hash algorithm for key derivation. sha256 is standard, sha512 is more secure "
+"but slower. Options: sha256, sha512."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1686
+msgid ""
+"Password-based key derivation function. argon2id is most secure (resistant "
+"to GPU attacks). Options: argon2id, argon2i, pbkdf2."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1687
+msgid ""
+"Time in milliseconds for key derivation. Higher values are more secure "
+"(slower brute force) but take longer to unlock. 2000ms is recommended."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1688
+msgid ""
+"Minimum length for auto-generated passphrases. Longer is more secure. 32 "
+"characters provides excellent security."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1689
+msgid ""
+"Enables content scanning (DLP) to detect sensitive data patterns like SSNs, "
+"credit cards, etc. Requires patterns to be configured."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1690
+msgid "Detect US Social Security Numbers (XXX-XX-XXXX format)."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1691
+msgid "Detect credit card numbers using Luhn algorithm validation."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1692
+msgid "Detect email addresses."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1693
+msgid "Detect US phone numbers in various formats."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1694
+msgid "Use custom regex patterns defined in the configuration."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1695
+msgid ""
+"Maximum size of files to scan. Larger files are skipped to prevent "
+"performance issues. 100MB is reasonable for most use cases."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1696
+msgid ""
+"Maximum time to spend scanning a single file. Prevents hangs on malformed "
+"files. 30 seconds is typical."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1697
+msgid ""
+"Scan inside ZIP and other archive files. Increases scan time but catches "
+"hidden data."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1698
+msgid ""
+"How many levels deep to scan nested archives. Prevents zip bombs. 3 levels "
+"is reasonable."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/ui/admin.py:1699
+msgid ""
+"Use machine learning models for anomaly detection. Requires trained models "
+"to be present."
+msgstr ""
+
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:180
 msgid "Encrypted USB detected"
 msgstr "USB cifrado detectado"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:181
+#, python-brace-format
 msgid "Device {device} needs to be unlocked"
 msgstr "El dispositivo {device} necesita ser desbloqueado"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:182
 msgid "Unlock drive…"
 msgstr "Desbloquear unidad…"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:185
 msgid "USB encryption complete"
 msgstr "Cifrado USB completado"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:185
+#, python-brace-format
 msgid "Device {device} mounted writable"
 msgstr "Dispositivo {device} montado con escritura"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:190
 msgid "Encrypted USB unlocked"
 msgstr "USB cifrado desbloqueado"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:190
+#, python-brace-format
 msgid "Device {device} is now writable"
 msgstr "El dispositivo {device} ahora es escribible"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:192
 msgid "Unlock failed"
 msgstr "Desbloqueo fallido"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:192
+#, python-brace-format
 msgid "Device {device} unlock failed"
 msgstr "Falló el desbloqueo del dispositivo {device}"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:194
 msgid "Encryption failed"
 msgstr "Cifrado fallido"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:194
+#, python-brace-format
 msgid "Device {device} encryption failed"
 msgstr "Falló el cifrado del dispositivo {device}"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:201
 msgid "USB mounted read-only"
 msgstr "USB montado solo lectura"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:202
 msgid "Writing requires encryption."
 msgstr "La escritura requiere cifrado."
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:203
 msgid "Encrypt drive…"
 msgstr "Cifrar unidad…"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:252
 msgid "⛔ File Blocked - Sensitive Data Detected"
 msgstr "⛔ Archivo bloqueado - Datos sensibles detectados"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
-msgid "File: {filepath}\\n\\nReason: {reason}\\n\\nPatterns detected: {patterns}\\n\\n{message}"
-msgstr "Archivo: {filepath}\\n\\nRazón: {reason}\\n\\nPatrones detectados: {patterns}\\n\\n{message}"
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:253
+#, fuzzy, python-brace-format
+msgid ""
+"File: {filepath}\n"
+"\n"
+"Reason: {reason}\n"
+"\n"
+"Patterns detected: {patterns}\n"
+"\n"
+"{message}"
+msgstr ""
+"Archivo: {filepath}\\n\\nRazón: {reason}\\n\\nPatrones detectados: {patterns}"
+"\\n\\n{message}"
 
-#: src/usb_enforcer/usb_enforcer_ui.py
+#: /home/dguedry/Documents/usb-enforcer/src/usb_enforcer/usb_enforcer_ui.py:258
+#, python-brace-format
 msgid "This file contains {n} sensitive pattern and cannot be written to USB."
-msgid_plural "This file contains {n} sensitive patterns and cannot be written to USB."
-msgstr[0] "Este archivo contiene {n} patrón sensible y no puede escribirse en USB."
-msgstr[1] "Este archivo contiene {n} patrones sensibles y no puede escribirse en USB."
+msgid_plural ""
+"This file contains {n} sensitive patterns and cannot be written to USB."
+msgstr[0] ""
+"Este archivo contiene {n} patrón sensible y no puede escribirse en USB."
+msgstr[1] ""
+"Este archivo contiene {n} patrones sensibles y no puede escribirse en USB."

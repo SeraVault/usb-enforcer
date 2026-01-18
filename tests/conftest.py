@@ -92,6 +92,13 @@ def require_cryptsetup():
 
 
 @pytest.fixture
+def require_veracrypt():
+    """Skip test if veracrypt is not available."""
+    if not has_command("veracrypt"):
+        pytest.skip("This test requires veracrypt (install from https://www.veracrypt.fr)")
+
+
+@pytest.fixture
 def require_losetup():
     """Skip test if losetup is not available."""
     if not has_command("losetup"):

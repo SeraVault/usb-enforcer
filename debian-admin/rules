@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_install:
+	dh_auto_install
+	# Create admin directory with dedicated venv
+	mkdir -p $(CURDIR)/debian/usb-enforcer-admin/usr/lib/usb-enforcer-admin
+	python3 -m venv --system-site-packages $(CURDIR)/debian/usb-enforcer-admin/usr/lib/usb-enforcer-admin/.venv
+	# Install minimal dependencies in venv
+	$(CURDIR)/debian/usb-enforcer-admin/usr/lib/usb-enforcer-admin/.venv/bin/pip install --upgrade pip
+	# Only install toml if Python < 3.11
+	if python3 -c 'import sys; exit(0 if sys.version_info >= (3,11) else 1)'; then \
+		echo "Using built-in tomllib"; \
+	else \
+		$(CURDIR)/debian/usb-enforcer-admin/usr/lib/usb-enforcer-admin/.venv/bin/pip install toml; \
+	fi
+	# Copy admin module
+	mkdir -p $(CURDIR)/debian/usb-enforcer-admin/usr/lib/usb-enforcer-admin/usb_enforcer/ui
+	cp src/usb_enforcer/ui/admin.py $(CURDIR)/debian/usb-enforcer-admin/usr/lib/usb-enforcer-admin/usb_enforcer/ui/
+	touch $(CURDIR)/debian/usb-enforcer-admin/usr/lib/usb-enforcer-admin/usb_enforcer/__init__.py
+	touch $(CURDIR)/debian/usb-enforcer-admin/usr/lib/usb-enforcer-admin/usb_enforcer/ui/__init__.py
+	# Install admin script
+	install -D -m 755 scripts/usb-enforcer-admin $(CURDIR)/debian/usb-enforcer-admin/usr/bin/usb-enforcer-admin
+	# Install desktop file
+	install -D -m 644 deploy/desktop/usb-enforcer-admin.desktop $(CURDIR)/debian/usb-enforcer-admin/usr/share/applications/usb-enforcer-admin.desktop
+	# Install polkit policy
+	install -D -m 644 deploy/polkit/49-usb-enforcer-admin.policy $(CURDIR)/debian/usb-enforcer-admin/usr/share/polkit-1/actions/49-usb-enforcer-admin.policy
+	# Install sample config
+	install -D -m 644 deploy/config.toml.sample $(CURDIR)/debian/usb-enforcer-admin/usr/share/usb-enforcer/config.toml.sample
+	# Install documentation
+	mkdir -p $(CURDIR)/debian/usb-enforcer-admin/usr/share/doc/usb-enforcer
+	cp -r docs/* $(CURDIR)/debian/usb-enforcer-admin/usr/share/doc/usb-enforcer/
+
+override_dh_installsystemd:
+	# Skip systemd services for admin package
+
+override_dh_python3:
+	dh_python3 --shebang=/usr/bin/python3

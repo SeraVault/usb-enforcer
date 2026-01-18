@@ -27,6 +27,7 @@ class Config:
     min_passphrase_length: int = 12
     encryption_target_mode: str = "whole_disk"
     filesystem_type: str = "exfat"
+    default_encryption_type: str = "luks2"
     notification_enabled: bool = True
     exempted_groups: List[str] = field(default_factory=list)
     secret_token_ttl_seconds: int = 300
@@ -64,6 +65,7 @@ class Config:
             min_passphrase_length=parsed.get("min_passphrase_length", 12),
             encryption_target_mode=parsed.get("encryption_target_mode", "whole_disk"),
             filesystem_type=parsed.get("filesystem_type", "exfat"),
+            default_encryption_type=parsed.get("default_encryption_type", "luks2"),
             notification_enabled=parsed.get("notification_enabled", True),
             exempted_groups=parsed.get("exempted_groups", []),
             secret_token_ttl_seconds=parsed.get("secret_token_ttl_seconds", 300),

@@ -1,0 +1,16 @@
+#!/bin/bash
+# USB Enforcer administration GUI wrapper
+set -e
+
+# Admin has its own separate venv and installation
+ADMIN_DIR="/usr/lib/usb-enforcer-admin"
+ADMIN_VENV="${ADMIN_DIR}/.venv"
+
+# Use dedicated admin venv if available, otherwise use system Python
+if [ -d "${ADMIN_VENV}" ] && [ -f "${ADMIN_VENV}/bin/python3" ]; then
+    export PYTHONPATH="${ADMIN_DIR}"
+    exec "${ADMIN_VENV}/bin/python3" -c "from usb_enforcer.ui.admin import main; main()" "$@"
+else
+    export PYTHONPATH="${ADMIN_DIR}"
+    exec python3 -c "from usb_enforcer.ui.admin import main; main()" "$@"
+fi

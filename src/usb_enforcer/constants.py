@@ -5,6 +5,8 @@ PLAINTEXT = "plaintext"
 LUKS1 = "luks1"
 LUKS2_LOCKED = "luks2_locked"
 LUKS2_UNLOCKED = "luks2_unlocked"
+VERACRYPT_LOCKED = "veracrypt_locked"
+VERACRYPT_UNLOCKED = "veracrypt_unlocked"
 MAPPER = "mapper"
 UNKNOWN = "unknown"
 

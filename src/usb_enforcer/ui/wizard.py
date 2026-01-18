@@ -104,6 +104,43 @@ class WizardWindow(Gtk.ApplicationWindow):
         
         self.content_box.append(refresh_box)
 
+        # Encryption type selection
+        encryption_type_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        encryption_type_label = Gtk.Label(label="Encryption Type", xalign=0)
+        encryption_type_label.add_css_class("heading")
+        encryption_type_box.append(encryption_type_label)
+        
+        self.encryption_type_store = Gio.ListStore.new(Gtk.StringObject)
+        self.encryption_type_store.append(Gtk.StringObject.new("LUKS2 (Linux Unified Key Setup)"))
+        
+        # Check if VeraCrypt is installed
+        import shutil
+        veracrypt_available = shutil.which("veracrypt") is not None
+        if veracrypt_available:
+            self.encryption_type_store.append(Gtk.StringObject.new("VeraCrypt (Cross-platform)"))
+        else:
+            self.encryption_type_store.append(Gtk.StringObject.new("VeraCrypt (Not Installed)"))
+        
+        self.encryption_type_combo = Gtk.DropDown(model=self.encryption_type_store)
+        
+        # Load default encryption type from config
+        default_type = self._load_default_encryption_type()
+        default_idx = 0  # LUKS2
+        if default_type == "veracrypt" and veracrypt_available:
+            default_idx = 1
+        self.encryption_type_combo.set_selected(default_idx)
+        
+        tooltip_text = "Select encryption format. "
+        if not veracrypt_available:
+            tooltip_text += "VeraCrypt is not installed. Install from https://www.veracrypt.fr for cross-platform support."
+        else:
+            tooltip_text += "LUKS2 for Linux-only, VeraCrypt for cross-platform (Windows, macOS, Linux)."
+        self.encryption_type_combo.set_tooltip_text(tooltip_text)
+        self.veracrypt_available = veracrypt_available
+        
+        encryption_type_box.append(self.encryption_type_combo)
+        self.content_box.append(encryption_type_box)
+
         # Label field
         label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         label_label = Gtk.Label(label="Volume Label (optional)", xalign=0)
@@ -165,6 +202,16 @@ class WizardWindow(Gtk.ApplicationWindow):
         self.pass_strength.set_value(min(val, 20))
         css = strength_color(val)
         self.pass_strength.set_css_classes([css])
+
+    def _load_default_encryption_type(self) -> str:
+        """Load default encryption type from config file."""
+        try:
+            from ..config import Config
+            config = Config.load()
+            return config.default_encryption_type
+        except Exception as e:
+            print(f"[_load_default_encryption_type] Error loading config: {e}")
+            return "luks2"  # Default fallback
 
     def notify(self, msg: str, level: str = "info"):
         # Show message in progress bar for now
@@ -327,10 +374,20 @@ class WizardWindow(Gtk.ApplicationWindow):
         mapper = devnode.split("/")[-1]
         preserve_data = self.preserve_data_check.get_active()
         label = self.label_entry.get_text().strip() or None
-        print(f"[on_encrypt] Starting encryption thread for {devnode}, mapper={mapper}, preserve_data={preserve_data}, label={label}")
-        threading.Thread(target=self._encrypt_thread, args=(devnode, mapper, pwd, preserve_data, label), daemon=True).start()
+        
+        # Get selected encryption type
+        encryption_type_idx = self.encryption_type_combo.get_selected()
+        encryption_type = "luks2" if encryption_type_idx == 0 else "veracrypt"
+        
+        # Validate VeraCrypt is available if selected
+        if encryption_type == "veracrypt" and not self.veracrypt_available:
+            self.notify("VeraCrypt is not installed. Please install it or use LUKS2.", "error")
+            return
+        
+        print(f"[on_encrypt] Starting encryption thread for {devnode}, mapper={mapper}, preserve_data={preserve_data}, label={label}, type={encryption_type}")
+        threading.Thread(target=self._encrypt_thread, args=(devnode, mapper, pwd, preserve_data, label, encryption_type), daemon=True).start()
 
-    def _encrypt_thread(self, devnode: str, mapper: str, password: str, preserve_data: bool = False, label: Optional[str] = None):
+    def _encrypt_thread(self, devnode: str, mapper: str, password: str, preserve_data: bool = False, label: Optional[str] = None, encryption_type: str = "luks2"):
         temp_dir = None
         mount_point = None
         
@@ -421,9 +478,12 @@ class WizardWindow(Gtk.ApplicationWindow):
             
             # Step 2: Encrypt the device
             GLib.idle_add(self.progress.set_fraction, 0.25)
-            GLib.idle_add(self.progress.set_text, "Starting encryption...")
+            GLib.idle_add(self.progress.set_text, f"Starting {encryption_type.upper()} encryption...")
             token = secret_socket.send_secret("encrypt", devnode, password, mapper)
-            self.proxy.RequestEncrypt(devnode, mapper, token, "exfat", label or "")
+            # Pass encryption_type via the config; for now we'll use the label field to pass it
+            # Format: "label|encryption_type" or just "label" for default LUKS2
+            label_with_type = f"{label or ''}|{encryption_type}"
+            self.proxy.RequestEncrypt(devnode, mapper, token, "exfat", label_with_type)
             
             # Wait for encryption to complete (monitor via events)
             # The on_event handler will update progress
@@ -589,7 +649,7 @@ class WizardWindow(Gtk.ApplicationWindow):
         if not dev:
             self.notify("Select a device to unlock", "error")
             return
-        if dev.get("classification") not in ("luks2_locked",):
+        if dev.get("classification") not in ("luks2_locked", "veracrypt_locked"):
             self.notify("Only encrypted devices can be unlocked", "error")
             return
         pwd = self.pass_entry.get_text()

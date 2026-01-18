@@ -38,6 +38,13 @@ def classify_device(dev: Dict[str, str], devnode: Optional[str] = None) -> str:
             if detected == "2":
                 return constants.LUKS2_LOCKED
         return constants.LUKS1
+    
+    # Check for VeraCrypt encrypted devices
+    if devnode:
+        veracrypt_detected = crypto_engine.veracrypt_version(devnode)
+        if veracrypt_detected:
+            return constants.VERACRYPT_LOCKED
+    
     if is_usb_storage(dev):
         return constants.PLAINTEXT
     return constants.UNKNOWN
