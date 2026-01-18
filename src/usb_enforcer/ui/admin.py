@@ -33,12 +33,15 @@ except (ImportError, ModuleNotFoundError):
 
 try:
     import toml
+    TOML_BINARY_MODE = False  # toml library uses text mode
 except ImportError:
     # Fall back to tomli/tomllib for Python 3.11+
     try:
         import tomllib as toml  # type: ignore
+        TOML_BINARY_MODE = True  # tomllib uses binary mode
     except ImportError:
         import tomli as toml  # type: ignore
+        TOML_BINARY_MODE = True  # tomli uses binary mode
 
 
 DEFAULT_CONFIG_PATH = "/etc/usb-enforcer/config.toml"
@@ -222,15 +225,15 @@ class AdminWindow(Gtk.ApplicationWindow):
         """Load configuration from file."""
         try:
             if os.path.exists(self.config_path):
-                # toml library needs text mode, tomllib needs binary
-                mode = 'rb' if hasattr(toml, 'loads') and 'tomllib' in str(type(toml)) else 'r'
+                # toml library needs text mode, tomllib/tomli need binary
+                mode = 'rb' if TOML_BINARY_MODE else 'r'
                 with open(self.config_path, mode) as f:
                     self.config = toml.load(f)
             else:
                 # Load from sample if main config doesn't exist
                 sample_path = "/usr/share/usb-enforcer/config.toml.sample"
                 if os.path.exists(sample_path):
-                    mode = 'rb' if hasattr(toml, 'loads') and 'tomllib' in str(type(toml)) else 'r'
+                    mode = 'rb' if TOML_BINARY_MODE else 'r'
                     with open(sample_path, mode) as f:
                         self.config = toml.load(f)
                 else:
@@ -272,8 +275,6 @@ class AdminWindow(Gtk.ApplicationWindow):
                 "enabled_categories": ["financial", "personal", "authentication", "medical"],
                 "max_file_size_mb": 100,
                 "oversize_action": "block",
-                "streaming_threshold_mb": 16,
-                "large_file_scan_mode": "sampled",
                 "scan_timeout_seconds": 30,
                 "max_concurrent_scans": 2,
                 "archive_scanning_enabled": True,
@@ -305,11 +306,267 @@ class AdminWindow(Gtk.ApplicationWindow):
         self.content_box.append(paned)
         
         # Build each section
+        self.build_status_section()
         self.build_basic_section()
         self.build_security_section()
         self.build_encryption_section()
         self.build_scanning_section()
         self.build_advanced_section()
+    
+    def build_status_section(self):
+        """Build system status page."""
+        page = self.create_page(_("System Status"))
+        
+        self.add_section_header(page, _("USB Enforcer System Status"), 
+                               _("Monitor all components of USB Enforcer"))
+        
+        # Create status items container
+        status_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        status_box.set_margin_top(12)
+        status_box.set_margin_bottom(12)
+        status_box.set_margin_start(12)
+        status_box.set_margin_end(12)
+        
+        # Check if main package is installed
+        main_package_installed = self.check_main_package_installed()
+        
+        if not main_package_installed:
+            # Show info banner about missing main package
+            info_banner = Adw.Banner()
+            info_banner.set_title(_("Main Package Not Installed"))
+            info_banner.set_button_label(_("Learn More"))
+            info_banner.connect("button-clicked", self.on_main_package_help)
+            status_box.append(info_banner)
+            
+            info_label = Gtk.Label()
+            info_label.set_markup(
+                _("<b>Note:</b> This is the standalone admin GUI package. "
+                  "To use USB Enforcer, install the main package:\n\n"
+                  "<tt>sudo apt install usb-enforcer</tt>  (Debian/Ubuntu)\n"
+                  "<tt>sudo dnf install usb-enforcer</tt>  (RHEL/Fedora)")
+            )
+            info_label.set_wrap(True)
+            info_label.set_xalign(0)
+            info_label.set_margin_top(12)
+            info_label.set_margin_bottom(12)
+            status_box.append(info_label)
+        
+        # System Service Status
+        status_box.append(self.create_status_group(_("System Service"), [
+            (_("Daemon Service"), self.check_systemd_service("usb-enforcerd.service")),
+            (_("User UI Service"), self.check_systemd_user_service("usb-enforcer-ui.service")),
+            (_("DBus Service"), self.check_dbus_service()),
+        ]))
+        
+        # Configuration Status
+        config_status = []
+        config_file_check = self.check_config_file()
+        config_status.append((_("Config File"), config_file_check))
+        
+        # If config doesn't exist but we can create a sample
+        if config_file_check[0] == "error" and not main_package_installed:
+            config_status.append((_("Sample Config"), self.check_file_exists("/usr/share/usb-enforcer/config.toml.sample")))
+        
+        if os.path.exists(self.config_path):
+            try:
+                mode = 'rb' if TOML_BINARY_MODE else 'r'
+                with open(self.config_path, mode) as f:
+                    config = toml.load(f)
+                    # Check key settings
+                    if config.get("enforce_on_usb_only"):
+                        config_status.append((_("Enforcement Scope"), ("info", _("USB devices only"))))
+                    else:
+                        config_status.append((_("Enforcement Scope"), ("warning", _("All storage devices"))))
+                    
+                    if config.get("content_scanning", {}).get("enabled"):
+                        config_status.append((_("Content Scanning"), ("success", _("Enabled"))))
+                    else:
+                        config_status.append((_("Content Scanning"), ("info", _("Disabled"))))
+            except Exception as e:
+                config_status.append((_("Config Parsing"), ("error", str(e))))
+        
+        status_box.append(self.create_status_group(_("Configuration"), config_status))
+        
+        # System Integration Status (from main package)
+        integration_items = [
+            (_("Udev Rules"), self.check_file_exists("/usr/lib/udev/rules.d/49-usb-enforcer.rules")),
+            (_("Udisks2 Rules"), self.check_file_exists("/usr/lib/udev/rules.d/80-udisks2-usb-enforcer.rules")),
+            (_("PolicyKit Rules"), self.check_file_exists("/etc/polkit-1/rules.d/49-usb-enforcer.rules")),
+            (_("DBus Config"), self.check_file_exists("/etc/dbus-1/system.d/org.seravault.UsbEnforcer.conf")),
+        ]
+        
+        group_title = _("System Integration") if main_package_installed else _("System Integration (from main package)")
+        status_box.append(self.create_status_group(group_title, integration_items))
+        
+        # Refresh button
+        refresh_button = Gtk.Button(label=_("Refresh Status"))
+        refresh_button.set_margin_top(12)
+        refresh_button.connect("clicked", lambda btn: self.refresh_status())
+        status_box.append(refresh_button)
+        
+        page.append(status_box)
+        
+        self.stack.add_titled(page, "status", _("System Status"))
+    
+    def check_main_package_installed(self) -> bool:
+        """Check if the main usb-enforcer package is installed."""
+        # Check for daemon script which is only in main package
+        daemon_path = "/usr/libexec/usb-enforcerd"
+        if not os.path.exists(daemon_path):
+            daemon_path = "/usr/lib/usb-enforcer/usb-enforcerd"
+        return os.path.exists(daemon_path)
+    
+    def on_main_package_help(self, banner):
+        """Show help about installing main package."""
+        dialog = Adw.MessageDialog.new(self)
+        dialog.set_heading(_("Main Package Required"))
+        dialog.set_body(
+            _("The usb-enforcer-admin package only contains the configuration GUI. "
+              "To use USB Enforcer, you need to install the main package:\n\n"
+              "Debian/Ubuntu:\n"
+              "  sudo apt install usb-enforcer\n\n"
+              "RHEL/Fedora:\n"
+              "  sudo dnf install usb-enforcer\n\n"
+              "The main package includes:\n"
+              "• System daemon (usb-enforcerd)\n"
+              "• Udev and PolicyKit rules\n"
+              "• DBus service\n"
+              "• User interface and wizard")
+        )
+        dialog.add_response("ok", _("OK"))
+        dialog.set_default_response("ok")
+        dialog.present()
+    
+    def check_systemd_service(self, service_name: str) -> tuple[str, str]:
+        """Check if a systemd service is active."""
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-active", service_name],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0 and result.stdout.strip() == "active":
+                return ("success", _("Running"))
+            else:
+                return ("error", _("Not running"))
+        except Exception as e:
+            return ("error", _("Error checking: {}").format(str(e)))
+    
+    def check_systemd_user_service(self, service_name: str) -> tuple[str, str]:
+        """Check if a systemd user service is active."""
+        # When running as root (via pkexec), we need to check user services differently
+        try:
+            # First try direct check (works if running as user)
+            result = subprocess.run(
+                ["systemctl", "--user", "is-active", service_name],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0 and result.stdout.strip() == "active":
+                return ("success", _("Running"))
+            
+            # If that failed, try checking for any logged-in user
+            # Get list of logged-in users
+            result = subprocess.run(
+                ["loginctl", "list-users", "--no-legend"],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0:
+                for line in result.stdout.strip().split('\n'):
+                    if line.strip():
+                        uid = line.split()[0]
+                        # Check this user's service
+                        check_result = subprocess.run(
+                            ["systemctl", "--user", "--machine", f"{uid}@", "is-active", service_name],
+                            capture_output=True, text=True, timeout=2
+                        )
+                        if check_result.returncode == 0 and check_result.stdout.strip() == "active":
+                            return ("success", _("Running"))
+            
+            return ("info", _("Not running (optional)"))
+        except Exception as e:
+            return ("info", _("Unable to check"))
+    
+    def check_dbus_service(self) -> tuple[str, str]:
+        """Check if the DBus service is available."""
+        try:
+            result = subprocess.run(
+                ["busctl", "status", "org.seravault.UsbEnforcer"],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0:
+                return ("success", _("Available"))
+            else:
+                return ("error", _("Not available"))
+        except Exception as e:
+            return ("error", _("Error checking: {}").format(str(e)))
+    
+    def check_config_file(self) -> tuple[str, str]:
+        """Check configuration file status."""
+        if os.path.exists(self.config_path):
+            try:
+                stat = os.stat(self.config_path)
+                if stat.st_size == 0:
+                    return ("warning", _("File is empty"))
+                return ("success", _("Present ({} bytes)").format(stat.st_size))
+            except Exception as e:
+                return ("error", str(e))
+        else:
+            # Config doesn't exist - check if we can suggest creating from sample
+            sample_path = "/usr/share/usb-enforcer/config.toml.sample"
+            if os.path.exists(sample_path):
+                return ("warning", _("Not found (sample available)"))
+            return ("error", _("Not found"))
+    
+    def check_file_exists(self, path: str) -> tuple[str, str]:
+        """Check if a file exists."""
+        if os.path.exists(path):
+            return ("success", _("Installed"))
+        else:
+            return ("error", _("Not installed"))
+    
+    def create_status_group(self, title: str, items: list) -> Gtk.Widget:
+        """Create a status group with multiple status items."""
+        group = Adw.PreferencesGroup()
+        group.set_title(title)
+        
+        for label, (status_type, status_text) in items:
+            row = Adw.ActionRow()
+            row.set_title(label)
+            
+            status_box = Gtk.Box(spacing=6)
+            
+            # Status icon
+            if status_type == "success":
+                icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+                icon.add_css_class("success")
+            elif status_type == "error":
+                icon = Gtk.Image.new_from_icon_name("dialog-error-symbolic")
+                icon.add_css_class("error")
+            elif status_type == "warning":
+                icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+                icon.add_css_class("warning")
+            else:  # info
+                icon = Gtk.Image.new_from_icon_name("dialog-information-symbolic")
+            
+            status_box.append(icon)
+            
+            status_label = Gtk.Label(label=status_text)
+            status_box.append(status_label)
+            
+            row.add_suffix(status_box)
+            group.add(row)
+        
+        return group
+    
+    def refresh_status(self):
+        """Refresh the status page."""
+        # Rebuild the status section
+        # Find and remove the old status page
+        child = self.stack.get_child_by_name("status")
+        if child:
+            self.stack.remove(child)
+        
+        # Rebuild it
+        self.build_status_section()
     
     def build_basic_section(self):
         """Build basic enforcement settings."""
@@ -323,6 +580,33 @@ class AdminWindow(Gtk.ApplicationWindow):
                        _("When enabled, only USB devices are subject to enforcement. "
                        "Other storage devices (SATA, NVMe) are not affected."),
                        "ADMINISTRATION.md#enforcement-scope")
+        
+        # Add section for unencrypted drive policy
+        self.add_section_header(page, _("Unencrypted Drive Policy"), 
+                               _("Control access to USB drives without encryption"))
+        
+        # Helper to manage the inverse relationship
+        require_encryption_value = not self.config.get("allow_plaintext_write_with_scanning", False)
+        
+        row = Adw.ActionRow()
+        row.set_title(_("Require Encryption"))
+        row.set_subtitle(_("Block write access to unencrypted USB drives. "
+                          "Only encrypted drives (LUKS2/VeraCrypt) can be written to. "
+                          "Unencrypted drives will be mounted read-only."))
+        
+        switch = Gtk.Switch()
+        switch.set_valign(Gtk.Align.CENTER)
+        switch.set_active(require_encryption_value)
+        switch.connect("notify::active", self.on_require_encryption_toggled)
+        row.add_suffix(switch)
+        row.set_activatable_widget(switch)
+        page.append(row)
+        
+        # Store reference for updates
+        self.require_encryption_switch = switch
+        
+        self.add_section_header(page, _("Allowed Encryption Types"), 
+                               _("Select which encryption formats are permitted"))
         
         self.add_switch(page, "allow_luks1_readonly", 
                        _("Allow LUKS1 (Read-Only)"),
@@ -342,11 +626,8 @@ class AdminWindow(Gtk.ApplicationWindow):
                        "VeraCrypt is cross-platform (Windows/Mac/Linux)."),
                        "ADMINISTRATION.md#veracrypt")
         
-        self.add_switch(page, "allow_plaintext_write_with_scanning", 
-                       _("Allow Write with Content Scanning"),
-                       _("Allow write access to unencrypted USB drives when content "
-                       "scanning is enabled. Files are scanned for sensitive data before writing."),
-                       "CONTENT-SCANNING-INTEGRATION.md")
+        self.add_section_header(page, _("Other Settings"), 
+                               _("Additional enforcement options"))
         
         self.add_switch(page, "notification_enabled", 
                        _("Desktop Notifications"),
@@ -535,20 +816,6 @@ class AdminWindow(Gtk.ApplicationWindow):
                         "allow_unscanned: Allow without scanning"),
                         ["block", "allow_unscanned"],
                         "CONTENT-SCANNING-INTEGRATION.md#oversize-handling")
-        
-        self.add_spin_button(page, "content_scanning.streaming_threshold_mb",
-                           _("Streaming Threshold (MB)"),
-                           _("Files larger than this are written to temp disk before scanning. "
-                           "0 = always stream to disk."),
-                           0, 1024, 1, ConfigValidator.validate_file_size,
-                           "CONTENT-SCANNING-INTEGRATION.md#streaming")
-        
-        self.add_dropdown(page, "content_scanning.large_file_scan_mode",
-                        _("Large File Scan Mode"),
-                        _("full: Scan entire file contents\n"
-                        "sampled: Sample portions of large files"),
-                        ["full", "sampled"],
-                        "CONTENT-SCANNING-INTEGRATION.md#scan-modes")
         
         self.add_spin_button(page, "content_scanning.scan_timeout_seconds",
                            _("Scan Timeout (seconds)"),
@@ -976,6 +1243,14 @@ class AdminWindow(Gtk.ApplicationWindow):
     def on_value_changed(self, key: str, value: Any):
         """Handle any value change."""
         self.set_config_value(key, value)
+        self.modified = True
+        self.save_button.set_sensitive(True)
+    
+    def on_require_encryption_toggled(self, switch, _):
+        """Handle require encryption toggle."""
+        require_encryption = switch.get_active()
+        # Inverse logic: if require encryption is ON, plaintext write must be OFF
+        self.config["allow_plaintext_write_with_scanning"] = not require_encryption
         self.modified = True
         self.save_button.set_sensitive(True)
     

@@ -218,6 +218,8 @@ install_scripts() {
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-helper" "${LIBEXEC}/"
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-ui" "${LIBEXEC}/"
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-wizard" "${LIBEXEC}/"
+  install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-cli" "${LIBEXEC}/"
+  install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-notifications" "${LIBEXEC}/"
 }
 
 install_desktop_files() {
@@ -287,9 +289,7 @@ reload_services() {
       sudo -u "$user" XDG_RUNTIME_DIR="/run/user/${uid}" \
         systemctl --user daemon-reload
       sudo -u "$user" XDG_RUNTIME_DIR="/run/user/${uid}" \
-        systemctl --user enable --now usb-enforcer-ui
-      sudo -u "$user" XDG_RUNTIME_DIR="/run/user/${uid}" \
-        systemctl --user restart usb-enforcer-ui
+        systemctl --user start usb-enforcer-ui 2>/dev/null || true
     fi
   }
 
@@ -317,9 +317,12 @@ reload_services() {
         fi
       done < <(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $3}' | sort -u)
     else
-      log "Per-user start occurs on next login; to start immediately, run: systemctl --user daemon-reload && systemctl --user enable --now usb-enforcer-ui && systemctl --user restart usb-enforcer-ui"
+      log "Per-user start occurs on next login; to start immediately, run: systemctl --user start usb-enforcer-ui"
     fi
   fi
+  
+  log "USB Enforcer installation complete."
+  log "Desktop notifications are now active for logged-in users."
 }
 
 check_dependencies_suse() {

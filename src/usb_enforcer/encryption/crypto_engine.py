@@ -177,14 +177,14 @@ def veracrypt_version(devnode: str) -> Optional[str]:
             
             # Check if it looks like a typical filesystem superblock
             # Most filesystems have readable strings or patterns
-            # VeraCrypt headers are completely random-looking
+            # VeraCrypt headers are completely random-looking but may have some structure
             printable_count = sum(1 for b in header[:512] if 32 <= b < 127)
-            if printable_count > 50:  # Too many printable characters for encrypted data
+            if printable_count > 250:  # Relaxed threshold - encrypted data can have printable bytes
                 return None
             
             # Check for very low entropy (indicates not encrypted)
             unique_bytes = len(set(header[:512]))
-            if unique_bytes < 200:  # Very conservative threshold
+            if unique_bytes < 180:  # Relaxed threshold - VeraCrypt may have some structure
                 return None
             
             # Additional check: VeraCrypt volumes should have uniform byte distribution
@@ -216,29 +216,45 @@ def unlock_luks(devnode: str, mapper_name: str, passphrase: str) -> str:
     return f"/dev/mapper/{mapper_name}"
 
 
-def unlock_veracrypt(devnode: str, mapper_name: str, passphrase: str) -> str:
+def unlock_veracrypt(devnode: str, mapper_name: str, passphrase: str, username: Optional[str] = None, uid: Optional[int] = None, gid: Optional[int] = None) -> str:
     """Unlock a VeraCrypt encrypted device."""
     # VeraCrypt mounts volumes directly, not via /dev/mapper
     # Mount under /media/$USER/ for proper file browser integration
     # Get the actual user (not root when running via sudo)
-    username = os.environ.get('SUDO_USER') or os.environ.get('USER') or 'root'
+    if not username:
+        username = os.environ.get('SUDO_USER') or os.environ.get('USER') or 'root'
+    
+    # Get UID/GID if not provided
+    if uid is None:
+        try:
+            import pwd
+            pw = pwd.getpwnam(username)
+            uid = pw.pw_uid
+            gid = pw.pw_gid
+        except (KeyError, ImportError):
+            uid = 0
+            gid = 0
+    
     mount_point = f"/media/{username}/{mapper_name}"
     
-    # Clean up mount point if it exists from previous runs
-    if os.path.exists(mount_point):
-        try:
-            os.rmdir(mount_point)
-        except OSError:
-            pass  # Directory not empty or in use
-    else:
-        # Ensure parent directory exists
-        os.makedirs(os.path.dirname(mount_point), exist_ok=True)
+    # Ensure parent directory exists
+    os.makedirs(os.path.dirname(mount_point), exist_ok=True)
+    
+    # Create mount point directory if it doesn't exist
+    if not os.path.exists(mount_point):
+        os.makedirs(mount_point, exist_ok=True)
+    
+    # Build mount options to set ownership
+    # For exfat: uid,gid,fmask,dmask
+    fs_options = f"uid={uid},gid={gid},fmask=0022,dmask=0022"
     
     cmd = [
         "veracrypt",
         "--text",
         "--non-interactive",
         "--stdin",  # Read password from stdin
+        "--filesystem=exfat",  # Specify filesystem type
+        "--fs-options", fs_options,  # Set ownership and permissions
         devnode,
         mount_point
     ]
@@ -431,6 +447,9 @@ def encrypt_device(
         
         # Create VeraCrypt volume
         # VeraCrypt uses --create to format a volume
+        # Note: --size is not used for device-hosted volumes (uses entire device automatically)
+        # Pass password via stdin with --stdin flag for better compatibility
+        # Use --quick to skip encrypting empty space (much faster, equivalent to LUKS behavior)
         veracrypt_cmd = [
             "veracrypt",
             "--text",
@@ -440,6 +459,7 @@ def encrypt_device(
             "--encryption=AES",
             "--hash=SHA-512",
             "--filesystem=none",  # We'll create filesystem after
+            "--quick",  # Skip encrypting empty space
             "--stdin",  # Read password from stdin
             "--pim=0",  # Use default PIM
             "--keyfiles=",
@@ -448,38 +468,82 @@ def encrypt_device(
         ]
         
         mapper = None
+        mapper_device = None
         try:
-            _run(veracrypt_cmd, input_data=passphrase.encode())
+            # Pass password via stdin (needs to be provided twice for creation)
+            password_input = f"{passphrase}\n{passphrase}\n".encode()
+            _run(veracrypt_cmd, input_data=password_input)
             
             emit("unlock", 40)
-            mapper = unlock_veracrypt(devnode, mapper_name, passphrase)
-            emit("mkfs", 60)
+            # After creation with --filesystem=none, we need to unlock without mounting
+            # to get the mapper device, then format it
+            # Use --mount-options=headerbak to unlock without filesystem check
+            unlock_cmd = [
+                "veracrypt",
+                "--text",
+                "--non-interactive",
+                "--stdin",
+                "--filesystem=none",  # Don't try to mount filesystem yet
+                devnode
+            ]
+            _run(unlock_cmd, input_data=passphrase.encode())
             
-            # For VeraCrypt, mapper might be the mount point
-            # We need to find the actual device mapper to format
-            if mapper.startswith("/media/"):
-                # Find the actual /dev/mapper device
-                import glob
-                veracrypt_mappers = glob.glob("/dev/mapper/veracrypt*")
-                if veracrypt_mappers:
-                    # Format the actual mapper device
-                    actual_mapper = sorted(veracrypt_mappers, key=lambda x: os.path.getmtime(x))[-1]
-                    create_filesystem(actual_mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
-                else:
-                    raise CryptoError("Could not find VeraCrypt mapper device")
+            # Find the actual /dev/mapper device that VeraCrypt created
+            import glob
+            import time
+            time.sleep(0.5)  # Give system time to create mapper
+            veracrypt_mappers = glob.glob("/dev/mapper/veracrypt*")
+            if veracrypt_mappers:
+                # Get the most recently created one
+                mapper_device = sorted(veracrypt_mappers, key=lambda x: os.path.getmtime(x))[-1]
             else:
-                create_filesystem(mapper, fs_type=fs_type, label=label, uid=uid, gid=gid)
+                raise CryptoError("Could not find VeraCrypt mapper device")
             
-            # Let the system automount handle encrypted devices
+            emit("mkfs", 60)
+            # Format the mapper device (this is running as root, so it has permissions)
+            create_filesystem(mapper_device, fs_type=fs_type, label=label, uid=uid, gid=gid)
+            
+            # Dismount the VeraCrypt volume (this also removes the mapper)
+            try:
+                _run(["veracrypt", "--text", "--dismount", devnode])
+            except CryptoError:
+                pass
+            
+            emit("remount", 80)
+            # Re-unlock without mounting so udisks2 can auto-mount with proper user permissions
+            unlock_cmd = [
+                "veracrypt",
+                "--text",
+                "--non-interactive",
+                "--stdin",
+                "--filesystem=none",  # Don't mount, just create mapper
+                devnode
+            ]
+            _run(unlock_cmd, input_data=passphrase.encode())
+            
+            # Wait for mapper to be created
+            time.sleep(0.5)
+            veracrypt_mappers = glob.glob("/dev/mapper/veracrypt*")
+            if veracrypt_mappers:
+                mapper_device = sorted(veracrypt_mappers, key=lambda x: os.path.getmtime(x))[-1]
+            
+            # Trigger udev to detect the mapper device and let udisks2 auto-mount it
+            try:
+                _run(["udevadm", "trigger", "--action=add", f"--name-match={mapper_device}"])
+                _run(["udevadm", "settle"])
+            except CryptoError:
+                pass
+            
+            # Let the system automount handle encrypted devices with proper ownership
             emit("done", 100)
-            print(f"VeraCrypt encryption complete. Mounted at: {mapper}")
-            return mapper
+            print(f"VeraCrypt encryption complete. Device: {mapper_device}")
+            return mapper_device
         except Exception:
-            if mapper:
-                try:
-                    close_mapper(mapper, "veracrypt")
-                except Exception:
-                    pass
+            # Try to clean up on error - dismount the device
+            try:
+                _run(["veracrypt", "--text", "--dismount", devnode])
+            except Exception:
+                pass
             raise
     else:
         # LUKS encryption (existing code)

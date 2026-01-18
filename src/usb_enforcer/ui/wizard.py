@@ -24,7 +24,7 @@ try:
 except Exception:
     pyudev = None
 
-from .. import secret_socket
+from ..encryption import secret_socket
 
 BUS_NAME = "org.seravault.UsbEnforcer"
 BUS_PATH = "/org/seravault/UsbEnforcer"
@@ -565,17 +565,13 @@ class WizardWindow(Gtk.ApplicationWindow):
                 # The device was auto-mounted by the daemon and contains the restored data
                 print(f"[_encrypt_thread] Leaving device mounted at {encrypted_mount} for user access")
             
-            # Success
+            # Success - update progress
+            # Note: Don't send notification or close here - that's handled by on_event when encrypt_done is received
             GLib.idle_add(self.progress.set_fraction, 1.0)
             if preserve_data:
                 GLib.idle_add(self.progress.set_text, "Encryption complete - Data restored")
-                GLib.idle_add(self.notify, f"Encryption complete with data preserved: {devnode}")
             else:
                 GLib.idle_add(self.progress.set_text, "Encryption complete")
-                GLib.idle_add(self.notify, f"Encryption complete: {devnode}")
-            
-            # Close the wizard after 3 seconds
-            GLib.timeout_add_seconds(3, self.close)
             
         except Exception as exc:
             print(f"[_encrypt_thread] Error: {exc}")

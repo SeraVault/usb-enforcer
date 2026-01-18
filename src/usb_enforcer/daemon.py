@@ -50,6 +50,7 @@ class Daemon:
         self._dbus_loop = None
         self._dbus_export_thread = None
         self._bypass_enforcement: Set[str] = set()
+        self._unlock_prompted: Set[str] = set()  # Track devices we've already prompted for
         self._udev_context = pyudev.Context()
         self._secret_socket_path = "/run/usb-enforcer.sock"
         self._secret_socket: Optional[socket.socket] = None
@@ -412,6 +413,8 @@ class Daemon:
             self.devices.pop(devnode, None)
             # Remove from bypass list if present
             self._bypass_enforcement.discard(devnode)
+            # Remove from unlock prompt tracking
+            self._unlock_prompted.discard(devnode)
             # Try to clean up any stale mount points via udisks2
             self._cleanup_stale_mounts(devnode)
             return
@@ -424,6 +427,20 @@ class Daemon:
             "id_type": device_props.get("ID_TYPE", ""),
             "serial": device_props.get("ID_SERIAL_SHORT", device_props.get("ID_SERIAL", "")),
         }
+        
+        # Emit unlock_prompt for encrypted devices (LUKS2 and VeraCrypt) - only once per device
+        if classification in (constants.LUKS2_LOCKED, constants.VERACRYPT_LOCKED) and action in ("add", "change"):
+            if devnode not in self._unlock_prompted:
+                self._unlock_prompted.add(devnode)
+                self._log_event(
+                    "unlock_prompt",
+                    {
+                        constants.LOG_KEY_EVENT: "unlock_prompt",
+                        constants.LOG_KEY_DEVNODE: devnode,
+                        constants.LOG_KEY_ACTION: "unlock_prompt",
+                        constants.LOG_KEY_CLASSIFICATION: classification,
+                    },
+                )
         
         # Handle mapper devices (unlocked LUKS) - set up FUSE overlay if content scanning enabled
         if classification == constants.MAPPER and action in ("add", "change"):
@@ -848,6 +865,13 @@ class Daemon:
                 except (ValueError, KeyError):
                     pass
         
+        # Get the active session user for VeraCrypt mounting
+        session_uid, session_gid, session_username = self._get_active_session_user()
+        username = session_username if session_username else (pwd.getpwuid(uid).pw_name if uid else "root")
+        # Use session UID/GID for VeraCrypt, or fall back to the detected user
+        veracrypt_uid = session_uid if session_uid else uid
+        veracrypt_gid = session_gid if session_gid else gid
+        
         try:
             # Detect encryption type
             luks_ver = crypto_engine.luks_version(devnode)
@@ -856,7 +880,7 @@ class Daemon:
             if veracrypt_ver:
                 if not self.config.allow_veracrypt:
                     raise ValueError(f"VeraCrypt encrypted devices are not allowed by policy")
-                mapper_path = crypto_engine.unlock_veracrypt(devnode, mapper, passphrase)
+                mapper_path = crypto_engine.unlock_veracrypt(devnode, mapper, passphrase, username=username, uid=veracrypt_uid, gid=veracrypt_gid)
             elif luks_ver:
                 if luks_ver == "1" and not self.config.allow_luks1_readonly:
                     raise ValueError(f"LUKS1 encrypted devices are not allowed by policy")
@@ -1096,25 +1120,30 @@ class Daemon:
                 os.unlink(self._secret_socket_path)
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.bind(self._secret_socket_path)
-            # Default: allow users in the group (plugdev) to connect.
+            
+            # Allow users in the plugdev group to connect
             socket_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
             target_gid = None
             try:
                 target_gid = grp.getgrnam(os.environ.get("USB_EE_SOCKET_GROUP", "plugdev")).gr_gid
             except KeyError:
-                target_gid = None
-            except Exception:
-                target_gid = None
+                self.logger.warning("Group 'plugdev' not found, socket will be root-only")
+            except Exception as exc:
+                self.logger.warning("Failed to get plugdev group: %s", exc)
+            
             if target_gid is not None:
                 try:
                     os.chown(self._secret_socket_path, 0, target_gid)
-                except PermissionError:
-                    target_gid = None
+                except Exception as exc:
+                    self.logger.warning("Failed to chown socket to plugdev group: %s", exc)
+            
             os.chmod(self._secret_socket_path, socket_mode)
             sock.listen(5)
             self._secret_socket = sock
             threading.Thread(target=self._secret_socket_loop, daemon=True).start()
-            self.logger.info("Secret socket listening at %s", self._secret_socket_path)
+            self.logger.info("Secret socket listening at %s (group: %s)", 
+                           self._secret_socket_path, 
+                           "plugdev" if target_gid else "root")
         except Exception as exc:
             self.logger.error("Failed to start secret socket: %s", exc)
             self._secret_socket = None

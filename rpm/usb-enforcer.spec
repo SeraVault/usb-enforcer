@@ -184,6 +184,16 @@ mkdir -p %{_userunitdir}/default.target.wants
 ln -sf %{_userunitdir}/usb-enforcer-ui.service \
     %{_userunitdir}/default.target.wants/usb-enforcer-ui.service 2>/dev/null || :
 
+# Start user service for all logged-in users
+for user_runtime in /run/user/*; do
+    if [ -d "$user_runtime" ]; then
+        uid=$(basename "$user_runtime")
+        # Reload daemon and start service
+        systemctl --user --machine="${uid}@" daemon-reload 2>/dev/null || :
+        systemctl --user --machine="${uid}@" start usb-enforcer-ui.service 2>/dev/null || :
+    fi
+done
+
 %preun
 %systemd_preun usb-enforcerd.service
 

@@ -182,13 +182,19 @@ def handle_event(fields: Dict[str, str], notifier: NotificationManager) -> None:
             actions={"unlock": (_("Unlock drive…"), lambda _a: launch_unlock_dialog(devnode))},
         )
     elif event == "encrypt" and action == "encrypt_done":
+        if notifier._suppress_duplicate(devnode, action):
+            return
         notifier.notify(_("USB encryption complete"), _("Device {device} mounted writable").format(device=devnode))
     elif event == "encrypt" and action.startswith("encrypt_"):
         # Progress updates visible in wizard UI - no notification spam
         pass
     elif event == "unlock" and action == "unlock_done":
+        if notifier._suppress_duplicate(devnode, action):
+            return
         notifier.notify(_("Encrypted USB unlocked"), _("Device {device} is now writable").format(device=devnode))
     elif event == "unlock" and action == "unlock_fail":
+        if notifier._suppress_duplicate(devnode, action):
+            return
         notifier.notify(_("Unlock failed"), _("Device {device} unlock failed").format(device=devnode))
     elif event == "encrypt" and action == "encrypt_fail":
         notifier.notify(_("Encryption failed"), _("Device {device} encryption failed").format(device=devnode))

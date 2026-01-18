@@ -79,10 +79,9 @@ enabled_categories = ["financial", "pii", "corporate", "medical"]
 # Performance limits
 max_file_size_mb = 100                  # Max size to scan; set 0 for unlimited
 oversize_action = "block"               # block | allow_unscanned (allow writes without scanning when limit is hit)
-streaming_threshold_mb = 16             # Spill writes to temp file when size exceeds this (0 = always stream)
-large_file_scan_mode = "sampled"        # sampled | full (full scans entire file contents)
 scan_timeout_seconds = 30               # Maximum scan time per file
 max_concurrent_scans = 2                # Parallel scanning threads
+# Note: All files are scanned using streaming (temp files) for security and memory efficiency
 
 # Advanced scanning options
 archive_scanning_enabled = true         # Scan inside ZIP, TAR, 7Z, RAR files

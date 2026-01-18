@@ -92,10 +92,7 @@ class ContentScanningConfig:
     # Performance settings
     max_file_size_mb: int = 500
     oversize_action: str = "block"  # block, allow_unscanned
-    streaming_threshold_mb: int = 16  # Switch to streaming temp file when exceeding this size
-    large_file_scan_mode: str = "sampled"  # sampled, full
     max_scan_time_seconds: int = 30
-    max_memory_per_scan_mb: int = 100
     max_concurrent_scans: int = 4
     
     # Caching
@@ -198,8 +195,6 @@ class ContentScanningConfig:
             enforce_on_encrypted_devices=config_dict.get('enforce_on_encrypted_devices', True),
             max_file_size_mb=config_dict.get('max_file_size_mb', 500),
             oversize_action=config_dict.get('oversize_action', 'block'),
-            streaming_threshold_mb=config_dict.get('streaming_threshold_mb', 16),
-            large_file_scan_mode=config_dict.get('large_file_scan_mode', 'sampled'),
             max_scan_time_seconds=config_dict.get('max_scan_time_seconds', 30),
             max_memory_per_scan_mb=config_dict.get('max_memory_per_scan_mb', 100),
             max_concurrent_scans=config_dict.get('max_concurrent_scans', 4),
@@ -270,8 +265,6 @@ class ContentScanningConfig:
             'enforce_on_encrypted_devices': self.enforce_on_encrypted_devices,
             'max_file_size_mb': self.max_file_size_mb,
             'oversize_action': self.oversize_action,
-            'streaming_threshold_mb': self.streaming_threshold_mb,
-            'large_file_scan_mode': self.large_file_scan_mode,
             'max_scan_time_seconds': self.max_scan_time_seconds,
             'max_memory_per_scan_mb': self.max_memory_per_scan_mb,
             'max_concurrent_scans': self.max_concurrent_scans,
@@ -292,7 +285,6 @@ class ContentScanningConfig:
             'cache_ttl_hours': self.cache_ttl_hours,
             'max_file_size_mb': self.max_file_size_mb,
             'max_scan_time_seconds': self.max_scan_time_seconds,
-            'large_file_scan_mode': self.large_file_scan_mode,
             'block_threshold': self.ngrams.block_threshold,
             'warn_threshold': self.ngrams.warn_threshold,
             'ngram_enabled': self.ngrams.enabled,

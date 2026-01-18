@@ -166,15 +166,18 @@ deb-bundled:
 		echo "Error: dpkg-buildpackage not found. Install: sudo apt install debhelper dh-python devscripts"; \
 		exit 1; \
 	fi
-	@mkdir -p $(NAME)-$(VERSION)
+	@mkdir -p $(NAME_BUNDLED)-$(VERSION)
 	@tar xzf $(TARBALL)
 	@tar xzf $(PYTHON_DEPS)
-	@cp -r wheels $(NAME)-$(VERSION)/
-	@cp -r debian-bundled $(NAME)-$(VERSION)/debian
-	@cd $(NAME)-$(VERSION) && dpkg-buildpackage -us -uc -b
+	@mv $(NAME)-$(VERSION)/* $(NAME_BUNDLED)-$(VERSION)/
+	@rmdir $(NAME)-$(VERSION)
+	@rm -rf $(NAME_BUNDLED)-$(VERSION)/debian
+	@cp -r debian-bundled $(NAME_BUNDLED)-$(VERSION)/debian
+	@cp -r wheels $(NAME_BUNDLED)-$(VERSION)/
+	@cd $(NAME_BUNDLED)-$(VERSION) && dpkg-buildpackage -us -uc -b
 	@mkdir -p dist
 	@mv $(NAME_BUNDLED)_*.deb dist/ 2>/dev/null || true
-	@rm -rf $(NAME)-$(VERSION)
+	@rm -rf $(NAME_BUNDLED)-$(VERSION)
 	@rm -f $(NAME_BUNDLED)_*.buildinfo $(NAME_BUNDLED)_*.changes 2>/dev/null || true
 	@echo ""
 	@echo "Bundled Debian package created in dist/"
@@ -203,13 +206,17 @@ deb-admin:
 		echo "Error: dpkg-buildpackage not found. Install: sudo apt install debhelper dh-python devscripts"; \
 		exit 1; \
 	fi
-	@mkdir -p $(NAME)-$(VERSION)
+	@mkdir -p $(NAME_ADMIN)-$(VERSION)
 	@tar xzf $(TARBALL)
-	@cp -r debian-admin $(NAME)-$(VERSION)/debian
-	@cd $(NAME)-$(VERSION) && dpkg-buildpackage -us -uc -b
+	@mv $(NAME)-$(VERSION)/* $(NAME_ADMIN)-$(VERSION)/
+	@rmdir $(NAME)-$(VERSION)
+	@rm -rf $(NAME_ADMIN)-$(VERSION)/debian
+	@cp -r debian-admin $(NAME_ADMIN)-$(VERSION)/debian
+	@cp setup-admin.py $(NAME_ADMIN)-$(VERSION)/setup.py
+	@cd $(NAME_ADMIN)-$(VERSION) && dpkg-buildpackage -us -uc -b
 	@mkdir -p dist
 	@mv $(NAME_ADMIN)_*.deb dist/ 2>/dev/null || true
-	@rm -rf $(NAME)-$(VERSION)
+	@rm -rf $(NAME_ADMIN)-$(VERSION)
 	@rm -f $(NAME_ADMIN)_*.buildinfo $(NAME_ADMIN)_*.changes 2>/dev/null || true
 	@echo ""
 	@echo "Admin GUI Debian package created in dist/"

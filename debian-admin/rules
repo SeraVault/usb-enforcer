@@ -34,17 +34,9 @@ override_dh_auto_install:
 	mkdir -p $(CURDIR)/debian/usb-enforcer-admin/usr/share/doc/usb-enforcer
 	cp -r docs/* $(CURDIR)/debian/usb-enforcer-admin/usr/share/doc/usb-enforcer/
 	
-	# Install locale files (translations)
-	for po in locale/*/LC_MESSAGES/*.po; do \
-		[ -e "$$po" ] || continue; \
-		mo="$${po%.po}.mo"; \
-		if [ ! -f "$$mo" ] || [ "$$po" -nt "$$mo" ]; then \
-			msgfmt "$$po" -o "$$mo" 2>/dev/null || true; \
-		fi; \
-		if [ -f "$$mo" ]; then \
-			locale_code=$$(echo "$$po" | cut -d/ -f2); \
-			install -d "$(CURDIR)/debian/usb-enforcer-admin/usr/share/locale/$${locale_code}/LC_MESSAGES"; \
-			install -m 0644 "$$mo" "$(CURDIR)/debian/usb-enforcer-admin/usr/share/locale/$${locale_code}/LC_MESSAGES/usb-enforcer.mo"; \
+	# Note: Locale files are NOT installed in the admin package to avoid
+	# conflicts with the main usb-enforcer package. Both packages can
+	# coexist and will use the system-wide locale files if available.
 
 override_dh_installsystemd:
 	# Skip systemd services for admin package

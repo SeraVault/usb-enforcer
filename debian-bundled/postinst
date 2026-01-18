@@ -59,16 +59,17 @@ case "$1" in
             gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
         fi
         
-        # Reload user systemd daemon for all logged-in users
+        # Reload user systemd daemon and start service for all logged-in users
         for uid in $(loginctl list-users --no-legend | awk '{print $1}'); do
             systemctl --user --machine="${uid}@" daemon-reload 2>/dev/null || true
+            systemctl --user --machine="${uid}@" start usb-enforcer-ui.service 2>/dev/null || true
         done
         
         echo "USB Encryption Enforcer (bundled) has been installed and started."
         echo "Configuration file: /etc/usb-enforcer/config.toml"
         echo ""
-        echo "Note: Desktop notifications require the usb-enforcer-ui service to be running."
-        echo "Run 'systemctl --user start usb-enforcer-ui' to start it now, or log out and back in."
+        echo "Desktop notifications are now active for logged-in users."
+        echo "Other users will get notifications when they log in."
         ;;
 esac
 
