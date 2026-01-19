@@ -6,7 +6,7 @@ This guide explains how to use USB Enforcer on headless systems (servers, system
 
 USB Enforcer's core functionality works perfectly on headless systems:
 - The **daemon** (`usb-enforcerd`) runs as a system service and enforces encryption policies automatically
-- All operations are accessible via **DBus API** which can be called from command-line tools
+- All operations are accessible via **command-line interface** (`usb-enforcer-cli`)
 - USB devices are **automatically detected** via udev
 - Plaintext USB devices are **automatically blocked** (read-only) by the daemon
 - The GTK wizard and notification UI are **optional** components
@@ -14,9 +14,9 @@ USB Enforcer's core functionality works perfectly on headless systems:
 ## Architecture on Headless Systems
 
 - **Daemon**: `usb-enforcerd` runs as a systemd service, monitors udev events, and enforces policies
-- **DBus API**: `org.seravault.UsbEnforcer` provides methods for listing devices, checking status, unlocking, and encrypting
+- **CLI Tool**: `usb-enforcer-cli` provides commands for listing devices, checking status, unlocking, and encrypting
+- **DBus API**: `org.seravault.UsbEnforcer` provides the underlying API (can be called directly if needed)
 - **Secret Socket**: `/run/usb-enforcer.sock` - UNIX socket for secure passphrase transmission
-- **No GUI Required**: All operations can be performed via command-line DBus tools (`busctl`, `dbus-send`, `gdbus`, or Python scripts)
 
 ## Installation on Headless Systems
 
@@ -38,16 +38,144 @@ sudo systemctl status usb-enforcerd
 
 ## Command-Line Operations
 
+USB Enforcer provides a comprehensive CLI tool that simplifies all operations. The `usb-enforcer-cli` command is installed in `/usr/bin` and available system-wide.
+
 ### 1. Listing USB Devices
 
-Use `busctl` to call the DBus API:
+```bash
+sudo usb-enforcer-cli list
+```
 
+Output:
+```
+Found 2 USB device(s):
+
+1. /dev/sdb1
+   Type: encrypted
+   State: locked
+   Filesystem: crypto_LUKS
+
+2. /dev/sdc1
+   Type: plaintext
+   State: blocked
+   Filesystem: vfat
+```
+
+For JSON output (useful for scripts):
+```bash
+sudo usb-enforcer-cli list --json
+```
+
+### 2. Checking Device Status
+
+```bash
+sudo usb-enforcer-cli status /dev/sdb1
+```
+
+Output:
+```
+Device: /dev/sdb1
+Type: encrypted
+State: locked
+Filesystem: crypto_LUKS
+Encrypted: True
+Encryption type: luks2
+```
+
+### 3. Unlocking an Encrypted USB Device
+
+```bash
+sudo usb-enforcer-cli unlock /dev/sdb1
+```
+
+You'll be prompted securely for the passphrase (no echo). The device will be unlocked and mounted automatically.
+
+**Non-interactive unlock** (not recommended for security):
+```bash
+sudo usb-enforcer-cli unlock /dev/sdb1 --passphrase "your-passphrase"
+```
+
+### 4. Encrypting a USB Device
+
+**Warning: This will destroy all data on the device!**
+
+```bash
+sudo usb-enforcer-cli encrypt /dev/sdb1
+```
+
+You'll be prompted for:
+- Passphrase (minimum 12 characters, with confirmation)
+- Confirmation to destroy data
+
+With options:
+```bash
+sudo usb-enforcer-cli encrypt /dev/sdb1 \
+  --label "MySecureUSB" \
+  --filesystem exfat \
+  --yes  # Skip confirmation prompt
+```
+
+Available filesystems: `exfat` (default, cross-platform), `ext4` (Linux), `vfat` (FAT32)
+
+### 5. Monitoring USB Device Events
+
+Monitor events in real-time:
+
+```bash
+sudo usb-enforcer-cli monitor
+```
+
+Output:
+```
+Monitoring USB device events (Ctrl+C to stop)...
+
+[2026-01-19 17:30:15] device_added: /dev/sdb1
+  Action: encrypt_prompt
+
+[2026-01-19 17:30:42] device_mounted: /dev/sdb1
+  Mounted at: /media/user/MySecureUSB
+
+[2026-01-19 17:31:05] unformatted_drive: /dev/sdc
+  Suggested: luks2 + exfat
+```
+
+For JSON output:
+```bash
+sudo usb-enforcer-cli monitor --json
+```
+
+## CLI Help and Options
+
+Get help on any command:
+
+```bash
+usb-enforcer-cli --help
+usb-enforcer-cli list --help
+usb-enforcer-cli unlock --help
+usb-enforcer-cli encrypt --help
+```
+
+## Advanced: Direct DBus API Usage
+
+If you need to integrate with other tools or scripts, you can call the DBus API directly.
+
+### Using busctl
+
+List devices:
 ```bash
 busctl call org.seravault.UsbEnforcer /org/seravault/UsbEnforcer \
   org.seravault.UsbEnforcer ListDevices
 ```
 
-Or with Python:
+Check device status:
+```bash
+busctl call org.seravault.UsbEnforcer /org/seravault/UsbEnforcer \
+  org.seravault.UsbEnforcer GetDeviceStatus s "/dev/sdb1"
+```
+
+### Using Python with pydbus
+
+**List devices:**
 
 ```python
 #!/usr/bin/env python3
@@ -65,23 +193,7 @@ for device in devices:
     print()
 ```
 
-### 2. Checking Device Status
-
-Check a specific device:
-
-```bash
-busctl call org.seravault.UsbEnforcer /org/seravault/UsbEnforcer \
-  org.seravault.UsbEnforcer GetDeviceStatus s "/dev/sdb1"
-```
-
-### 3. Unlocking an Encrypted USB Device
-
-To unlock a LUKS2-encrypted USB device, you need to:
-
-1. Send the passphrase via the secret socket (returns a token)
-2. Call `RequestUnlock` via DBus with the token
-
-**Python script for unlocking:**
+**Unlock device:**
 
 ```python
 #!/usr/bin/env python3
@@ -115,116 +227,7 @@ if __name__ == "__main__":
     unlock_device(sys.argv[1])
 ```
 
-Save as `unlock-usb.py` and run:
-
-```bash
-chmod +x unlock-usb.py
-sudo python3 unlock-usb.py /dev/sdb1
-```
-
-### 4. Encrypting a USB Device
-
-To encrypt a USB device with LUKS2:
-
-**Python script for encryption:**
-
-```python
-#!/usr/bin/env python3
-"""Encrypt a USB device from command line"""
-import sys
-import getpass
-import pydbus
-from usb_enforcer import secret_socket
-
-def encrypt_device(devnode, label="EncryptedUSB", fs_type="exfat"):
-    # Get passphrase from user (with confirmation)
-    while True:
-        passphrase = getpass.getpass(f"Enter passphrase for {devnode} (min 12 chars): ")
-        if len(passphrase) < 12:
-            print("Passphrase must be at least 12 characters")
-            continue
-        confirm = getpass.getpass("Confirm passphrase: ")
-        if passphrase != confirm:
-            print("Passphrases do not match")
-            continue
-        break
-    
-    # Confirm data destruction
-    print(f"\nWARNING: This will DESTROY all data on {devnode}")
-    confirm = input("Type 'yes' to continue: ")
-    if confirm.lower() != "yes":
-        print("Cancelled")
-        return
-    
-    # Send passphrase via secret socket, get token
-    token = secret_socket.send_secret("encrypt", devnode, passphrase)
-    
-    # Call DBus method with token
-    bus = pydbus.SystemBus()
-    proxy = bus.get("org.seravault.UsbEnforcer", "/org/seravault/UsbEnforcer")
-    result = proxy.RequestEncrypt(devnode, "", token, fs_type, label)
-    
-    print(f"Result: {result}")
-    return result
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <devnode> [label] [fs_type]")
-        print(f"Example: {sys.argv[0]} /dev/sdb1 MyUSB exfat")
-        print(f"Filesystem types: exfat (default), ext4, vfat")
-        sys.exit(1)
-    
-    devnode = sys.argv[1]
-    label = sys.argv[2] if len(sys.argv) > 2 else "EncryptedUSB"
-    fs_type = sys.argv[3] if len(sys.argv) > 3 else "exfat"
-    
-    encrypt_device(devnode, label, fs_type)
-```
-
-Save as `encrypt-usb.py` and run:
-
-```bash
-chmod +x encrypt-usb.py
-sudo python3 encrypt-usb.py /dev/sdb1 MySecureUSB exfat
-```
-
-### 5. Monitoring Events
-
-Monitor USB device events in real-time:
-
-```python
-#!/usr/bin/env python3
-"""Monitor USB Enforcer events from command line"""
-from gi.repository import GLib
-import pydbus
-
-def on_event(fields):
-    print(f"Event received:")
-    for key, value in fields.items():
-        print(f"  {key}: {value}")
-    print()
-
-bus = pydbus.SystemBus()
-proxy = bus.get("org.seravault.UsbEnforcer", "/org/seravault/UsbEnforcer")
-
-# Subscribe to Event signal
-proxy.Event.connect(on_event)
-
-print("Monitoring USB Enforcer events... (Ctrl+C to exit)")
-loop = GLib.MainLoop()
-try:
-    loop.run()
-except KeyboardInterrupt:
-    print("\nExiting...")
-```
-
-Save as `monitor-events.py` and run:
-
-```bash
-sudo python3 monitor-events.py
-```
-
-## Workflow for Headless Systems
+## Workflow Examples for Headless Systems
 
 ### Typical Use Case 1: Unlocking an Encrypted USB
 
@@ -233,13 +236,13 @@ sudo python3 monitor-events.py
    ```bash
    sudo journalctl -u usb-enforcerd -f
    ```
-3. **List devices to find the devnode:**
+3. **List devices:**
    ```bash
-   sudo python3 unlock-usb.py
+   sudo usb-enforcer-cli list
    ```
 4. **Unlock the device:**
    ```bash
-   sudo python3 unlock-usb.py /dev/sdb1
+   sudo usb-enforcer-cli unlock /dev/sdb1
    ```
 5. **Mount the decrypted device:**
    ```bash
@@ -258,13 +261,25 @@ sudo python3 monitor-events.py
    ```
 3. **Encrypt the device:**
    ```bash
-   sudo python3 encrypt-usb.py /dev/sdb1 MyBackup exfat
+   sudo usb-enforcer-cli encrypt /dev/sdb1 --label MyBackup --filesystem exfat
    ```
 4. **Device is now encrypted and can be unlocked/mounted**
 
-### Typical Use Case 3: Automated Scripts
+### Typical Use Case 3: Automated Monitoring
 
-For automated workflows (backups, data transfers), create wrapper scripts:
+Monitor device events in real-time during testing or troubleshooting:
+
+```bash
+# Monitor with human-readable output
+sudo usb-enforcer-cli monitor
+
+# Or with JSON output for parsing
+sudo usb-enforcer-cli monitor --json
+```
+
+### Typical Use Case 4: Automated Scripts
+
+For automated workflows (backups, data transfers), integrate the CLI into scripts:
 
 ```bash
 #!/bin/bash
@@ -275,21 +290,8 @@ DEVICE="/dev/sdb1"
 PASSPHRASE="$1"
 BACKUP_SRC="/data/to/backup"
 
-# Unlock device
-echo "$PASSPHRASE" | python3 - <<'EOF'
-import sys
-import pydbus
-from usb_enforcer import secret_socket
-
-passphrase = sys.stdin.read().strip()
-devnode = "/dev/sdb1"
-
-token = secret_socket.send_secret("unlock", devnode, passphrase)
-bus = pydbus.SystemBus()
-proxy = bus.get("org.seravault.UsbEnforcer", "/org/seravault/UsbEnforcer")
-result = proxy.RequestUnlock(devnode, "", token)
-print(result)
-EOF
+# Unlock device (passphrase via stdin)
+echo "$PASSPHRASE" | sudo usb-enforcer-cli unlock "$DEVICE" --passphrase-stdin
 
 # Wait for device mapper
 sleep 2
@@ -307,48 +309,23 @@ udisksctl unmount -b "$MAPPER"
 echo "Backup complete!"
 ```
 
-## Using Direct DBus Tools
+### Typical Use Case 5: Quick Status Checks
 
-For systems without Python, use `busctl` or `dbus-send`:
-
-### List devices with busctl:
-```bash
-busctl call org.seravault.UsbEnforcer /org/seravault/UsbEnforcer \
-  org.seravault.UsbEnforcer ListDevices
-```
-
-### Get device status:
-```bash
-busctl call org.seravault.UsbEnforcer /org/seravault/UsbEnforcer \
-  org.seravault.UsbEnforcer GetDeviceStatus s "/dev/sdb1"
-```
-
-**Note:** For unlock/encrypt operations, you'll need to handle the secret socket communication, which is easier with Python or a custom shell/C program.
-
-## Direct cryptsetup Commands (Advanced)
-
-For emergency situations, you can bypass USB Enforcer and use `cryptsetup` directly:
+Check all USB devices in one command:
 
 ```bash
-# Unlock manually
-sudo cryptsetup luksOpen /dev/sdb1 my-usb
-sudo mount /dev/mapper/my-usb /mnt/usb
+# Get status of all USB devices
+sudo usb-enforcer-cli list --json | jq '.[] | {device: .devnode, type: .device_type, status: .status}'
 
-# When done
-sudo umount /mnt/usb
-sudo cryptsetup luksClose my-usb
+# Check specific device
+sudo usb-enforcer-cli status /dev/sdb1
 ```
-
-**Warning:** Direct `cryptsetup` use bypasses USB Enforcer's logging and audit trail.
 
 ## Configuration for Headless Systems
 
 Edit `/etc/usb-enforcer/config.toml`:
 
 ```toml
-# Disable UI components (optional, they won't run anyway without X/Wayland)
-# No specific setting needed - UI services won't start without display
-
 # Adjust enforcement settings
 [enforcement]
 enforce_on_usb_only = true  # Only enforce on USB devices
@@ -371,6 +348,143 @@ parallel_threads = 4
 
 ```bash
 # Check daemon status
+sudo systemctl status usb-enforcerd
+
+# View logs
+sudo journalctl -u usb-enforcerd -f
+
+# Restart daemon after config changes
+sudo systemctl restart usb-enforcerd
+
+# Enable at boot (already enabled by package installation)
+sudo systemctl enable usb-enforcerd
+```
+
+## Advanced: Direct DBus API Usage
+
+For power users or custom integrations, you can interact with the DBus API directly.
+
+### Using busctl (no Python required)
+
+List devices:
+```bash
+busctl call org.seravault.UsbEnforcer /org/seravault/UsbEnforcer \
+  org.seravault.UsbEnforcer ListDevices
+```
+
+Get device status:
+```bash
+busctl call org.seravault.UsbEnforcer /org/seravault/UsbEnforcer \
+  org.seravault.UsbEnforcer GetDeviceStatus s "/dev/sdb1"
+```
+
+**Note:** For unlock/encrypt operations via DBus, you must handle the secret socket communication. The CLI tool handles this for you.
+
+### Python DBus Example
+
+For custom Python scripts, here's a minimal unlock example:
+
+```python
+#!/usr/bin/env python3
+import sys
+import getpass
+import pydbus
+from usb_enforcer import secret_socket
+
+devnode = sys.argv[1]
+passphrase = getpass.getpass(f"Passphrase for {devnode}: ")
+
+# Send passphrase via secret socket, get token
+token = secret_socket.send_secret("unlock", devnode, passphrase)
+
+# Call DBus method with token
+bus = pydbus.SystemBus()
+proxy = bus.get("org.seravault.UsbEnforcer", "/org/seravault/UsbEnforcer")
+result = proxy.RequestUnlock(devnode, "", token)
+print(result)
+```
+
+### Direct cryptsetup Commands (Emergency)
+
+For emergency situations, you can bypass USB Enforcer and use `cryptsetup` directly:
+
+```bash
+# Unlock manually
+sudo cryptsetup luksOpen /dev/sdb1 my-usb
+sudo mount /dev/mapper/my-usb /mnt/usb
+
+# When done
+sudo umount /mnt/usb
+sudo cryptsetup luksClose my-usb
+```
+
+**Warning:** Direct `cryptsetup` use bypasses USB Enforcer's logging and audit trail.
+
+## Troubleshooting
+
+### CLI Command Not Found
+
+If `usb-enforcer-cli` is not found:
+
+```bash
+# Check if installed
+which usb-enforcer-cli
+
+# Should return: /usr/bin/usb-enforcer-cli
+
+# If not, check package installation
+dpkg -l | grep usb-enforcer  # Debian/Ubuntu
+rpm -qa | grep usb-enforcer  # RHEL/Fedora
+```
+
+### Permission Denied
+
+All CLI commands require root privileges via `sudo`:
+
+```bash
+# Wrong - will fail
+usb-enforcer-cli list
+
+# Correct
+sudo usb-enforcer-cli list
+```
+
+### Device Not Listed
+
+If a device doesn't appear:
+
+```bash
+# Check if daemon detected it
+sudo journalctl -u usb-enforcerd -f
+
+# Check system logs
+dmesg | tail -n 50
+
+# Verify device exists
+lsblk
+```
+
+### Unlock Fails
+
+If unlock fails with wrong passphrase:
+
+```bash
+# Check LUKS header
+sudo cryptsetup luksDump /dev/sdb1
+
+# Verify device is not already unlocked
+ls /dev/mapper/
+
+# Try manual cryptsetup
+sudo cryptsetup luksOpen /dev/sdb1 test-unlock
+```
+
+## See Also
+
+- [ADMINISTRATION.md](ADMINISTRATION.md) - Policy configuration and admin GUI
+- [TESTING.md](TESTING.md) - Testing the USB enforcer
+- [USB-ENFORCER.md](USB-ENFORCER.md) - Main documentation
+
 sudo systemctl status usb-enforcerd
 
 # View logs

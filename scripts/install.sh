@@ -219,7 +219,15 @@ install_scripts() {
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-ui" "${LIBEXEC}/"
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-wizard" "${LIBEXEC}/"
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-cli" "${LIBEXEC}/"
+  install -m 0644 "${REPO_ROOT}/scripts/usb-enforcer-cli.py" "${LIBDIR}/"
   install -m 0755 "${REPO_ROOT}/scripts/usb-enforcer-notifications" "${LIBEXEC}/"
+}
+
+install_cli_symlinks() {
+  log "Creating CLI symlinks in ${PREFIX}/bin"
+  install -d "${PREFIX}/bin"
+  ln -sf "${LIBEXEC}/usb-enforcer-cli" "${PREFIX}/bin/usb-enforcer-cli"
+  ln -sf "${LIBEXEC}/usb-enforcer-wizard" "${PREFIX}/bin/usb-enforcer-wizard"
 }
 
 install_desktop_files() {
@@ -403,6 +411,7 @@ main() {
   create_dirs
   install_python_bits
   install_scripts
+  install_cli_symlinks
   install_desktop_files
   install_config_rules
   install_systemd_units

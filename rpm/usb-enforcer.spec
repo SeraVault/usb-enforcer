@@ -87,6 +87,7 @@ install -m 0755 scripts/usb-enforcer-helper %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-ui %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-wizard %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-cli %{buildroot}%{_libexecdir}/
+install -m 0644 scripts/usb-enforcer-cli.py %{buildroot}%{_libdir}/%{name}/
 install -m 0755 scripts/usb-enforcer-notifications %{buildroot}%{_libexecdir}/
 
 # Install configuration
@@ -109,6 +110,10 @@ install -m 0644 deploy/systemd/usb-enforcer-ui.service %{buildroot}%{_userunitdi
 # Install icon and desktop file
 install -m 0644 deploy/icons/usb-enforcer.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 install -m 0644 deploy/desktop/usb-enforcer-wizard.desktop %{buildroot}%{_datadir}/applications/
+
+# Create CLI symlinks in /usr/bin
+ln -sf ../libexec/usb-enforcer-cli %{buildroot}%{_bindir}/usb-enforcer-cli
+ln -sf ../libexec/usb-enforcer-wizard %{buildroot}%{_bindir}/usb-enforcer-wizard
 
 # Install AppStream metadata for package managers
 install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml %{buildroot}%{_datadir}/metainfo/
@@ -225,12 +230,15 @@ fi
 %config(noreplace) %{_sysconfdir}/%{name}/config.toml
 %{_libdir}/%{name}/usb_enforcer/
 %{_libdir}/%{name}/usb_enforcer_ui.py
+%{_libdir}/%{name}/usb-enforcer-cli.py
 %{_libexecdir}/usb-enforcerd
 %{_libexecdir}/usb-enforcer-helper
 %{_libexecdir}/usb-enforcer-ui
 %{_libexecdir}/usb-enforcer-wizard
 %{_libexecdir}/usb-enforcer-cli
 %{_libexecdir}/usb-enforcer-notifications
+%{_bindir}/usb-enforcer-cli
+%{_bindir}/usb-enforcer-wizard
 %dir %{_datadir}/locale/es/
 %dir %{_datadir}/locale/es/LC_MESSAGES/
 %{_datadir}/locale/es/LC_MESSAGES/usb-enforcer.mo

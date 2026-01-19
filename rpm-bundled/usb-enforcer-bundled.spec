@@ -139,6 +139,10 @@ install -m 0644 deploy/systemd/usb-enforcer-ui.service %{buildroot}%{_userunitdi
 install -m 0644 deploy/icons/usb-enforcer.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 install -m 0644 deploy/desktop/usb-enforcer-wizard.desktop %{buildroot}%{_datadir}/applications/
 
+# Create CLI symlinks in /usr/bin
+ln -sf ../libexec/usb-enforcer-cli %{buildroot}%{_bindir}/usb-enforcer-cli
+ln -sf ../libexec/usb-enforcer-wizard %{buildroot}%{_bindir}/usb-enforcer-wizard
+
 # Install AppStream metadata for package managers
 install -m 0644 deploy/appdata/org.seravault.UsbEnforcer.metainfo.xml %{buildroot}%{_datadir}/metainfo/
 
@@ -255,6 +259,7 @@ fi
 %config(noreplace) %{_sysconfdir}/usb-enforcer/config.toml
 %{_libdir}/usb-enforcer/usb_enforcer/
 %{_libdir}/usb-enforcer/usb_enforcer_ui.py
+%{_libdir}/usb-enforcer/usb-enforcer-cli.py
 %{_libdir}/usb-enforcer/wheels/
 %{_libexecdir}/usb-enforcerd
 %{_libexecdir}/usb-enforcer-helper
@@ -262,6 +267,8 @@ fi
 %{_libexecdir}/usb-enforcer-wizard
 %{_libexecdir}/usb-enforcer-cli
 %{_libexecdir}/usb-enforcer-notifications
+%{_bindir}/usb-enforcer-cli
+%{_bindir}/usb-enforcer-wizard
 %dir %{_datadir}/locale/es/
 %dir %{_datadir}/locale/es/LC_MESSAGES/
 %{_datadir}/locale/es/LC_MESSAGES/usb-enforcer.mo

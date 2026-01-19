@@ -22,6 +22,7 @@ override_dh_auto_install:
 	install -m 0755 scripts/usb-enforcer-ui $(CURDIR)/debian/usb-enforcer/usr/libexec/
 	install -m 0755 scripts/usb-enforcer-wizard $(CURDIR)/debian/usb-enforcer/usr/libexec/
 	install -m 0755 scripts/usb-enforcer-cli $(CURDIR)/debian/usb-enforcer/usr/libexec/
+	install -m 0644 scripts/usb-enforcer-cli.py $(CURDIR)/debian/usb-enforcer/usr/lib/usb-enforcer/
 	install -m 0755 scripts/usb-enforcer-notifications $(CURDIR)/debian/usb-enforcer/usr/libexec/
 	
 	# Install configuration
@@ -73,6 +74,12 @@ override_dh_auto_install:
 
 override_dh_auto_test:
 	# Skip tests
+
+override_dh_link:
+	dh_link
+	# Create CLI symlinks in /usr/bin (after dh_python3 processing)
+	dh_link usr/libexec/usb-enforcer-cli usr/bin/usb-enforcer-cli
+	dh_link usr/libexec/usb-enforcer-wizard usr/bin/usb-enforcer-wizard
 
 override_dh_auto_clean:
 	rm -rf build
