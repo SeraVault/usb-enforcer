@@ -21,6 +21,14 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk, Pango  # type: ignore
 
+# Try to import WebKit for HTML documentation display
+try:
+    gi.require_version("WebKit", "6.0")
+    from gi.repository import WebKit  # type: ignore
+    WEBKIT_AVAILABLE = True
+except (ImportError, ValueError):
+    WEBKIT_AVAILABLE = False
+
 # Try to import i18n, but use simple fallback if not available
 try:
     from usb_enforcer.i18n import setup_i18n, _
@@ -1701,17 +1709,36 @@ class AdminWindow(Gtk.ApplicationWindow):
     
     def open_documentation(self, doc_path: str):
         """Display documentation in a dialog window."""
-        # Find the markdown file - try multiple locations
-        search_paths = [
+        # Try HTML first (if WebKit available), then fall back to markdown
+        doc_base = doc_path.replace('.md', '')
+        
+        search_paths = []
+        
+        # If WebKit available, prefer HTML versions
+        if WEBKIT_AVAILABLE:
+            search_paths.extend([
+                os.path.join("/usr/share/doc/usb-enforcer/html", doc_base + ".html"),
+                os.path.join("/usr/share/doc/usb-enforcer/html", doc_base + ".html.gz"),
+                os.path.join("/usr/share/doc/usb-enforcer", doc_base + ".html"),
+                os.path.join("/usr/share/doc/usb-enforcer", doc_base + ".html.gz"),
+            ])
+        
+        # Also check for markdown (with and without .gz)
+        search_paths.extend([
             os.path.join("/usr/share/doc/usb-enforcer", doc_path),
+            os.path.join("/usr/share/doc/usb-enforcer", doc_path + ".gz"),
             os.path.join("/usr/share/usb-enforcer", doc_path),
             os.path.join(os.path.dirname(__file__), "..", "..", "..", "docs", doc_path),
-        ]
+        ])
         
         full_path = None
+        is_gzipped = False
+        is_html = False
         for path in search_paths:
             if os.path.exists(path):
                 full_path = path
+                is_gzipped = path.endswith('.gz')
+                is_html = '.html' in path
                 break
         
         if not full_path:
@@ -1719,13 +1746,87 @@ class AdminWindow(Gtk.ApplicationWindow):
             return
         
         try:
-            with open(full_path, 'r') as f:
-                content = f.read()
+            if is_gzipped:
+                import gzip
+                with gzip.open(full_path, 'rt', encoding='utf-8') as f:
+                    content = f.read()
+            else:
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
             
             # Show documentation in a dialog
-            self.show_documentation_dialog(os.path.basename(doc_path), content)
+            if is_html and WEBKIT_AVAILABLE:
+                # For HTML, pass the file path directly for proper navigation history
+                self.show_html_documentation_dialog(os.path.basename(doc_base), full_path)
+            else:
+                self.show_documentation_dialog(os.path.basename(doc_path), content)
         except Exception as e:
             self.show_error(_("Error loading documentation: {}").format(e))
+    
+    def show_html_documentation_dialog(self, title: str, html_file_path: str):
+        """Display HTML documentation using WebKit."""
+        if not WEBKIT_AVAILABLE:
+            # Fall back to plain text display
+            self.show_error(_("WebKit not available for HTML display"))
+            return
+        
+        dialog = Adw.Window()
+        dialog.set_title(title)
+        dialog.set_default_size(900, 700)
+        dialog.set_transient_for(self)
+        dialog.set_modal(True)
+        
+        # Main container
+        toolbar_view = Adw.ToolbarView()
+        
+        # Header bar with navigation controls
+        header = Adw.HeaderBar()
+        
+        # Back button
+        back_button = Gtk.Button()
+        back_button.set_icon_name("go-previous-symbolic")
+        back_button.set_tooltip_text(_("Back"))
+        back_button.set_sensitive(False)  # Initially disabled
+        header.pack_start(back_button)
+        
+        # Forward button
+        forward_button = Gtk.Button()
+        forward_button.set_icon_name("go-next-symbolic")
+        forward_button.set_tooltip_text(_("Forward"))
+        forward_button.set_sensitive(False)  # Initially disabled
+        header.pack_start(forward_button)
+        
+        toolbar_view.add_top_bar(header)
+        
+        # WebKit view for HTML content
+        webview = WebKit.WebView()
+        webview.set_vexpand(True)
+        webview.set_hexpand(True)
+        
+        # Connect navigation buttons to WebKit
+        def update_navigation_buttons(*args):
+            back_button.set_sensitive(webview.can_go_back())
+            forward_button.set_sensitive(webview.can_go_forward())
+        
+        back_button.connect("clicked", lambda b: webview.go_back())
+        forward_button.connect("clicked", lambda b: webview.go_forward())
+        
+        # Update button states when navigation happens
+        webview.connect("load-changed", update_navigation_buttons)
+        
+        # Load file directly via file:// URI for proper navigation history
+        file_uri = f"file://{html_file_path}"
+        webview.load_uri(file_uri)
+        
+        # Disable editing and context menu
+        settings = webview.get_settings()
+        settings.set_enable_write_console_messages_to_stdout(False)
+        settings.set_enable_developer_extras(False)
+        
+        toolbar_view.set_content(webview)
+        dialog.set_content(toolbar_view)
+        
+        dialog.present()
     
     def show_documentation_dialog(self, title: str, markdown_content: str):
         """Display documentation in a scrollable dialog."""

@@ -198,7 +198,8 @@ def user_in_group(username: str, groupname: str) -> bool:
 
 def any_active_user_in_groups(exempted_groups: List[str], logger: logging.Logger) -> tuple[bool, str]:
     """
-    Check if any currently logged-in user is a member of any exempted group.
+    Check if the console/seat owner (active session user) is in exempted groups.
+    This provides better security by checking the specific user at the console.
     
     Args:
         exempted_groups: List of group names that provide exemption
@@ -206,22 +207,25 @@ def any_active_user_in_groups(exempted_groups: List[str], logger: logging.Logger
         
     Returns:
         Tuple of (is_exempted: bool, reason: str)
-        - is_exempted: True if any active user is in an exempted group
+        - is_exempted: True if the console user is in an exempted group
         - reason: Description of which user/group matched, or empty string
     """
     if not exempted_groups:
         return False, ""
     
-    active_users = get_active_users()
-    logger.debug(f"Active users: {active_users}")
+    console_user = get_active_session_user()
+    if not console_user:
+        logger.debug("No single active console user detected, defaulting to non-exempted")
+        return False, ""
+    
+    logger.debug(f"Console user: {console_user}")
     logger.debug(f"Exempted groups: {exempted_groups}")
     
-    for user in active_users:
-        for group in exempted_groups:
-            if user_in_group(user, group):
-                reason = f"user '{user}' in exempted group '{group}'"
-                logger.info(f"Exempting enforcement: {reason}")
-                return True, reason
+    for group in exempted_groups:
+        if user_in_group(console_user, group):
+            reason = f"console user '{console_user}' in exempted group '{group}'"
+            logger.info(f"Exempting enforcement: {reason}")
+            return True, reason
     
     return False, ""
 

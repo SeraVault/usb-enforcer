@@ -170,7 +170,46 @@ def handle_event(fields: Dict[str, str], notifier: NotificationManager) -> None:
     action = fields.get("ACTION", "")
     devnode = fields.get("DEVNODE", "")
     print(f"[handle_event] event={event} action={action} devnode={devnode}")
-    if event == "unlock_prompt" and action == "unlock_prompt":
+    
+    if event == "unformatted_drive":
+        if notifier._suppress_duplicate(devnode, action):
+            print(f"[handle_event] suppressing duplicate format prompt for {devnode}")
+            return
+        
+        preferred_encryption = fields.get("preferred_encryption", "luks2")
+        preferred_filesystem = fields.get("preferred_filesystem", "exfat")
+        user_exempted = fields.get("user_exempted", "false") == "true"
+        
+        if action == "encrypt_prompt":
+            # Non-exempted user: must encrypt with preferred type
+            encryption_name = "LUKS" if preferred_encryption == "luks2" else "VeraCrypt"
+            print(f"[handle_event] showing encryption prompt (preferred: {encryption_name})")
+            notifier.notify(
+                _("Unformatted USB drive detected"),
+                _("Device {device} has no filesystem.\n\nClick below to encrypt with {encryption_type} and format as {filesystem}.").format(
+                    device=devnode,
+                    encryption_type=encryption_name,
+                    filesystem=preferred_filesystem.upper()
+                ),
+                actions={"encrypt": (_("Encrypt drive…"), lambda _a: launch_wizard(devnode))},
+            )
+        elif action == "format_prompt":
+            # Exempted user: can choose to encrypt or just format
+            encryption_name = "LUKS" if preferred_encryption == "luks2" else "VeraCrypt"
+            print(f"[handle_event] showing format options for exempted user")
+            notifier.notify(
+                _("Unformatted USB drive detected"),
+                _("Device {device} has no filesystem.\n\nYou can encrypt it with {encryption_type}, or format as {filesystem} without encryption.").format(
+                    device=devnode,
+                    encryption_type=encryption_name,
+                    filesystem=preferred_filesystem.upper()
+                ),
+                actions={
+                    "encrypt": (_("Encrypt with {encryption}…").format(encryption=encryption_name), lambda _a: launch_wizard(devnode)),
+                    "format": (_("Format as {filesystem}…").format(filesystem=preferred_filesystem.upper()), lambda _a: launch_wizard(devnode)),
+                },
+            )
+    elif event == "unlock_prompt" and action == "unlock_prompt":
         # Auto-launch unlock dialog when encrypted device is plugged in
         if notifier._suppress_duplicate(devnode, action):
             print(f"[handle_event] suppressing duplicate unlock prompt for {devnode}")

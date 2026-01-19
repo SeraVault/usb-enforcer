@@ -9,11 +9,13 @@ Source0:        usb-enforcer-%{version}.tar.gz
 BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
+BuildRequires:  python3-markdown
 
 Requires:       python3 >= 3.8
 Requires:       gtk4
 Requires:       libadwaita
 Requires:       python3-gobject
+Requires:       webkit2gtk4.1
 Requires:       polkit
 # toml module (built-in for Python >= 3.11, separate package for older versions)
 Requires:       (python3-toml if python3 < 3.11)
@@ -81,6 +83,12 @@ install -D -m 644 deploy/config.toml.sample %{buildroot}%{_datadir}/usb-enforcer
 mkdir -p %{buildroot}%{_docdir}/usb-enforcer
 cp -r docs/* %{buildroot}%{_docdir}/usb-enforcer/
 cp README.md %{buildroot}%{_docdir}/usb-enforcer/
+
+# Convert markdown to HTML for better display in admin GUI
+if command -v python3 >/dev/null 2>&1 && python3 -c "import markdown" 2>/dev/null; then
+    mkdir -p %{buildroot}%{_docdir}/usb-enforcer/html
+    python3 scripts/convert-docs-to-html.py docs %{buildroot}%{_docdir}/usb-enforcer/html || true
+fi
 
 %files
 %license LICENSE

@@ -693,12 +693,14 @@ class FuseManager:
             # Mount FUSE overlay in background thread
             def run_fuse():
                 try:
+                    # Use nonempty option when mounting over an existing mount
                     FUSE(
                         fuse_ops,
                         mount_point,
                         nothreads=False,
                         foreground=True,
-                        allow_other=True
+                        allow_other=True,
+                        nonempty=source_is_mount
                     )
                 except Exception as e:
                     logger.error(f"FUSE error: {e}", exc_info=True)

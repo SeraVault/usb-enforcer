@@ -113,7 +113,14 @@ install -D -m 644 deploy/config.toml.sample /usr/share/usb-enforcer/config.toml.
 
 # Install documentation
 mkdir -p /usr/share/doc/usb-enforcer
-cp -r docs/* /usr/share/doc/usb-enforcer/
+cp -r "$PROJECT_ROOT/docs"/* /usr/share/doc/usb-enforcer/
+
+# Convert markdown to HTML for better display
+if command -v python3 >/dev/null 2>&1 && python3 -c "import markdown" 2>/dev/null; then
+    echo "Converting documentation to HTML..."
+    mkdir -p /usr/share/doc/usb-enforcer/html
+    python3 "$PROJECT_ROOT/scripts/convert-docs-to-html.py" "$PROJECT_ROOT/docs" /usr/share/doc/usb-enforcer/html || echo "Warning: HTML conversion failed, markdown docs still available"
+fi
 
 echo
 echo "===================================="

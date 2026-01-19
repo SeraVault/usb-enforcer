@@ -185,9 +185,14 @@ class Daemon:
                     return
             
             # Skip if mount point is in hidden backing directory (already a FUSE backing mount)
+            # Exception: VeraCrypt mounts may start in backing directory, allow those through
             if '/.usb-enforcer-backing/' in mount_point or mount_point.endswith('.real'):
-                self.logger.debug(f"Skipping FUSE overlay for backing mount: {mount_point}")
-                return
+                # Check if this is a VeraCrypt mount that we should handle
+                if '/veracrypt' not in device_path.lower():
+                    self.logger.debug(f"Skipping FUSE overlay for backing mount: {mount_point}")
+                    return
+                else:
+                    self.logger.debug(f"VeraCrypt device in backing directory, will set up FUSE: {mount_point}")
             
             # Check if already mounted with FUSE overlay
             if mount_point in self.fuse_manager.mounts:
@@ -245,9 +250,27 @@ class Daemon:
             drive_name = os.path.basename(mount_point)
             hidden_base = os.path.join(parent_dir, ".usb-enforcer-backing")
             real_mount = os.path.join(hidden_base, drive_name)
+            fuse_mount = mount_point  # Default: FUSE mount at original location
+            
+            # Check if mount is already in backing directory (e.g., VeraCrypt)
+            already_in_backing = '/.usb-enforcer-backing/' in mount_point
+            if already_in_backing:
+                self.logger.info(f"Mount already in backing directory: {mount_point}")
+                real_mount = mount_point
+                # Create the FUSE mount point at the visible location
+                visible_parent = parent_dir.replace('/.usb-enforcer-backing', '')
+                fuse_mount = os.path.join(visible_parent, drive_name)
+                try:
+                    os.makedirs(fuse_mount, exist_ok=True)
+                    self.logger.debug(f"Created FUSE mount point: {fuse_mount}")
+                except Exception as e:
+                    self.logger.error(f"Failed to create FUSE mount point {fuse_mount}: {e}")
+                    return
+            
             try:
-                os.makedirs(hidden_base, exist_ok=True)
-                os.makedirs(real_mount, exist_ok=True)
+                if not already_in_backing:
+                    os.makedirs(hidden_base, exist_ok=True)
+                    os.makedirs(real_mount, exist_ok=True)
                 def _move_mount() -> subprocess.CompletedProcess:
                     return subprocess.run(
                         ["mount", "--move", mount_point, real_mount],
@@ -273,30 +296,33 @@ class Daemon:
                     # /run is typically the propagation root for /run/media.
                     _make_private(os.path.dirname(parent_parent))
 
-                move_result = _move_mount()
-                if move_result.returncode != 0 and "shared mount" in move_result.stderr:
-                    # Retry after forcing the subtree to private.
-                    _make_private(mount_point)
-                    _make_private(parent_dir)
-                    if parent_parent:
-                        _make_private(parent_parent)
-                        _make_private(os.path.dirname(parent_parent))
+                if not already_in_backing:
                     move_result = _move_mount()
-                if move_result.returncode != 0:
-                    self.logger.error(
-                        f"Failed to move mount for {mount_point}: {move_result.stderr.strip()}"
-                    )
-                    return
+                    if move_result.returncode != 0 and "shared mount" in move_result.stderr:
+                        # Retry after forcing the subtree to private.
+                        _make_private(mount_point)
+                        _make_private(parent_dir)
+                        if parent_parent:
+                            _make_private(parent_parent)
+                            _make_private(os.path.dirname(parent_parent))
+                        move_result = _move_mount()
+                    if move_result.returncode != 0:
+                        self.logger.error(
+                            f"Failed to move mount for {mount_point}: {move_result.stderr.strip()}"
+                        )
+                        return
             except Exception as e:
                 self.logger.error(f"Failed to move mount for {mount_point}: {e}")
                 return
             
-            # Create FUSE mount point with same path
-            fuse_mount = mount_point
+            # fuse_mount is already set at the top of this section
+            self.logger.debug(f"FUSE mount will be at: {fuse_mount}, backed by: {real_mount}")
             
             # Determine if device is encrypted (dm-crypt mapper or /dev/mapper path)
             is_encrypted = self._is_encrypted_device_path(device_path)
             self.logger.debug(f"Device {device_path} - is_encrypted: {is_encrypted}")
+            
+            self.logger.debug(f"Mounting FUSE: real_mount={real_mount}, fuse_mount={fuse_mount}, is_encrypted={is_encrypted}")
             
             # Mount FUSE overlay on top of the moved mount to preserve ownership/options
             success = self.fuse_manager.mount(
@@ -427,6 +453,42 @@ class Daemon:
             "id_type": device_props.get("ID_TYPE", ""),
             "serial": device_props.get("ID_SERIAL_SHORT", device_props.get("ID_SERIAL", "")),
         }
+        
+        # Check for unformatted USB drive (no filesystem) - offer to encrypt or format
+        if classification == constants.PLAINTEXT and action in ("add", "change"):
+            fs_type = device_props.get("ID_FS_TYPE", "")
+            devtype = device_props.get("DEVTYPE", "")
+            # Unformatted drives have no filesystem (but are disks or partitions)
+            if not fs_type and devtype in ("disk", "partition"):
+                if devnode not in self._unlock_prompted:  # Use same tracking to avoid repeated prompts
+                    self._unlock_prompted.add(devnode)
+                    self.logger.info(f"Unformatted USB drive detected: {devnode}")
+                    
+                    # Check if console user is exempted from encryption requirement
+                    is_exempted, exemption_reason = user_utils.any_active_user_in_groups(
+                        self.config.exempted_groups, self.logger
+                    )
+                    
+                    event_fields = {
+                        constants.LOG_KEY_EVENT: "unformatted_drive",
+                        constants.LOG_KEY_DEVNODE: devnode,
+                        constants.LOG_KEY_CLASSIFICATION: "unformatted",
+                        constants.LOG_KEY_DEVTYPE: devtype,
+                        "preferred_encryption": self.config.default_encryption_type,
+                        "preferred_filesystem": self.config.filesystem_type,
+                        "user_exempted": "true" if is_exempted else "false",
+                    }
+                    
+                    if is_exempted:
+                        # Exempted users can choose to format without encryption
+                        event_fields[constants.LOG_KEY_ACTION] = "format_prompt"
+                        self.logger.info(f"User is exempted, offering format options for {devnode}")
+                    else:
+                        # Non-exempted users must encrypt
+                        event_fields[constants.LOG_KEY_ACTION] = "encrypt_prompt"
+                        self.logger.info(f"User not exempted, offering encryption for {devnode}")
+                    
+                    self._log_event("unformatted_drive", event_fields)
         
         # Emit unlock_prompt for encrypted devices (LUKS2 and VeraCrypt) - only once per device
         if classification in (constants.LUKS2_LOCKED, constants.VERACRYPT_LOCKED) and action in ("add", "change"):

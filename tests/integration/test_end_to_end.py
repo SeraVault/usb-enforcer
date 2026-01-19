@@ -489,15 +489,15 @@ exempted_groups = ["{test_group}"]
             logger = logging.getLogger("test")
             cfg = config.Config.load(config_path)
             
-            # Mock get_active_users to return our test user
-            with patch("usb_enforcer.user_utils.get_active_users", return_value={test_user}):
+            # Mock get_active_session_user to return our test user
+            with patch("usb_enforcer.user_utils.get_active_session_user", return_value=test_user):
                 exempted, user = user_utils.any_active_user_in_groups(cfg.exempted_groups, logger)
                 # User should be exempted
                 assert exempted is True
                 assert test_user in user  # user is a message string
             
-            # Test with user NOT in the active list
-            with patch("usb_enforcer.user_utils.get_active_users", return_value=set()):
+            # Test with no console user
+            with patch("usb_enforcer.user_utils.get_active_session_user", return_value=None):
                 exempted, user = user_utils.any_active_user_in_groups(cfg.exempted_groups, logger)
                 # No exempted users
                 assert exempted is False
@@ -563,7 +563,7 @@ exempted_groups = [{groups_str}]
             cfg = config.Config.load(config_path)
             
             # User should be exempted (in one of the groups)
-            with patch("usb_enforcer.user_utils.get_active_users", return_value={test_user}):
+            with patch("usb_enforcer.user_utils.get_active_session_user", return_value=test_user):
                 exempted, user = user_utils.any_active_user_in_groups(cfg.exempted_groups, logger)
                 assert exempted is True
                 assert test_user in user  # user is a message string
@@ -617,7 +617,7 @@ exempted_groups = ["{test_group}"]
                 from usb_enforcer import daemon as daemon_module, config
                 
                 # Test without exempted user active
-                with patch("usb_enforcer.user_utils.get_active_users", return_value=set()):
+                with patch("usb_enforcer.user_utils.get_active_session_user", return_value=None):
                     d = daemon_module.Daemon(config_path=str(config_path))
                     
                     # Process device add event
@@ -647,7 +647,7 @@ exempted_groups = ["{test_group}"]
                 # Create daemon instance
                 
                 # Test WITH exempted user active
-                with patch("usb_enforcer.user_utils.get_active_users", return_value={test_user}):
+                with patch("usb_enforcer.user_utils.get_active_session_user", return_value=test_user):
                     d = daemon_module.Daemon(config_path=str(config_path))
                     
                     # Process device add event
@@ -674,14 +674,14 @@ exempted_groups = ["{test_group}"]
             import logging
             logger = logging.getLogger("test-daemon-exempt")
             
-            # Mock active users to include our test user
-            with patch("usb_enforcer.user_utils.get_active_users", return_value={test_user}):
+            # Mock console user to be our test user
+            with patch("usb_enforcer.user_utils.get_active_session_user", return_value=test_user):
                 exempted, user_msg = user_utils.any_active_user_in_groups(cfg.exempted_groups, logger)
                 assert exempted is True
                 assert test_user in user_msg
             
-            # Mock active users to NOT include our test user
-            with patch("usb_enforcer.user_utils.get_active_users", return_value={"someotheruser"}):
+            # Mock console user to be a different user
+            with patch("usb_enforcer.user_utils.get_active_session_user", return_value="someotheruser"):
                 exempted, user_msg = user_utils.any_active_user_in_groups(cfg.exempted_groups, logger)
                 assert exempted is False
                 

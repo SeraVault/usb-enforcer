@@ -30,9 +30,14 @@ override_dh_auto_install:
 	install -D -m 644 deploy/polkit/49-usb-enforcer-admin.policy $(CURDIR)/debian/usb-enforcer-admin/usr/share/polkit-1/actions/49-usb-enforcer-admin.policy
 	# Install sample config
 	install -D -m 644 deploy/config.toml.sample $(CURDIR)/debian/usb-enforcer-admin/usr/share/usb-enforcer/config.toml.sample
-	# Install documentation
+	# Install documentation (markdown originals)
 	mkdir -p $(CURDIR)/debian/usb-enforcer-admin/usr/share/doc/usb-enforcer
 	cp -r docs/* $(CURDIR)/debian/usb-enforcer-admin/usr/share/doc/usb-enforcer/
+	# Convert markdown to HTML for better display in admin GUI
+	if command -v python3 >/dev/null 2>&1 && python3 -c "import markdown" 2>/dev/null; then \
+		mkdir -p $(CURDIR)/debian/usb-enforcer-admin/usr/share/doc/usb-enforcer/html; \
+		python3 scripts/convert-docs-to-html.py docs $(CURDIR)/debian/usb-enforcer-admin/usr/share/doc/usb-enforcer/html || true; \
+	fi
 	
 	# Note: Locale files are NOT installed in the admin package to avoid
 	# conflicts with the main usb-enforcer package. Both packages can
