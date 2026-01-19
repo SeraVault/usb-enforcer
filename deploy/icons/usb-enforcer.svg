@@ -1,42 +1,71 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="512" height="512" version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
- <defs>
-  <linearGradient id="usbGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-   <stop offset="0%" style="stop-color:#5E81AC;stop-opacity:1" />
-   <stop offset="100%" style="stop-color:#5E81AC;stop-opacity:1" />
-  </linearGradient>
-  <linearGradient id="lockGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-   <stop offset="0%" style="stop-color:#EBCB8B;stop-opacity:1" />
-   <stop offset="100%" style="stop-color:#D08770;stop-opacity:1" />
-  </linearGradient>
- </defs>
- 
- <!-- Background circle -->
- <circle cx="256" cy="256" r="240" fill="#2E3440" opacity="0.95"/>
- 
- <!-- USB drive body -->
- <rect x="106" y="130" width="300" height="260" rx="20" ry="20" fill="url(#usbGradient)" stroke="#3B4252" stroke-width="10"/>
- 
- <!-- USB connector -->
- <rect x="176" y="70" width="160" height="70" rx="10" ry="10" fill="#4C566A" stroke="#3B4252" stroke-width="8"/>
- <rect x="196" y="40" width="120" height="40" rx="6" ry="6" fill="#D8DEE9"/>
- 
- <!-- USB contacts -->
- <rect x="216" y="90" width="16" height="35" fill="#3B4252"/>
- <rect x="248" y="90" width="16" height="35" fill="#3B4252"/>
- <rect x="280" y="90" width="16" height="35" fill="#3B4252"/>
- 
- <!-- Lock body -->
- <rect x="156" y="240" width="200" height="130" rx="18" ry="18" fill="url(#lockGradient)" stroke="#BF616A" stroke-width="10"/>
- 
- <!-- Lock shackle -->
- <path d="M 206 240 L 206 190 Q 206 140 256 140 Q 306 140 306 190 L 306 240" 
-       fill="none" stroke="url(#lockGradient)" stroke-width="28" stroke-linecap="round"/>
- 
- <!-- Keyhole -->
- <circle cx="256" cy="280" r="20" fill="#2E3440"/>
- <rect x="246" y="280" width="20" height="50" rx="10" fill="#2E3440"/>
- 
- <!-- LED indicator -->
- <circle cx="320" cy="180" r="14" fill="#A3BE8C" opacity="0.9"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="gShield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1E40AF"/>
+    </linearGradient>
+    <linearGradient id="gMetal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F9FAFB"/>
+      <stop offset="1" stop-color="#D1D5DB"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield (fills canvas; GNOME-friendly proportions) -->
+  <path
+    d="M128 12
+       C128 12, 28 46, 28 90
+       V150
+       C28 192, 72 226, 128 248
+       C184 226, 228 192, 228 150
+       V90
+       C228 46, 128 12, 128 12Z"
+    fill="url(#gShield)"
+  />
+
+  <!-- Inner depth -->
+  <path
+    d="M128 34
+       C128 34, 52 60, 52 94
+       V147
+       C52 179, 88 207, 128 224
+       C168 207, 204 179, 204 147
+       V94
+       C204 60, 128 34, 128 34Z"
+    fill="#0B1220"
+    opacity="0.14"
+  />
+
+  <!-- Lock body (clean) -->
+  <rect x="78" y="116" width="92" height="72" rx="12" fill="url(#gMetal)"/>
+
+  <!-- Lock shackle -->
+  <path
+    d="M94 116V92
+       C94 66, 154 66, 154 92V116"
+    fill="none"
+    stroke="#F9FAFB"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+
+  <!-- Scan lines -->
+  <rect x="74" y="142" width="100" height="8" rx="4" fill="#93C5FD"/>
+  <rect x="74" y="160" width="100" height="8" rx="4" fill="#93C5FD"/>
+
+  <!-- Subtle USB cue: USB plug "tongue" + contacts inside the lock (minimal, not noisy) -->
+  <!-- Tongue -->
+  <rect x="106" y="128" width="36" height="16" rx="4" fill="#9CA3AF" opacity="0.95"/>
+  <!-- Contacts -->
+  <rect x="112" y="132" width="4" height="8" rx="2" fill="#6B7280"/>
+  <rect x="120" y="132" width="4" height="8" rx="2" fill="#6B7280"/>
+  <rect x="128" y="132" width="4" height="8" rx="2" fill="#6B7280"/>
+  <rect x="136" y="132" width="4" height="8" rx="2" fill="#6B7280"/>
+
+  <!-- Magnifying glass (aligned; bold; readable) -->
+  <g transform="rotate(45 184 176)">
+    <circle cx="184" cy="176" r="22" fill="#FACC15"/>
+    <rect x="182" y="162" width="4" height="28" rx="2" fill="#78350F"/>
+    <rect x="170" y="174" width="28" height="4" rx="2" fill="#78350F"/>
+    <rect x="206" y="171" width="34" height="10" rx="5" fill="#78350F"/>
+  </g>
 </svg>
