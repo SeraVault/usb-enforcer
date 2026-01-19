@@ -101,23 +101,29 @@ Install pre-built packages for your distribution:
 
 **RPM-based (Fedora/RHEL/CentOS/openSUSE):**
 ```bash
-# Standard package (downloads Python deps during installation)
+# Main package - Standard (downloads Python deps during installation)
 sudo dnf install usb-enforcer-1.0.0-1.*.noarch.rpm
 
 # OR bundled package (offline/airgapped, no internet required)
 sudo dnf install usb-enforcer-bundled-1.0.0-1.*.noarch.rpm
+
+# Optional: Admin GUI (separate package for config.toml editing)
+sudo dnf install usb-enforcer-admin-1.0.0-1.*.noarch.rpm
 ```
 
 **Debian-based (Debian/Ubuntu/Mint):**
 ```bash
-# Standard package (downloads Python deps during installation)
+# Main package - Standard (downloads Python deps during installation)
 sudo apt install ./usb-enforcer_1.0.0-1_all.deb
 
 # OR bundled package (offline/airgapped, no internet required)
 sudo apt install ./usb-enforcer-bundled_1.0.0-1_all.deb
+
+# Optional: Admin GUI (separate package for config.toml editing)
+sudo apt install ./usb-enforcer-admin_1.0.0-1_all.deb
 ```
 
-Both package types install to `/usr/lib/usb-enforcer/` with a Python virtual environment, enable systemd services automatically, and configure udev/polkit/DBus rules.
+All packages install to `/usr/lib/usb-enforcer/` with a Python virtual environment, enable systemd services automatically, and configure udev/polkit/DBus rules. The main package includes the CLI tool (`usb-enforcer-cli`) accessible from `/usr/bin`.
 
 #### Option 2: Script Installation
 Manual installation using install scripts:
@@ -173,8 +179,12 @@ See [BUILD-RPM.md](docs/BUILD-RPM.md) and [BUILD-DEB.md](docs/BUILD-DEB.md) for 
 ```bash
 make rpm          # Build RPM (standard)
 make rpm-bundled  # Build RPM (bundled)
+make rpm-admin    # Build admin GUI RPM
+make rpm-all      # Build all RPM variants at once
 make deb          # Build DEB (standard, requires Debian/Ubuntu)
 make deb-bundled  # Build DEB (bundled, requires Debian/Ubuntu)
+make deb-admin    # Build admin GUI DEB
+make deb-all      # Build all DEB variants at once
 make clean        # Clean build artifacts
 ```
 
@@ -183,8 +193,36 @@ Built packages appear in `dist/` directory.
 ### Running
 - **System daemon:** `usb-enforcerd.service` monitors USB devices
 - **User notification bridge:** `usb-enforcer-ui.service` shows desktop notifications
-- Both services are enabled automatically by installers/packages
+- **Command-line interface:** `usb-enforcer-cli` provides CLI access for headless/server systems
+- **Admin GUI:** `usb-enforcer-admin` (separate package) provides graphical config editor
+- Both daemon and UI services are enabled automatically by installers/packages
 - For ad-hoc testing: run scripts directly with `PYTHONPATH=src`
+
+### Command-Line Interface (CLI)
+
+The main package includes a comprehensive CLI tool for headless systems and scripting:
+
+```bash
+# List all USB devices
+sudo usb-enforcer-cli list
+
+# Check device status
+sudo usb-enforcer-cli status /dev/sdb1
+
+# Unlock encrypted device
+sudo usb-enforcer-cli unlock /dev/sdb1
+
+# Encrypt a device
+sudo usb-enforcer-cli encrypt /dev/sdb1 --label MyUSB --filesystem exfat
+
+# Monitor device events in real-time
+sudo usb-enforcer-cli monitor
+
+# Get JSON output for scripting
+sudo usb-enforcer-cli list --json
+```
+
+For complete CLI documentation, see [HEADLESS-USAGE.md](docs/HEADLESS-USAGE.md).
 
 ### Requirements
 - **Python 3.8+** with `pyudev`, `pydbus`, `PyGObject` (see `requirements.txt`)
@@ -335,12 +373,17 @@ usb-enforce-encryption/
 │   ├── crypto_engine.py       # LUKS encryption operations
 │   ├── daemon.py              # Main daemon
 │   ├── dbus_api.py            # DBus API implementation
-│   └── ui/wizard.py           # GTK wizard interface
+│   └── ui/
+│       ├── wizard.py          # GTK encryption wizard interface
+│       └── admin.py           # Admin GUI (separate package)
 ├── scripts/                   # Executable scripts
-│   ├── usb-enforcerd        # System daemon
-│   ├── usb-enforcer-ui      # User notification bridge
-│   ├── usb-enforcer-wizard  # GTK encryption wizard
-│   ├── usb-enforcer-helper  # Unlock dialog
+│   ├── usb-enforcerd          # System daemon
+│   ├── usb-enforcer-ui        # User notification bridge
+│   ├── usb-enforcer-wizard    # GTK encryption wizard
+│   ├── usb-enforcer-helper    # Unlock dialog
+│   ├── usb-enforcer-cli       # Command-line interface (bash wrapper)
+│   ├── usb-enforcer-cli.py    # CLI Python implementation
+│   ├── install.sh             # Unified installer
 │   ├── install-rhel.sh        # RHEL/Fedora installer
 │   ├── install-debian.sh      # Debian/Ubuntu installer
 │   ├── uninstall-rhel.sh      # RHEL/Fedora uninstaller
@@ -355,9 +398,15 @@ usb-enforce-encryption/
 │   └── usb-enforcer.spec
 ├── rpm-bundled/               # RPM packaging (bundled)
 │   └── usb-enforcer-bundled.spec
+├── rpm-admin/                 # RPM packaging (admin GUI)
+│   └── usb-enforcer-admin.spec
 ├── debian/                    # Debian packaging (standard)
 ├── debian-bundled/            # Debian packaging (bundled)
+├── debian-admin/              # Debian packaging (admin GUI)
 ├── docs/                      # Documentation
+├── tests/                     # Test suite
+│   ├── unit/                  # Unit tests (51 tests)
+│   └── integration/           # Integration tests (67 tests)
 ├── Makefile                   # Build automation
 └── README.md                  # This file
 ```

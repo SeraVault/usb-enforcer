@@ -1,4 +1,4 @@
-usb-enforcer-admin (1.0.0-1) stable; urgency=medium
+usb-enforcer-admin (1.0.1-1) unstable; urgency=medium
 
   * Initial release of USB Enforcer Administration GUI
   * Graphical config.toml editor with validation

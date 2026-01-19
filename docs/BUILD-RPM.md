@@ -2,7 +2,7 @@
 
 This guide shows how to build RPM packages for USB Enforcer.
 
-## Two RPM Variants
+## RPM Package Variants
 
 **Standard RPM** (`make rpm`):
 - Small file size (~100KB)
@@ -15,6 +15,17 @@ This guide shows how to build RPM packages for USB Enforcer.
 - Includes all Python dependencies as wheels
 - No network required during installation
 - Best for: Airgapped systems, enterprise deployments, consistent versions
+
+**Admin GUI RPM** (`make rpm-admin`):
+- Separate package for the administrative GUI
+- Provides graphical config.toml editor with HTML documentation viewer
+- Optional component, can be installed independently
+- Best for: Desktop systems where administrators need GUI tools
+
+**Build All** (`make rpm-all`):
+- Convenience target that builds all three RPM variants
+- Equivalent to running `make rpm && make rpm-bundled && make rpm-admin`
+- Creates standard, bundled, and admin packages in one command
 
 ## Prerequisites
 
@@ -54,7 +65,25 @@ Build the bundled RPM with embedded Python dependencies:
 make rpm-bundled
 ```
 
-Both RPMs will be created in `~/rpmbuild/RPMS/noarch/`.
+### Quick Build - Admin GUI RPM
+
+Build the admin GUI package separately:
+
+```bash
+make rpm-admin
+```
+
+### Quick Build - All RPM Variants
+
+Build all three RPM packages at once:
+
+```bash
+make rpm-all
+```
+
+This will build standard, bundled, and admin packages. The output shows all built packages at the end.
+
+All RPMs will be created in `dist/` directory.
 
 ### Step-by-Step Build
 
@@ -94,16 +123,22 @@ Both RPMs will be created in `~/rpmbuild/RPMS/noarch/`.
 
 ## Installing the RPM
 
-Once built, install the package:
+Once built, install the package from `dist/`:
 
 ```bash
-sudo dnf install ~/rpmbuild/RPMS/noarch/usb-enforcer-1.0.0-1.*.noarch.rpm
+# Install standard or bundled package
+sudo dnf install dist/usb-enforcer-1.0.0-1.*.noarch.rpm
+# OR
+sudo dnf install dist/usb-enforcer-bundled-1.0.0-1.*.noarch.rpm
+
+# Optionally install admin GUI
+sudo dnf install dist/usb-enforcer-admin-1.0.0-1.*.noarch.rpm
 ```
 
 Or using rpm directly:
 
 ```bash
-sudo rpm -ivh ~/rpmbuild/RPMS/noarch/usb-enforcer-1.0.0-1.*.noarch.rpm
+sudo rpm -ivh dist/usb-enforcer-1.0.0-1.*.noarch.rpm
 ```
 
 ## Post-Installation
@@ -127,12 +162,20 @@ systemctl --user status usb-enforcer-ui
 
 ## Uninstalling
 
-Remove the package:
+Remove the main package:
 
 ```bash
 sudo dnf remove usb-enforcer
+# or for bundled variant
+sudo dnf remove usb-enforcer-bundled
 # or
 sudo rpm -e usb-enforcer
+```
+
+Remove the admin GUI package (if installed):
+
+```bash
+sudo dnf remove usb-enforcer-admin
 ```
 
 The RPM removal automatically:
@@ -207,13 +250,16 @@ RPM packaging files are organized in subdirectories:
 ```
 usb-enforce-encryption/
 ├── rpm/
-│   └── usb-enforcer.spec         # Standard RPM spec
+│   └── usb-enforcer.spec              # Standard RPM spec
 ├── rpm-bundled/
-│   └── usb-enforcer-bundled.spec # Bundled RPM spec
-├── debian/                                   # Debian packaging (standard)
-├── debian-bundled/                           # Debian packaging (bundled)
-├── Makefile                                  # Build automation
-└── BUILD-RPM.md                              # This file
+│   └── usb-enforcer-bundled.spec      # Bundled RPM spec
+├── rpm-admin/
+│   └── usb-enforcer-admin.spec        # Admin GUI RPM spec
+├── debian/                            # Debian packaging (standard)
+├── debian-bundled/                    # Debian packaging (bundled)
+├── debian-admin/                      # Debian packaging (admin)
+├── Makefile                           # Build automation
+└── BUILD-RPM.md                       # This file
 ```
 
 ## Troubleshooting

@@ -6,10 +6,12 @@ Complete guide for system administrators on configuring and managing USB Enforce
 1. [Configuration File Location](#configuration-file-location)
 2. [Configuration Options](#configuration-options)
 3. [Service Management](#service-management)
-4. [User Exemptions](#user-exemptions)
-5. [Monitoring and Logs](#monitoring-and-logs)
-6. [Common Administrative Tasks](#common-administrative-tasks)
-7. [Troubleshooting](#troubleshooting)
+4. [Command-Line Administration](#command-line-administration)
+5. [Graphical Administration Tools](#graphical-administration-tools)
+6. [User Exemptions](#user-exemptions)
+7. [Monitoring and Logs](#monitoring-and-logs)
+8. [Common Administrative Tasks](#common-administrative-tasks)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -30,6 +32,8 @@ A sample configuration file with all available options is included in the packag
 If the main config file doesn't exist, the daemon will use built-in defaults.
 
 ### Creating Initial Configuration
+
+**Using the command line:**
 ```bash
 # Copy sample to active config
 sudo cp /etc/usb-enforcer/config.toml.sample /etc/usb-enforcer/config.toml
@@ -40,6 +44,13 @@ sudo nano /etc/usb-enforcer/config.toml
 # Restart daemon to apply changes
 sudo systemctl restart usb-enforcerd.service
 ```
+
+**Using the Admin GUI (if installed):**
+```bash
+usb-enforcer-admin
+```
+
+The admin GUI provides a graphical editor with live validation and HTML documentation viewer. See [Graphical Administration Tools](#graphical-administration-tools) for details.
 
 ---
 
@@ -301,6 +312,129 @@ sudo systemctl restart usb-enforcerd.service
 # Verify config was loaded (check logs)
 sudo journalctl -u usb-enforcerd.service -n 20 --no-pager
 ```
+
+---
+
+## Command-Line Administration
+
+USB Enforcer includes a comprehensive CLI tool (`usb-enforcer-cli`) for headless systems and scripting.
+
+### List USB Devices
+
+```bash
+sudo usb-enforcer-cli list
+```
+
+Output shows all USB devices with their encryption status:
+```
+Device: /dev/sdb
+  Vendor: Kingston
+  Model: DataTraveler 3.0
+  Size: 64.0 GB
+  Type: plaintext
+  Status: blocked (read-only)
+
+Device: /dev/sdc
+  Vendor: Samsung
+  Model: USB Flash Drive
+  Size: 32.0 GB
+  Type: luks2-encrypted
+  Status: locked
+```
+
+### Check Device Status
+
+```bash
+sudo usb-enforcer-cli status /dev/sdb1
+```
+
+### Unlock Encrypted Device
+
+```bash
+sudo usb-enforcer-cli unlock /dev/sdb1
+```
+
+### Encrypt Device
+
+```bash
+sudo usb-enforcer-cli encrypt /dev/sdb1 --label SecureBackup --filesystem exfat
+```
+
+### Monitor Events in Real-Time
+
+```bash
+# Human-readable output
+sudo usb-enforcer-cli monitor
+
+# JSON output for scripting
+sudo usb-enforcer-cli monitor --json
+```
+
+### JSON Output for Scripting
+
+All commands support `--json` flag for machine-readable output:
+
+```bash
+# Get device list in JSON
+sudo usb-enforcer-cli list --json | jq '.[] | {device: .devnode, type: .device_type}'
+
+# Check status and parse
+STATUS=$(sudo usb-enforcer-cli status /dev/sdb1 --json)
+echo "$STATUS" | jq -r '.status'
+```
+
+For complete CLI documentation, see [HEADLESS-USAGE.md](HEADLESS-USAGE.md).
+
+---
+
+## Graphical Administration Tools
+
+### Admin GUI Package (Optional)
+
+The `usb-enforcer-admin` package provides a graphical configuration editor:
+
+**Installation:**
+```bash
+# RPM-based systems
+sudo dnf install usb-enforcer-admin-1.0.0-1.*.noarch.rpm
+
+# Debian-based systems
+sudo apt install ./usb-enforcer-admin_1.0.0-1_all.deb
+```
+
+**Features:**
+- Graphical config.toml editor with syntax highlighting
+- Live validation of configuration values
+- Built-in HTML documentation viewer
+- WebKit-based rendering for rich documentation
+- Markdown fallback for documentation viewing
+
+**Usage:**
+```bash
+usb-enforcer-admin
+```
+
+The admin GUI is a separate package that can be installed independently of the main USB Enforcer daemon. It's designed for desktop systems where administrators prefer graphical tools over command-line editing.
+
+**Note:** The admin GUI requires GTK4 and WebKit2GTK-4.1 libraries, which are typically available on GNOME-based desktops.
+
+---
+
+## User Exemptions
+
+### Group-Based Exemptions
+
+USB Enforcer allows exempting specific Linux user groups from encryption enforcement. Users in exempted groups can use plaintext USB devices without restriction.
+
+**Configuration:**
+```toml
+exempted_groups = ["usb-exempt", "developers", "admin-staff"]
+```
+
+**Important Security Note:**  
+User exemptions are checked for the **console/seat owner only** (the user physically logged into the system's display). Remote users (SSH, etc.) cannot trigger exemptions even if they're in an exempted group. This prevents privilege escalation via remote access.
+
+For complete exemption setup instructions, see [GROUP-EXEMPTIONS.md](GROUP-EXEMPTIONS.md).
 
 ---
 

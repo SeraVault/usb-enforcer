@@ -148,6 +148,8 @@ deb:
 		echo "Error: dpkg-buildpackage not found. Install: sudo apt install debhelper dh-python devscripts"; \
 		exit 1; \
 	fi
+	@echo "Updating changelog version to $(VERSION)..."
+	@./scripts/update-changelog-version.sh VERSION debian/changelog
 	@mkdir -p $(NAME)-$(VERSION)
 	@tar xzf $(TARBALL)
 	@cp -r debian $(NAME)-$(VERSION)/
@@ -168,6 +170,8 @@ deb-bundled:
 		echo "Error: dpkg-buildpackage not found. Install: sudo apt install debhelper dh-python devscripts"; \
 		exit 1; \
 	fi
+	@echo "Updating changelog version to $(VERSION)..."
+	@./scripts/update-changelog-version.sh VERSION debian-bundled/changelog
 	@mkdir -p $(NAME_BUNDLED)-$(VERSION)
 	@tar xzf $(TARBALL)
 	@tar xzf $(PYTHON_DEPS)
@@ -208,6 +212,8 @@ deb-admin:
 		echo "Error: dpkg-buildpackage not found. Install: sudo apt install debhelper dh-python devscripts"; \
 		exit 1; \
 	fi
+	@echo "Updating changelog version to $(VERSION)..."
+	@./scripts/update-changelog-version.sh VERSION debian-admin/changelog
 	@mkdir -p $(NAME_ADMIN)-$(VERSION)
 	@tar xzf $(TARBALL)
 	@mv $(NAME)-$(VERSION)/* $(NAME_ADMIN)-$(VERSION)/

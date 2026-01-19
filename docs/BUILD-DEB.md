@@ -4,7 +4,7 @@ This guide explains how to build Debian (.deb) packages for the USB Enforcer.
 
 ## Package Variants
 
-Two Debian package variants are available:
+Three Debian package variants are available:
 
 ### 1. Standard Package (`usb-enforcer`)
 - **Size**: ~40KB
@@ -17,6 +17,12 @@ Two Debian package variants are available:
 - **Python Dependencies**: Bundled as wheel files in the package
 - **Use Case**: Offline/airgapped environments, no internet access required
 - **Installation**: All dependencies included, works without network
+
+### 3. Admin GUI Package (`usb-enforcer-admin`)
+- **Size**: ~50KB
+- **Dependencies**: Separate package, can be installed independently
+- **Use Case**: Graphical configuration editor for `/etc/usb-enforcer/config.toml`
+- **Features**: HTML documentation viewer, live config validation
 
 ## Prerequisites
 
@@ -59,9 +65,27 @@ This will:
 4. Build the .deb package with bundled dependencies
 5. Place result in `dist/` directory
 
-### Build Both Variants
+### Build Admin GUI Package
 ```bash
-make clean && make deb && make deb-bundled
+make deb-admin
+```
+
+This will:
+1. Create source tarball
+2. Extract with debian-admin/ control files
+3. Build admin GUI package
+4. Place result in `dist/` directory
+
+### Build All Variants
+```bash
+make deb-all
+```
+
+This convenience target builds all three packages (standard, bundled, and admin) in one command. The output shows all built packages at the end.
+
+Or manually:
+```bash
+make clean && make deb && make deb-bundled && make deb-admin
 ls -lh dist/
 ```
 
@@ -79,9 +103,15 @@ sudo dpkg -i dist/usb-enforcer-bundled_1.0.0-1_all.deb
 sudo apt-get install -f  # Install any missing system dependencies
 ```
 
+### Install Admin GUI Package
+```bash
+sudo dpkg -i dist/usb-enforcer-admin_1.0.0-1_all.deb
+sudo apt-get install -f  # Install dependencies
+```
+
 ## Package Contents
 
-Both packages install the following:
+All main packages (standard and bundled) install the following:
 
 ### Files
 - `/usr/lib/usb-enforcer/usb_enforcer/` - Python package
@@ -91,6 +121,10 @@ Both packages install the following:
 - `/usr/libexec/usb-enforcer-helper` - Helper script
 - `/usr/libexec/usb-enforcer-ui` - User interface
 - `/usr/libexec/usb-enforcer-wizard` - Setup wizard
+- `/usr/libexec/usb-enforcer-cli` - Command-line interface
+- `/usr/lib/usb-enforcer/usb-enforcer-cli.py` - CLI Python module
+- `/usr/bin/usb-enforcer-cli` - CLI symlink (for PATH access)
+- `/usr/bin/usb-enforcer-wizard` - Wizard symlink (for PATH access)
 - `/etc/usb-enforcer/config.toml` - Configuration file
 - `/usr/lib/systemd/system/usb-enforcerd.service` - System service
 - `/usr/lib/systemd/user/usb-enforcer-ui.service` - User service
@@ -98,6 +132,12 @@ Both packages install the following:
 - `/usr/lib/udev/rules.d/80-udisks2-usb-enforcer.rules` - Udisks2 rules
 - `/etc/polkit-1/rules.d/49-usb-enforcer.rules` - Polkit rules
 - `/etc/dbus-1/system.d/org.seravault.UsbEnforcer.conf` - DBus config
+
+### Admin GUI Package Contents
+- `/usr/lib/usb-enforcer/usb_enforcer/ui/admin.py` - Admin GUI application
+- `/usr/share/applications/usb-enforcer-admin.desktop` - Desktop entry
+- `/usr/share/doc/usb-enforcer/html/` - HTML documentation
+- `/usr/share/icons/hicolor/*/apps/usb-enforcer.png` - Application icons
 
 ### Services
 - System service: `usb-enforcerd.service` (enabled and started)
@@ -110,6 +150,8 @@ Both packages install the following:
 sudo apt remove usb-enforcer
 # or
 sudo apt remove usb-enforcer-bundled
+# or
+sudo apt remove usb-enforcer-admin
 ```
 
 ### Purge Package (remove everything including configuration)
@@ -125,6 +167,8 @@ This will:
 - Remove virtual environment
 - Remove configuration files (purge only)
 - Reload systemd and udev
+
+**Note**: Purging the admin package only removes the GUI tool, not the main daemon configuration.
 
 ## Verification
 

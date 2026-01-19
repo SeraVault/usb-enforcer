@@ -148,7 +148,7 @@ sudo -E env "PATH=$PATH" pytest tests/integration/ -v -m integration
 pytest tests/unit/ -v
 ```
 
-### Integration Tests (60+ tests)
+### Integration Tests (67 tests)
 
 **Characteristics:**
 - **Requires root privileges**
@@ -164,11 +164,13 @@ pytest tests/unit/ -v
 - Mounting and writing to encrypted devices
 - Policy enforcement on real devices
 - Device partition operations
+- **Unformatted drive detection** (7 tests)
 - **Daemon initialization and lifecycle**
 - **Secret socket communication**
 - **D-Bus API method calls and signals**
 - **Real-world usage workflows**
 - **Multiple encryption/decryption cycles**
+- **VeraCrypt container support** (2 tests)
 - **Error handling and edge cases**
 
 **Example:**
@@ -177,6 +179,7 @@ sudo pytest tests/integration/test_encryption.py -v
 sudo pytest tests/integration/test_crypto_engine.py -v
 sudo pytest tests/integration/test_daemon.py -v
 sudo pytest tests/integration/test_dbus_integration.py -v
+sudo pytest tests/integration/test_daemon_unformatted_detection.py -v
 ```
 
 ## Integration Test Details

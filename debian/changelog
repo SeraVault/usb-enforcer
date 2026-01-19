@@ -1,8 +1,11 @@
-usb-enforcer (1.0.0-1) unstable; urgency=medium
+usb-enforcer (1.0.1-1) unstable; urgency=medium
 
-  * Initial release candidate
-  * USB encryption enforcement daemon
-  * System-wide udev and systemd integration
+  * Version 1.0.1
+  * Added CLI tool (usb-enforcer-cli) for headless/server usage
+  * Added admin GUI package (separate installation)
+  * Fixed group exemption security (console user only)
+  * Added unformatted drive detection tests
+  * Updated documentation for current functionality
   * User notification GUI
   * Configuration management
   * Support for encrypted LUKS devices

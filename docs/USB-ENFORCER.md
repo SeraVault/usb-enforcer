@@ -67,11 +67,14 @@ USB Enforcer provides endpoint DLP (Data Loss Prevention) control for Linux syst
 - `encryption_target_mode` (`whole_disk`|`single_partition`, default whole_disk)
 - `filesystem_type` (`exfat`|`ext4`|`vfat`, default exfat)
 - `notification_enabled` (bool)
-- `exempted_groups` (list of strings, default empty): Linux group names whose members bypass all USB encryption enforcement. Users in any of these groups will have full read-write access to USB devices without encryption requirements. This allows administrators to exempt specific users (e.g., developers, sysadmins, or trusted personnel) from DLP restrictions while maintaining enforcement for all other users.
+- `exempted_groups` (list of strings, default empty): Linux group names whose members bypass all USB encryption enforcement. Users in any of these groups will have full read-write access to USB devices without encryption requirements. This allows administrators to exempt specific users (e.g., developers, sysadmins, or trusted personnel) from DLP restrictions while maintaining enforcement for all other users. **Security Note:** Exemptions are only checked for the console/seat owner (the user physically logged into the system's display), not for remote SSH users.
 - `kdf` params (argon2id tunables) and `cipher` policy (AES-XTS 512-bit)
 
 ### Group-Based Exemptions
-The `exempted_groups` configuration allows administrators to create per-user enforcement exemptions based on Linux group membership. When any logged-in user is a member of a group listed in `exempted_groups`, USB encryption enforcement is completely bypassed for all users on that system session.
+The `exempted_groups` configuration allows administrators to create per-user enforcement exemptions based on Linux group membership. When the **console user** (the user physically logged into the system's display/seat) is a member of a group listed in `exempted_groups`, USB encryption enforcement is bypassed for that user.
+
+**Important Security Feature:**  
+Exemptions are **only checked for the console/seat owner**, not for remote users (SSH, etc.). This prevents privilege escalation where a remote attacker with credentials for an exempted user could bypass enforcement. The system uses `loginctl` to determine the active console session and checks only that user's group membership.
 
 **Use cases:**
 - IT administrators who need unrestricted USB access for system maintenance
@@ -96,7 +99,8 @@ exempted_groups = ["usb-exempt", "developers", "sysadmin"]
 - Audit group membership regularly
 - Log all exempted access events with the user and group identified
 - Consider using time-limited group memberships for temporary exemptions
-- Group exemptions apply system-wide when those users are logged in
+- Exemptions only apply to the console/seat owner (prevents remote privilege escalation)
+- Remote SSH users, even if in exempted groups, will not receive exemptions
 
 ## 6) Enforcement Architecture
 - **EA-1: udisks2 automount control + polkit (primary)**

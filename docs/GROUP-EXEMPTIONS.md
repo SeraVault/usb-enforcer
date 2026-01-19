@@ -1,13 +1,16 @@
 # Group-Based USB Enforcement Exemptions
 
 ## Overview
-The USB Enforcer now supports per-user exemptions based on Linux group membership. Administrators can designate specific groups whose members bypass all USB encryption enforcement, allowing trusted personnel to use plaintext USB drives with full read-write access while maintaining DLP restrictions for other users.
+The USB Enforcer supports per-user exemptions based on Linux group membership. Administrators can designate specific groups whose members bypass all USB encryption enforcement, allowing trusted personnel to use plaintext USB drives with full read-write access while maintaining DLP restrictions for other users.
+
+**Important Security Feature:** Exemptions are **only checked for the console/seat owner** (the user physically logged into the system's display), not for remote SSH users. This prevents privilege escalation via remote access.
 
 ## How It Works
-When a USB device is detected, the enforcement daemon checks if any currently logged-in user is a member of a group listed in the `exempted_groups` configuration. If a match is found:
-- All enforcement is bypassed for that device
+When a USB device is detected, the enforcement daemon checks if the **console user** (the user physically at the system's display/seat) is a member of a group listed in the `exempted_groups` configuration. If a match is found:
+- All enforcement is bypassed for that user
 - The user has full read-write access without encryption requirements
 - The exemption is logged with details about which user and group triggered it
+- **Remote users (SSH, etc.) will NOT receive exemptions**, even if they're in an exempted group
 
 ## Configuration
 
@@ -139,11 +142,23 @@ groups username
    - Returns early with exemption status if user is exempted
    - Logs exemption reason for audit trail
 
-### Multi-User Sessions
-The implementation handles multiple logged-in users:
-- Checks all active sessions (via `who` and `loginctl`)
-- If ANY logged-in user is in an exempted group, enforcement is bypassed
-- This ensures proper behavior in multi-user or remote session scenarios
+### Console User Check (Security Feature)
+The implementation checks **only the console/seat owner** for exemptions:
+- Uses `loginctl` and `who` to find the user physically logged into the system's display
+- Checks if that console user is in any exempted groups
+- **Remote users (SSH, etc.) are NOT checked** - prevents privilege escalation
+- This ensures that even if an attacker has SSH credentials for an exempted user, they cannot bypass enforcement remotely
+
+**Why this matters:**
+- Physical console access provides additional security assurance
+- Remote access might be compromised even if local user is trusted
+- Prevents remote attackers from leveraging exempted user accounts
+
+### Multi-User Scenarios
+- **Desktop systems**: The logged-in GUI user is the console owner
+- **SSH sessions**: The SSH user is NOT the console owner and will not get exemptions
+- **Multiple SSH sessions**: None will receive exemptions, even if from exempted users
+- **Physical login**: Only the user at the physical console/display receives exemptions
 
 ### Primary vs Supplementary Groups
 Group membership checking handles both:
