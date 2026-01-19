@@ -132,6 +132,7 @@ class AdminWindow(Gtk.ApplicationWindow):
     def __init__(self, app: Adw.Application, config_path: Optional[str] = None):
         super().__init__(application=app, title=_("USB Enforcer Administration"))
         self.set_default_size(900, 700)
+        self.set_icon_name("usb-enforcer")
         
         self.config_path = config_path or DEFAULT_CONFIG_PATH
         self.config: Dict[str, Any] = {}

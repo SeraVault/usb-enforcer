@@ -63,6 +63,7 @@ class WizardWindow(Gtk.ApplicationWindow):
         super().__init__(application=app, title="USB Encryption Wizard")
         # Uniform window size - dropdown is compact either way
         self.set_default_size(520, 420)
+        self.set_icon_name("usb-enforcer")
         self.proxy = proxy
         self.target_device = target_device
         self.devices_cache: List[Dict[str, str]] = []
