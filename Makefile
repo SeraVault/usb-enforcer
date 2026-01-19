@@ -1,4 +1,4 @@
-.PHONY: help rpm srpm clean prepare-rpm dist rpm-bundled bundle-deps deb deb-bundled rpm-admin deb-admin test test-unit test-integration test-coverage test-lint test-all
+.PHONY: help rpm srpm clean prepare-rpm dist rpm-bundled bundle-deps deb deb-bundled rpm-admin deb-admin rpm-all deb-all test test-unit test-integration test-coverage test-lint test-all
 
 NAME := usb-enforcer
 NAME_BUNDLED := usb-enforcer-bundled
@@ -18,12 +18,14 @@ help:
 	@echo "  make rpm         - Build binary RPM (downloads deps during install)"
 	@echo "  make rpm-bundled - Build binary RPM with bundled Python deps"
 	@echo "  make rpm-admin   - Build admin GUI RPM (separate package)"
+	@echo "  make rpm-all     - Build all RPM packages (standard, bundled, admin)"
 	@echo "  make srpm        - Build source RPM"
 	@echo ""
 	@echo "DEB Targets:"
 	@echo "  make deb         - Build Debian package (downloads deps during install)"
 	@echo "  make deb-bundled - Build Debian package with bundled Python deps"
 	@echo "  make deb-admin   - Build admin GUI Debian package (separate package)"
+	@echo "  make deb-all     - Build all Debian packages (standard, bundled, admin)"
 	@echo ""
 	@echo "Admin GUI Targets:"
 	@echo "  make admin-install - Install admin GUI directly (no package)"
@@ -221,6 +223,23 @@ deb-admin:
 	@echo ""
 	@echo "Admin GUI Debian package created in dist/"
 	@ls -lh dist/$(NAME_ADMIN)_*.deb
+
+# Build all package variants
+rpm-all: rpm rpm-bundled rpm-admin
+	@echo ""
+	@echo "========================================"
+	@echo "All RPM packages built successfully!"
+	@echo "========================================"
+	@echo ""
+	@ls -lh dist/*.rpm
+
+deb-all: deb deb-bundled deb-admin
+	@echo ""
+	@echo "========================================"
+	@echo "All Debian packages built successfully!"
+	@echo "========================================"
+	@echo ""
+	@ls -lh dist/*.deb
 
 admin-install:
 	@echo "Installing admin GUI directly..."
