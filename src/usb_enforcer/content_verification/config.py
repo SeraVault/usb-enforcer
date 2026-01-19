@@ -196,7 +196,6 @@ class ContentScanningConfig:
             max_file_size_mb=config_dict.get('max_file_size_mb', 500),
             oversize_action=config_dict.get('oversize_action', 'block'),
             max_scan_time_seconds=config_dict.get('max_scan_time_seconds', 30),
-            max_memory_per_scan_mb=config_dict.get('max_memory_per_scan_mb', 100),
             max_concurrent_scans=config_dict.get('max_concurrent_scans', 4),
             enable_cache=config_dict.get('enable_cache', True),
             cache_size_mb=config_dict.get('cache_size_mb', 100),

@@ -336,11 +336,13 @@ class ContentScanningFuse(Operations):
         When file is closed, scan accumulated writes and either
         commit to disk or block the operation.
         """
+        logger.info(f"[FUSE] release() called for path={path}, fh={fh}")
         try:
             # Get temp file info
             file_path = self.file_paths.get(fh, path)
             temp_path = self.temp_paths.get(fh)
             temp_fd = self.temp_fds.get(fh)
+            logger.info(f"[FUSE] file_path={file_path}, temp_path={temp_path}, temp_fd={temp_fd}")
 
             if fh in self.passthrough_fds:
                 self.passthrough_fds.discard(fh)

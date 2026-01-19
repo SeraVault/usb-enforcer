@@ -240,9 +240,25 @@ def unlock_veracrypt(devnode: str, mapper_name: str, passphrase: str, username: 
     # Ensure parent directory exists
     os.makedirs(os.path.dirname(mount_point), exist_ok=True)
     
-    # Create mount point directory if it doesn't exist
-    if not os.path.exists(mount_point):
-        os.makedirs(mount_point, exist_ok=True)
+    # Clean up any stale mount point directory
+    if os.path.exists(mount_point):
+        # Check if it's mounted - if so, don't remove
+        result = subprocess.run(
+            ["findmnt", "-n", mount_point],
+            capture_output=True,
+            check=False
+        )
+        if result.returncode != 0:
+            # Not mounted, safe to remove
+            try:
+                os.rmdir(mount_point)
+            except OSError:
+                # Directory not empty or other error, try harder
+                import shutil
+                shutil.rmtree(mount_point, ignore_errors=True)
+    
+    # Create mount point directory
+    os.makedirs(mount_point, exist_ok=True)
     
     # Build mount options to set ownership
     # For exfat: uid,gid,fmask,dmask
