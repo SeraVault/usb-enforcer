@@ -326,15 +326,119 @@ class ContentScanningFuse(Operations):
             f.truncate(length)
     
     def flush(self, path, fh):
-        """Flush file - no-op for now"""
-        return 0
+        """
+        Flush file - PERFORM FINAL SCAN BEFORE COMMIT
+        
+        This is called before close and applications DO check for errors here.
+        Scan accumulated writes and block if sensitive content detected.
+        """
+        logger.info(f"[FUSE] flush() called for path={path}, fh={fh}")
+        
+        # Passthrough files don't need scanning
+        if fh in self.passthrough_fds:
+            return 0
+        
+        # Only scan if we have a temp file
+        if fh not in self.temp_paths:
+            return 0
+        
+        try:
+            file_path = self.file_paths.get(fh, path)
+            temp_path = self.temp_paths.get(fh)
+            temp_fd = self.temp_fds.get(fh)
+            
+            if not temp_path or not os.path.exists(temp_path):
+                return 0
+            
+            # Ensure temp file is flushed to disk for scanning
+            if temp_fd is not None:
+                try:
+                    os.fsync(temp_fd)
+                except:
+                    pass
+            
+            # Scan the temp file
+            logger.info(f"[FUSE] Scanning {file_path} ({temp_path})")
+            result = self.scanner.scan_file(Path(temp_path))
+            
+            # Determine if we should enforce blocking
+            should_enforce = True
+            if self.config and hasattr(self.config, "enforce_on_encrypted_devices"):
+                if not self.config.enforce_on_encrypted_devices:
+                    should_enforce = False
+                    logger.info(f"✓ ALLOWED on encrypted device (enforce_on_encrypted_devices=false): {file_path}")
+                    if result.matches:
+                        logger.info(f"   Detected patterns: {', '.join(m.pattern_name for m in result.matches)} - but allowing due to encryption")
+            
+            if result.blocked and should_enforce:
+                # BLOCK: Raise error immediately
+                self.stats['files_blocked'] += 1
+                self.stats['patterns_detected'] += len(result.matches)
+                
+                logger.warning(f"⛔ BLOCKED: {file_path}: {result.reason}")
+                
+                # Collect pattern information for notification
+                pattern_summary = []
+                for match in result.matches:
+                    pattern_summary.append(f"{match.pattern_name} ({match.pattern_category})")
+                patterns_text = ", ".join(set(pattern_summary))
+                
+                # Update progress
+                if file_path in self.file_progress:
+                    progress = self.file_progress[file_path]
+                    progress.complete(blocked=True, reason=result.reason)
+                    self._notify_progress(progress)
+                
+                # Send blocked notification
+                if self.blocked_callback:
+                    try:
+                        self.blocked_callback(
+                            filepath=file_path,
+                            reason=result.reason,
+                            patterns=patterns_text,
+                            match_count=len(result.matches)
+                        )
+                    except Exception as e:
+                        logger.error(f"Error in blocked callback: {e}")
+                
+                # Mark for cleanup in release()
+                if not hasattr(self, '_blocked_fhs'):
+                    self._blocked_fhs = set()
+                self._blocked_fhs.add(fh)
+                
+                # Return error to application
+                raise FuseOSError(errno.EACCES)
+            
+            else:
+                # ALLOW: Mark for commit in release()
+                self.stats['files_allowed'] += 1
+                logger.info(f"✅ ALLOWED: {file_path}")
+                
+                # Update progress
+                if file_path in self.file_progress:
+                    progress = self.file_progress[file_path]
+                    progress.complete(blocked=False)
+                    self._notify_progress(progress)
+                
+                # Mark for commit
+                if not hasattr(self, '_allowed_fhs'):
+                    self._allowed_fhs = set()
+                self._allowed_fhs.add(fh)
+                
+                return 0
+        
+        except FuseOSError:
+            raise
+        except Exception as e:
+            logger.error(f"Error in flush: {e}", exc_info=True)
+            raise FuseOSError(errno.EIO)
     
     def release(self, path, fh):
         """
-        Close file - PERFORM FINAL SCAN
+        Close file - COMMIT OR CLEANUP
         
-        When file is closed, scan accumulated writes and either
-        commit to disk or block the operation.
+        At this point flush() has already scanned and decided allow/block.
+        Just commit allowed files or cleanup blocked files.
         """
         logger.info(f"[FUSE] release() called for path={path}, fh={fh}")
         try:
@@ -342,181 +446,82 @@ class ContentScanningFuse(Operations):
             file_path = self.file_paths.get(fh, path)
             temp_path = self.temp_paths.get(fh)
             temp_fd = self.temp_fds.get(fh)
-            logger.info(f"[FUSE] file_path={file_path}, temp_path={temp_path}, temp_fd={temp_fd}")
-
+            
             if fh in self.passthrough_fds:
                 self.passthrough_fds.discard(fh)
                 self.file_paths.pop(fh, None)
                 return os.close(fh)
             
-            if temp_path:
-                try:
-                    os.lseek(temp_fd, 0, os.SEEK_SET)
-                except Exception:
-                    pass
-                size_hint = self.temp_sizes.get(fh, 0)
-                logger.info(f"Scanning {file_path} ({size_hint} bytes)")
-                
-                # Update progress to scanning
-                if file_path in self.file_progress:
-                    progress = self.file_progress[file_path]
-                    progress.status = "scanning"
-                    progress.total_size = size_hint
-                    progress.update(size_hint)
-                    self._notify_progress(progress)
-                
-                scan_token = None
-                if self.scan_semaphore:
-                    scan_token = self.scan_semaphore
-                    scan_token.acquire()
-                try:
-                    # Determine scan method based on file type
-                    filename = os.path.basename(path)
-                    filepath_obj = Path(filename)
-                    scan_path = Path(temp_path)
-                    scan_archives = True
-                    scan_documents = True
-                    if self.config and getattr(self.config, "archives", None):
-                        scan_archives = self.config.archives.scan_archives
-                    if self.config and getattr(self.config, "documents", None):
-                        scan_documents = self.config.documents.scan_documents
-                    
-                    # Check if it's an archive
-                    if scan_archives and self.archive_scanner.is_archive(filepath_obj):
-                        logger.debug(f"Scanning as archive: {filename}")
-                        result = self.archive_scanner.scan_archive(scan_path)
-                    
-                    # Check if it's a document
-                    elif scan_documents and self.document_scanner.is_document(filepath_obj):
-                        logger.debug(f"Scanning as document: {filename}")
-                        result = self.document_scanner.scan_document(scan_path)
-                    
-                    # Regular content scan
-                    else:
-                        logger.debug(f"Scanning as content: {filename}")
-                        result = self.scanner.scan_file(scan_path)
-                finally:
-                    if scan_token:
-                        scan_token.release()
-                
-                # Update statistics
-                self.stats['files_scanned'] += 1
-                self.stats['total_bytes_scanned'] += size_hint
-                
-                # Check if we should enforce based on encryption status
-                should_enforce = True
-                if self.is_encrypted and self.config:
-                    # If device is encrypted and enforce_on_encrypted_devices is False, allow it
-                    if not self.config.enforce_on_encrypted_devices:
-                        should_enforce = False
-                        logger.info(f"✓ ALLOWED on encrypted device (enforce_on_encrypted_devices=false): {file_path}")
-                        if result.matches:
-                            logger.info(f"   Detected patterns: {', '.join(m.pattern_name for m in result.matches)} - but allowing due to encryption")
-                
-                if result.blocked and should_enforce:
-                    # BLOCK: Don't write to disk
-                    self.stats['files_blocked'] += 1
-                    self.stats['patterns_detected'] += len(result.matches)
-                    
-                    logger.warning(f"⛔ BLOCKED: {file_path}: {result.reason}")
-                    
-                    # Collect pattern information for notification
-                    pattern_summary = []
-                    for match in result.matches:
-                        pattern_summary.append(f"{match.pattern_name} ({match.pattern_category})")
-                    patterns_text = ", ".join(set(pattern_summary))  # Deduplicate
-                    
-                    # Update progress
-                    if file_path in self.file_progress:
-                        progress = self.file_progress[file_path]
-                        progress.complete(blocked=True, reason=result.reason)
-                        self._notify_progress(progress)
-                    
-                    # Send blocked notification with details
-                    if self.blocked_callback:
-                        try:
-                            self.blocked_callback(
-                                filepath=file_path,
-                                reason=result.reason,
-                                patterns=patterns_text,
-                                match_count=len(result.matches)
-                            )
-                        except Exception as e:
-                            logger.error(f"Error in blocked callback: {e}")
-                    
-                    # Clean up temp file
-                    if fh in self.file_paths:
-                        del self.file_paths[fh]
-                    temp_path = self.temp_paths.pop(fh, None)
-                    temp_fd = self.temp_fds.pop(fh, None)
-                    self.temp_sizes.pop(fh, None)
-                    if temp_path:
-                        try:
-                            if temp_fd is not None:
-                                os.close(temp_fd)
-                            os.unlink(temp_path)
-                        except Exception:
-                            pass
-                    
-                    # Close file handle
-                    try:
-                        os.close(fh)
-                    except:
-                        pass
-                    
-                    # Delete the file
-                    full_path = self._full_path(path)
-                    try:
-                        if os.path.exists(full_path):
-                            os.unlink(full_path)
-                    except Exception as e:
-                        logger.error(f"Error deleting blocked file: {e}")
-                    
-                    # Return error
-                    raise FuseOSError(errno.EACCES)
-                
-                else:
-                    # ALLOW: Write temp file to disk
-                    self.stats['files_allowed'] += 1
-                    
-                    logger.info(f"✅ ALLOWED: {file_path}")
-                    
-                    # Update progress
-                    if file_path in self.file_progress:
-                        progress = self.file_progress[file_path]
-                        progress.complete(blocked=False)
-                        self._notify_progress(progress)
-                    
-                    # Write temp file to real file
-                    try:
-                        os.lseek(fh, 0, os.SEEK_SET)
-                        os.ftruncate(fh, 0)
-                        with open(temp_path, "rb") as src:
-                            while True:
-                                chunk = src.read(1024 * 1024)
-                                if not chunk:
-                                    break
-                                os.write(fh, chunk)
-                    except Exception as e:
-                        logger.error(f"Error writing file: {e}")
-                        raise FuseOSError(errno.EIO)
-                    
-                    # Clean up temp file
-                    if fh in self.file_paths:
-                        del self.file_paths[fh]
-                    temp_path_cleanup = self.temp_paths.pop(fh, None)
-                    temp_fd_cleanup = self.temp_fds.pop(fh, None)
-                    self.temp_sizes.pop(fh, None)
-                    if temp_path_cleanup:
-                        try:
-                            if temp_fd_cleanup is not None:
-                                os.close(temp_fd_cleanup)
-                            os.unlink(temp_path_cleanup)
-                        except Exception:
-                            pass
+            # Check if flush() already decided
+            was_blocked = hasattr(self, '_blocked_fhs') and fh in self._blocked_fhs
+            was_allowed = hasattr(self, '_allowed_fhs') and fh in self._allowed_fhs
             
-            # Close file handle
-            return os.close(fh)
+            if was_blocked:
+                # Clean up - flush() already blocked and notified
+                logger.info(f"[FUSE] Cleaning up blocked file: {file_path}")
+                if fh in self.file_paths:
+                    del self.file_paths[fh]
+                temp_path = self.temp_paths.pop(fh, None)
+                temp_fd = self.temp_fds.pop(fh, None)
+                self.temp_sizes.pop(fh, None)
+                if temp_path:
+                    try:
+                        if temp_fd is not None:
+                            os.close(temp_fd)
+                        os.unlink(temp_path)
+                    except Exception:
+                        pass
+                
+                # Delete real file
+                full_path = self._full_path(path)
+                try:
+                    if os.path.exists(full_path):
+                        os.unlink(full_path)
+                except Exception as e:
+                    logger.error(f"Error deleting blocked file: {e}")
+                
+                self._blocked_fhs.discard(fh)
+                try:
+                    os.close(fh)
+                except:
+                    pass
+                return 0
+            
+            elif was_allowed:
+                # Commit the file - write temp to real location
+                logger.info(f"[FUSE] Committing allowed file: {file_path}")
+                try:
+                    os.lseek(fh, 0, os.SEEK_SET)
+                    os.ftruncate(fh, 0)
+                    with open(temp_path, "rb") as src:
+                        while True:
+                            chunk = src.read(1024 * 1024)
+                            if not chunk:
+                                break
+                            os.write(fh, chunk)
+                except Exception as e:
+                    logger.error(f"Error writing file: {e}")
+                    raise FuseOSError(errno.EIO)
+                
+                # Clean up temp
+                if fh in self.file_paths:
+                    del self.file_paths[fh]
+                temp_path_cleanup = self.temp_paths.pop(fh, None)
+                temp_fd_cleanup = self.temp_fds.pop(fh, None)
+                self.temp_sizes.pop(fh, None)
+                if temp_path_cleanup:
+                    try:
+                        if temp_fd_cleanup is not None:
+                            os.close(temp_fd_cleanup)
+                        os.unlink(temp_path_cleanup)
+                    except Exception:
+                        pass
+                
+                self._allowed_fhs.discard(fh)
+                return os.close(fh)
+            
+            # No temp file or flush wasn't called - treat as passthrough
+            return os.close(fh) if fh else 0
             
         except FuseOSError:
             raise
