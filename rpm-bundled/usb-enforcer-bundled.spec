@@ -88,6 +88,7 @@ export UDEV_DIR=%{_udevrulesdir}
 export DBUS_DIR=%{_sysconfdir}/dbus-1/system.d
 
 # Create directories
+install -d %{buildroot}%{_bindir}
 install -d %{buildroot}%{_libdir}/usb-enforcer
 install -d %{buildroot}%{_libdir}/usb-enforcer/wheels
 install -d %{buildroot}%{_libexecdir}
@@ -116,6 +117,7 @@ install -m 0755 scripts/usb-enforcer-helper %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-ui %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-wizard %{buildroot}%{_libexecdir}/
 install -m 0755 scripts/usb-enforcer-cli %{buildroot}%{_libexecdir}/
+install -m 0644 scripts/usb-enforcer-cli.py %{buildroot}%{_libdir}/usb-enforcer/
 install -m 0755 scripts/usb-enforcer-notifications %{buildroot}%{_libexecdir}/
 
 # Install configuration

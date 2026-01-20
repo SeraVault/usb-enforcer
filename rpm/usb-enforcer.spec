@@ -63,6 +63,7 @@ export UDEV_DIR=%{_udevrulesdir}
 export DBUS_DIR=%{_sysconfdir}/dbus-1/system.d
 
 # Create directories
+install -d %{buildroot}%{_bindir}
 install -d %{buildroot}%{_libdir}/%{name}
 install -d %{buildroot}%{_libexecdir}
 install -d %{buildroot}%{_sysconfdir}/%{name}
