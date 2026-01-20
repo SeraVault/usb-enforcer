@@ -336,6 +336,15 @@ class AdminWindow(Gtk.ApplicationWindow):
         status_box.set_margin_start(12)
         status_box.set_margin_end(12)
         
+        # Populate the content
+        self.populate_status_content(status_box)
+        
+        page.append(status_box)
+        
+        self.stack.add_titled(page, "status", _("System Status"))
+    
+    def populate_status_content(self, status_box):
+        """Populate the status box with current system status information."""
         # Check if main package is installed
         main_package_installed = self.check_main_package_installed()
         
@@ -407,15 +416,16 @@ class AdminWindow(Gtk.ApplicationWindow):
         group_title = _("System Integration") if main_package_installed else _("System Integration (from main package)")
         status_box.append(self.create_status_group(group_title, integration_items))
         
-        # Refresh button
-        refresh_button = Gtk.Button(label=_("Refresh Status"))
-        refresh_button.set_margin_top(12)
-        refresh_button.connect("clicked", lambda btn: self.refresh_status())
-        status_box.append(refresh_button)
-        
-        page.append(status_box)
-        
-        self.stack.add_titled(page, "status", _("System Status"))
+        # Refresh button - create only once and reuse
+        if not hasattr(self, '_refresh_button'):
+            self._refresh_button = Gtk.Button(label=_("Refresh Status"))
+            self._refresh_button.set_margin_top(12)
+            self._refresh_button.connect("clicked", self.on_refresh_clicked)
+        status_box.append(self._refresh_button)
+    
+    def on_refresh_clicked(self, button):
+        """Handle refresh button click."""
+        self.refresh_status()
     
     def check_main_package_installed(self) -> bool:
         """Check if the main usb-enforcer package is installed."""
@@ -567,15 +577,39 @@ class AdminWindow(Gtk.ApplicationWindow):
         return group
     
     def refresh_status(self):
-        """Refresh the status page."""
-        # Rebuild the status section
-        # Find and remove the old status page
-        child = self.stack.get_child_by_name("status")
-        if child:
-            self.stack.remove(child)
+        """Refresh the status page by clearing and rebuilding its content."""
+        # Get the status page
+        status_page = self.stack.get_child_by_name("status")
+        if not status_page:
+            # Status page doesn't exist, create it
+            self.build_status_section()
+            return
         
-        # Rebuild it
-        self.build_status_section()
+        # Get the status_box which is inside a ScrolledWindow
+        # The hierarchy is: status_page -> ScrolledWindow -> Viewport -> status_box
+        scrolled = status_page.get_first_child()
+        if not scrolled:
+            return
+        
+        # Get viewport child of scrolled window
+        viewport = scrolled.get_first_child()
+        if not viewport:
+            return
+            
+        # Get the actual status box
+        status_box = viewport.get_first_child()
+        if status_box:
+            # Remove all children EXCEPT the refresh button (which we'll reuse)
+            child = status_box.get_first_child()
+            while child:
+                next_child = child.get_next_sibling()
+                # Skip the refresh button - we'll keep it and reuse it
+                if not (hasattr(self, '_refresh_button') and child == self._refresh_button):
+                    status_box.remove(child)
+                child = next_child
+            
+            # Now rebuild the content inside the existing status_box
+            self.populate_status_content(status_box)
     
     def build_basic_section(self):
         """Build basic enforcement settings."""
